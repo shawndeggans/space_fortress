@@ -8,78 +8,66 @@
   import GameHeader from '$lib/components/GameHeader.svelte'
   import Card from '$lib/components/Card.svelte'
   import DiceRoll from '$lib/components/DiceRoll.svelte'
-  import BattleSlot from '$lib/components/BattleSlot.svelte'
-  import type { CardDisplayData, SlotResult } from '$lib/components/types'
+  import type { CardDisplayData } from '$lib/components/types'
   import { goto } from '$app/navigation'
 
   // Derive views from game state
-  let battleView = $derived(projectBattleView([], $gameState))
-  let battleResult = $derived(projectBattleResultView([], $gameState))
+  let battleView = $derived(projectBattleView([], undefined, $gameState))
+  let battleResult = $derived(projectBattleResultView([], undefined, $gameState))
   let playerState = $derived(projectPlayerState([], $gameState))
 
-  // Local UI state
-  let showingRoundResult = $state(false)
-
-  function continueToNextRound() {
-    showingRoundResult = false
-    // The battle auto-advances in the state
-  }
+  // Check if battle is complete
+  let isComplete = $derived(battleView?.phase === 'complete')
 
   function viewConsequences() {
     goto('/consequence')
   }
 
-  function toCardDisplayData(card: { id: string; name: string; faction: string; attack: number; armor: number; agility: number }): CardDisplayData {
+  function toCardDisplayData(card: { id: string; name: string; factionId: string; attack: number; armor: number; agility: number }): CardDisplayData {
     return {
       id: card.id,
       name: card.name,
-      faction: card.faction as CardDisplayData['faction'],
+      faction: card.factionId as CardDisplayData['faction'],
       attack: card.attack,
       armor: card.armor,
       agility: card.agility
     }
   }
-
-  function getRoundResultIcon(outcome: string): SlotResult {
-    switch (outcome) {
-      case 'player_wins': return 'won'
-      case 'opponent_wins': return 'lost'
-      case 'draw': return 'draw'
-      default: return null
-    }
-  }
 </script>
 
 <div class="battle-screen">
-  <GameHeader
-    phase="execution"
-    bounty={playerState.bounty}
-    reputations={playerState.factionSummaries.map(f => ({
-      factionId: f.factionId,
-      value: f.value,
-      status: f.status
-    }))}
-    activeQuest={playerState.activeQuest ? {
-      title: playerState.activeQuest.title,
-      factionId: playerState.activeQuest.faction,
-      progress: playerState.activeQuest.progress
-    } : null}
-  />
+  {#if playerState}
+    <GameHeader
+      phase="execution"
+      bounty={playerState.bounty}
+      reputations={playerState.reputations.map(f => ({
+        factionId: f.factionId,
+        value: f.value,
+        status: f.status
+      }))}
+      activeQuest={playerState.activeQuest ? {
+        title: playerState.activeQuest.title,
+        factionId: playerState.activeQuest.factionId,
+        progress: { current: playerState.activeQuest.currentDilemmaIndex, total: playerState.activeQuest.totalDilemmas }
+      } : null}
+    />
+  {/if}
 
   <main class="battle-content">
-    {#if battleResult?.isComplete}
+    {#if isComplete && battleResult}
       <!-- Battle Complete Summary -->
       <div class="battle-complete">
         <header class="result-header">
-          <div class="result-banner" class:result-banner--victory={battleResult.outcome === 'player_victory'} class:result-banner--defeat={battleResult.outcome === 'player_defeat'}>
-            {#if battleResult.outcome === 'player_victory'}
+          <div class="result-banner" class:result-banner--victory={battleResult.outcome === 'victory'} class:result-banner--defeat={battleResult.outcome === 'defeat'}>
+            {#if battleResult.outcome === 'victory'}
               <h1>Victory</h1>
-            {:else if battleResult.outcome === 'player_defeat'}
+            {:else if battleResult.outcome === 'defeat'}
               <h1>Defeat</h1>
             {:else}
               <h1>Draw</h1>
             {/if}
           </div>
+          <p class="result-summary">{battleResult.summaryText}</p>
         </header>
 
         <section class="round-summary">
@@ -90,19 +78,19 @@
                 <span class="round-number">R{i + 1}</span>
                 <div class="round-cards">
                   <div class="mini-card player">
-                    <span class="card-faction">{round.playerCard.faction.charAt(0).toUpperCase()}</span>
+                    <span class="card-faction">{round.playerCard.factionId.charAt(0).toUpperCase()}</span>
                     <span class="card-name">{round.playerCard.name}</span>
                   </div>
                   <span class="vs">vs</span>
                   <div class="mini-card opponent">
-                    <span class="card-faction">{round.opponentCard.faction.charAt(0).toUpperCase()}</span>
+                    <span class="card-faction">{round.opponentCard.factionId.charAt(0).toUpperCase()}</span>
                     <span class="card-name">{round.opponentCard.name}</span>
                   </div>
                 </div>
-                <span class="round-result" class:won={round.outcome === 'player_wins'} class:lost={round.outcome === 'opponent_wins'}>
-                  {#if round.outcome === 'player_wins'}
+                <span class="round-result" class:won={round.outcome === 'player_won'} class:lost={round.outcome === 'opponent_won'}>
+                  {#if round.outcome === 'player_won'}
                     Won
-                  {:else if round.outcome === 'opponent_wins'}
+                  {:else if round.outcome === 'opponent_won'}
                     Lost
                   {:else}
                     Draw
@@ -127,15 +115,15 @@
     {:else if battleView}
       <!-- Active Battle Round -->
       <header class="battle-header">
-        <h1>{battleView.battleName || 'Battle'}</h1>
+        <h1>{battleView.battleContext || 'Battle'}</h1>
         <div class="round-indicator">
-          <span class="round-number">Round {battleView.currentRound} of 5</span>
+          <span class="round-label">Round {battleView.currentRound} of {battleView.totalRounds}</span>
           <div class="round-dots">
-            {#each [1, 2, 3, 4, 5] as round}
+            {#each Array(battleView.totalRounds) as _, i}
               <span
                 class="dot"
-                class:dot--current={round === battleView.currentRound}
-                class:dot--complete={round < battleView.currentRound}
+                class:dot--current={i + 1 === battleView.currentRound}
+                class:dot--complete={i + 1 < battleView.currentRound}
               ></span>
             {/each}
           </div>
@@ -144,73 +132,57 @@
       </header>
 
       <!-- Combat Display -->
-      <section class="combat-arena">
-        <div class="combatant player-side">
-          <h3>Your Card</h3>
-          {#if battleView.playerCard}
+      {#if battleView.currentRoundView}
+        <section class="combat-arena">
+          <div class="combatant player-side">
+            <h3>Your Card</h3>
             <Card
-              card={toCardDisplayData(battleView.playerCard)}
+              card={toCardDisplayData(battleView.currentRoundView.playerCard)}
               size="full"
               state="revealed"
             />
-          {/if}
-        </div>
+          </div>
 
-        <div class="vs-divider">
-          <span>VS</span>
-        </div>
+          <div class="vs-divider">
+            <span>VS</span>
+          </div>
 
-        <div class="combatant opponent-side">
-          <h3>Enemy Card</h3>
-          {#if battleView.opponentCard}
+          <div class="combatant opponent-side">
+            <h3>Enemy Card</h3>
             <Card
-              card={toCardDisplayData(battleView.opponentCard)}
+              card={toCardDisplayData(battleView.currentRoundView.opponentCard)}
               size="full"
               state="revealed"
             />
-          {/if}
-        </div>
-      </section>
+          </div>
+        </section>
+      {/if}
 
       <!-- Combat Log -->
-      {#if battleView.roundLog}
+      {#if battleView.combatLog.length > 0}
         <section class="combat-log">
           <div class="log-entries">
-            {#each battleView.roundLog.entries as entry}
-              <div class="log-entry">
+            {#each battleView.combatLog as entry}
+              <div class="log-entry" class:highlight={entry.isHighlight}>
                 <p>{entry.text}</p>
-                {#if entry.roll}
-                  <DiceRoll
-                    roll={entry.roll.base}
-                    attackBonus={entry.roll.modifier}
-                    targetArmor={entry.roll.target - 10}
-                    result={entry.roll.hit ? 'hit' : 'miss'}
-                    variant="compact"
-                    attacker={entry.isPlayer ? 'You' : 'Enemy'}
-                  />
-                {/if}
               </div>
             {/each}
           </div>
-
-          {#if battleView.roundOutcome}
-            <div class="round-outcome" class:outcome--won={battleView.roundOutcome === 'player_wins'} class:outcome--lost={battleView.roundOutcome === 'opponent_wins'}>
-              {#if battleView.roundOutcome === 'player_wins'}
-                Round Won!
-              {:else if battleView.roundOutcome === 'opponent_wins'}
-                Round Lost
-              {:else}
-                Draw
-              {/if}
-            </div>
-          {/if}
         </section>
+      {/if}
 
-        <footer class="battle-footer">
-          <button class="btn btn--primary" onclick={continueToNextRound}>
-            Continue
-          </button>
-        </footer>
+      <!-- Completed Rounds Summary -->
+      {#if battleView.completedRounds.length > 0}
+        <section class="completed-rounds">
+          <h3>Completed Rounds</h3>
+          <div class="rounds-mini">
+            {#each battleView.completedRounds as round}
+              <div class="round-mini" class:won={round.outcome === 'player_won'} class:lost={round.outcome === 'opponent_won'}>
+                R{round.roundNumber}: {round.outcome === 'player_won' ? 'W' : round.outcome === 'opponent_won' ? 'L' : 'D'}
+              </div>
+            {/each}
+          </div>
+        </section>
       {/if}
     {:else}
       <div class="no-battle">
@@ -259,7 +231,7 @@
     gap: var(--space-2);
   }
 
-  .round-number {
+  .round-label {
     font-size: var(--font-size-lg);
     color: var(--text-secondary);
   }
@@ -343,41 +315,56 @@
   .log-entries {
     display: flex;
     flex-direction: column;
-    gap: var(--space-4);
+    gap: var(--space-2);
   }
 
   .log-entry {
-    padding-bottom: var(--space-3);
-    border-bottom: 1px solid var(--border-default);
+    padding: var(--space-2);
+    border-radius: var(--radius-sm);
   }
 
-  .log-entry:last-child {
-    border-bottom: none;
-    padding-bottom: 0;
+  .log-entry.highlight {
+    background: var(--bg-tertiary);
+    font-weight: 500;
   }
 
   .log-entry p {
-    margin: 0 0 var(--space-2) 0;
+    margin: 0;
     color: var(--text-secondary);
   }
 
-  .round-outcome {
-    margin-top: var(--space-4);
-    padding: var(--space-3);
-    text-align: center;
-    font-size: var(--font-size-lg);
-    font-weight: 700;
-    border-radius: var(--radius-md);
+  /* Completed Rounds */
+  .completed-rounds {
+    margin-bottom: var(--space-4);
+  }
+
+  .completed-rounds h3 {
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+    margin: 0 0 var(--space-2) 0;
+  }
+
+  .rounds-mini {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+  }
+
+  .round-mini {
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    font-family: var(--font-mono);
     background: var(--bg-tertiary);
     color: var(--text-muted);
   }
 
-  .outcome--won {
+  .round-mini.won {
     background: color-mix(in srgb, var(--success) 20%, var(--bg-tertiary));
     color: var(--success);
   }
 
-  .outcome--lost {
+  .round-mini.lost {
     background: color-mix(in srgb, var(--error) 20%, var(--bg-tertiary));
     color: var(--error);
   }
@@ -405,6 +392,11 @@
     margin: 0;
     text-transform: uppercase;
     letter-spacing: 0.1em;
+  }
+
+  .result-summary {
+    margin-top: var(--space-3);
+    color: var(--text-secondary);
   }
 
   .result-banner--victory {

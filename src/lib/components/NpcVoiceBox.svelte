@@ -81,7 +81,7 @@
   </div>
 {/if}
 
-<script context="module" lang="ts">
+<script module lang="ts">
   function truncateDialogue(text: string, maxLength: number): string {
     if (text.length <= maxLength) return text
     return text.slice(0, maxLength - 3) + '...'

@@ -89,15 +89,15 @@
   <GameHeader
     phase="deployment"
     bounty={playerState.bounty}
-    reputations={playerState.factionSummaries.map(f => ({
+    reputations={playerState.reputations.map(f => ({
       factionId: f.factionId,
       value: f.value,
       status: f.status
     }))}
     activeQuest={playerState.activeQuest ? {
       title: playerState.activeQuest.title,
-      factionId: playerState.activeQuest.faction,
-      progress: playerState.activeQuest.progress
+      factionId: playerState.activeQuest.factionId,
+      progress: { current: playerState.activeQuest.currentDilemmaIndex, total: playerState.activeQuest.totalDilemmas }
     } : null}
   />
 
@@ -132,6 +132,7 @@
           {#each unassignedCards() as card}
             <div
               class="draggable-card"
+              role="button"
               draggable="true"
               ondragstart={(e) => e.dataTransfer?.setData('text/plain', card.id)}
             >

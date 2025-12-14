@@ -122,7 +122,7 @@
   {/if}
 </button>
 
-<script context="module" lang="ts">
+<script module lang="ts">
   function truncateName(name: string, maxLength: number): string {
     if (name.length <= maxLength) return name
     return name.slice(0, maxLength - 2) + '…'

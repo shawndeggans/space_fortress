@@ -64,12 +64,13 @@
   class:battle-slot--filled={!isEmpty}
   class:battle-slot--drop-target={isDropTarget}
   class:battle-slot--clickable={onclick}
-  role={onclick ? 'button' : undefined}
-  tabindex={onclick ? 0 : undefined}
+  role={onclick || isDropTarget ? 'button' : 'region'}
+  tabindex={onclick || isDropTarget ? 0 : -1}
   onclick={onclick}
   onkeydown={(e) => e.key === 'Enter' && onclick?.()}
   ondrop={handleDrop}
   ondragover={handleDragOver}
+  aria-label={`Battle position ${position}${!isEmpty && card ? `: ${card.name}` : ': empty'}`}
 >
   {#if isEmpty}
     <div class="battle-slot__empty-content">
@@ -102,7 +103,7 @@
   {/if}
 </div>
 
-<script context="module" lang="ts">
+<script module lang="ts">
   function truncateName(name: string, maxLength: number): string {
     if (name.length <= maxLength) return name
     return name.slice(0, maxLength - 2) + '…'
