@@ -13,10 +13,12 @@
 import type { GameEvent } from '../events'
 import type {
   FactionId,
-  ReputationStatus
-, GameState } from '../types'
+  ReputationStatus,
+  GameState
+} from '../types'
 import { rebuildState } from '../projections'
 import { getReputationStatus } from '../types'
+import { getDilemmaById, getQuestById } from '../content/quests'
 
 // ----------------------------------------------------------------------------
 // View Types
@@ -39,6 +41,16 @@ export interface ReputationPreview {
   isPositive: boolean
 }
 
+export interface CardImpactPreview {
+  currentCardCount: number
+  gains: number
+  losses: number
+  netChange: number
+  resultingTotal: number
+  wouldCauseShortage: boolean  // True if result < 5 and battle is upcoming
+  warningMessage: string | null
+}
+
 export interface ChoiceData {
   choiceId: string
   label: string
@@ -53,6 +65,9 @@ export interface ChoiceData {
   triggersMediation: boolean
   riskDescription?: string
   riskProbability?: number
+
+  // Card economy impact preview
+  cardImpact: CardImpactPreview
 }
 
 export interface DilemmaViewData {
@@ -90,99 +105,7 @@ const FACTION_COLORS: Record<FactionId | 'crew' | 'other', string> = {
   other: '#888888'
 }
 
-// Placeholder dilemma data - will be replaced with content module
-interface DilemmaContent {
-  id: string
-  questId: string
-  situation: string
-  voices: Array<{
-    npcName: string
-    faction: FactionId | 'crew' | 'other'
-    dialogue: string
-    position?: string
-  }>
-  choices: Array<{
-    id: string
-    label: string
-    description?: string
-    reputationChanges: Array<{ faction: FactionId; delta: number }>
-    cardsGained: string[]
-    cardsLost: string[]
-    bountyModifier?: number
-    triggersBattle?: { role: 'attacker' | 'defender' }
-    triggersAlliance?: boolean
-    triggersMediation?: boolean
-    risk?: { description: string; probability: number }
-  }>
-}
-
-const DILEMMA_DATA: Record<string, DilemmaContent> = {
-  'quest_salvage_claim_dilemma_1': {
-    id: 'quest_salvage_claim_dilemma_1',
-    questId: 'quest_salvage_claim',
-    situation: 'You need escort capability to reach the derelict. Ironveil has firepower but not speed. You need interceptors to screen your approach.',
-    voices: [
-      {
-        npcName: 'Castellan Vorn',
-        faction: 'ironveil',
-        dialogue: '"The Void Wardens patrol this sector. They owe me. I can call in the favor, but they\'ll want 30% of salvage value. Non-negotiable."',
-        position: 'Recommends Void Warden alliance'
-      },
-      {
-        npcName: 'First Officer',
-        faction: 'crew',
-        dialogue: '"The Remnants have fast ships. If you approach Elder Yara carefully, offer them access to search for survivors, they might escort us. But Ironveil won\'t like it."',
-        position: 'Suggests Ashfall approach'
-      },
-      {
-        npcName: 'Broker Desh',
-        faction: 'meridian',
-        dialogue: '"I know a mercenary wing operating out of the Reaches. They\'ll take 20% and ask no questions. But they have no stake in the outcome—they\'ll cut and run if it goes bad."',
-        position: 'Offers mercenary option'
-      }
-    ],
-    choices: [
-      {
-        id: 'choice_void_wardens',
-        label: 'Void Wardens Alliance',
-        description: 'Form alliance with Void Wardens for escort',
-        reputationChanges: [{ faction: 'void_wardens', delta: 5 }],
-        cardsGained: ['vw_bastion', 'vw_cruiser'],
-        cardsLost: [],
-        bountyModifier: -0.30,
-        triggersBattle: { role: 'defender' }
-      },
-      {
-        id: 'choice_ashfall_secret',
-        label: 'Ashfall Alliance (secret deal)',
-        description: 'Secret arrangement with Ashfall Remnants',
-        reputationChanges: [{ faction: 'ashfall', delta: 10 }],
-        cardsGained: ['af_interceptor_1', 'af_interceptor_2'],
-        cardsLost: [],
-        triggersBattle: { role: 'attacker' },
-        risk: { description: 'Ironveil may discover the secret deal', probability: 0.3 }
-      },
-      {
-        id: 'choice_mercenaries',
-        label: 'Mercenary Alliance',
-        description: 'Hire mercenaries for escort',
-        reputationChanges: [],
-        cardsGained: ['merc_ship_1', 'merc_ship_2'],
-        cardsLost: [],
-        bountyModifier: -0.20,
-        triggersBattle: { role: 'attacker' },
-        risk: { description: 'Mercenaries may flee if battle goes poorly', probability: 0.25 }
-      }
-    ]
-  }
-}
-
-// Quest titles lookup
-const QUEST_TITLES: Record<string, string> = {
-  quest_salvage_claim: 'The Salvage Claim',
-  quest_sanctuary_run: 'The Sanctuary Run',
-  quest_brokers_gambit: "The Broker's Gambit"
-}
+// Quest titles are now derived from actual quest content via getQuestById()
 
 // ----------------------------------------------------------------------------
 // Projection Function
@@ -195,44 +118,83 @@ export function projectDilemmaView(events: GameEvent[], dilemmaId?: string, prov
   const targetDilemmaId = dilemmaId || state.currentDilemmaId
   if (!targetDilemmaId) return null
 
-  const dilemmaContent = DILEMMA_DATA[targetDilemmaId]
+  // Get dilemma content from the actual quest content
+  const dilemmaContent = getDilemmaById(targetDilemmaId)
   if (!dilemmaContent) {
     // Return a placeholder for unknown dilemmas
     return createPlaceholderDilemma(targetDilemmaId, state.activeQuest?.questId || '')
   }
 
-  // Build voices
+  // Get quest for title
+  const quest = getQuestById(dilemmaContent.questId)
+  const questTitle = quest?.title || dilemmaContent.questId
+
+  // Build voices from actual content
   const voices: VoiceData[] = dilemmaContent.voices.map(v => ({
     npcName: v.npcName,
-    factionId: v.faction,
-    factionIcon: FACTION_ICONS[v.faction],
-    factionColor: FACTION_COLORS[v.faction],
+    factionId: v.faction as FactionId | 'crew' | 'other',
+    factionIcon: FACTION_ICONS[v.faction as FactionId | 'crew' | 'other'] || '○',
+    factionColor: FACTION_COLORS[v.faction as FactionId | 'crew' | 'other'] || '#888888',
     dialogue: v.dialogue,
     position: v.position
   }))
 
-  // Build choices with consequence previews
-  const choices: ChoiceData[] = dilemmaContent.choices.map(c => ({
-    choiceId: c.id,
-    label: c.label,
-    description: c.description,
-    reputationPreviews: c.reputationChanges.map(rc => ({
-      factionId: rc.faction,
-      factionIcon: FACTION_ICONS[rc.faction],
-      factionColor: FACTION_COLORS[rc.faction],
-      delta: rc.delta,
-      isPositive: rc.delta > 0
-    })),
-    cardsGained: c.cardsGained,
-    cardsLost: c.cardsLost,
-    bountyModifier: c.bountyModifier,
-    triggersBattle: !!c.triggersBattle,
-    battleRole: c.triggersBattle?.role,
-    triggersAlliance: !!c.triggersAlliance,
-    triggersMediation: !!c.triggersMediation,
-    riskDescription: c.risk?.description,
-    riskProbability: c.risk?.probability
-  }))
+  // Card economy constants
+  const MIN_BATTLE_CARDS = 5
+  const currentCardCount = state.ownedCards.length
+
+  // Check if a battle is upcoming (will need cards soon)
+  const battleUpcoming = dilemmaContent.choices.some(choice =>
+    choice.consequences.triggersBattle || choice.consequences.triggersAlliance
+  )
+
+  // Build choices with consequence previews from actual content
+  const choices: ChoiceData[] = dilemmaContent.choices.map(c => {
+    const gains = c.consequences.cardsGained.length
+    const losses = c.consequences.cardsLost.length
+    const netChange = gains - losses
+    const resultingTotal = currentCardCount + netChange
+
+    // Determine if this choice would cause a card shortage
+    const wouldCauseShortage = battleUpcoming && resultingTotal < MIN_BATTLE_CARDS
+
+    // Generate warning message if shortage would occur
+    let warningMessage: string | null = null
+    if (wouldCauseShortage) {
+      warningMessage = `This choice will leave you with ${resultingTotal} cards, but you need ${MIN_BATTLE_CARDS} for battle.`
+    }
+
+    return {
+      choiceId: c.id,
+      label: c.label,
+      description: c.description,
+      reputationPreviews: c.consequences.reputationChanges.map(rc => ({
+        factionId: rc.faction,
+        factionIcon: FACTION_ICONS[rc.faction],
+        factionColor: FACTION_COLORS[rc.faction],
+        delta: rc.delta,
+        isPositive: rc.delta > 0
+      })),
+      cardsGained: c.consequences.cardsGained,
+      cardsLost: c.consequences.cardsLost,
+      bountyModifier: c.consequences.bountyModifier,
+      triggersBattle: !!c.consequences.triggersBattle,
+      battleRole: c.consequences.triggersBattle ? 'attacker' : undefined,
+      triggersAlliance: !!c.consequences.triggersAlliance,
+      triggersMediation: !!c.consequences.triggersMediation,
+      riskDescription: c.consequences.risk?.description,
+      riskProbability: c.consequences.risk?.probability,
+      cardImpact: {
+        currentCardCount,
+        gains,
+        losses,
+        netChange,
+        resultingTotal,
+        wouldCauseShortage,
+        warningMessage
+      }
+    }
+  })
 
   // Determine if this is a post-battle dilemma
   const isPostBattle = targetDilemmaId.includes('post_battle') || state.currentPhase === 'post_battle_dilemma'
@@ -240,7 +202,7 @@ export function projectDilemmaView(events: GameEvent[], dilemmaId?: string, prov
   return {
     dilemmaId: targetDilemmaId,
     questId: dilemmaContent.questId,
-    questTitle: QUEST_TITLES[dilemmaContent.questId] || dilemmaContent.questId,
+    questTitle,
     situation: dilemmaContent.situation,
     voices,
     choices,
@@ -254,10 +216,20 @@ export function projectDilemmaView(events: GameEvent[], dilemmaId?: string, prov
 // ----------------------------------------------------------------------------
 
 function createPlaceholderDilemma(dilemmaId: string, questId: string): DilemmaViewData {
+  const quest = getQuestById(questId)
+  const defaultCardImpact: CardImpactPreview = {
+    currentCardCount: 0,
+    gains: 0,
+    losses: 0,
+    netChange: 0,
+    resultingTotal: 0,
+    wouldCauseShortage: false,
+    warningMessage: null
+  }
   return {
     dilemmaId,
     questId,
-    questTitle: QUEST_TITLES[questId] || questId,
+    questTitle: quest?.title || questId,
     situation: 'A difficult situation presents itself. You must decide how to proceed.',
     voices: [
       {
@@ -277,7 +249,8 @@ function createPlaceholderDilemma(dilemmaId: string, questId: string): DilemmaVi
         cardsLost: [],
         triggersBattle: false,
         triggersAlliance: false,
-        triggersMediation: false
+        triggersMediation: false,
+        cardImpact: defaultCardImpact
       },
       {
         choiceId: 'placeholder_choice_b',
@@ -287,7 +260,8 @@ function createPlaceholderDilemma(dilemmaId: string, questId: string): DilemmaVi
         cardsLost: [],
         triggersBattle: false,
         triggersAlliance: false,
-        triggersMediation: false
+        triggersMediation: false,
+        cardImpact: defaultCardImpact
       }
     ],
     isPostBattle: false

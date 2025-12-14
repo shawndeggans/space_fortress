@@ -4,8 +4,7 @@
 -->
 <script lang="ts">
   import { gameState } from '$lib/stores/gameStore'
-  import { projectConsequenceView, projectPlayerState } from '$lib/game'
-  import GameHeader from '$lib/components/GameHeader.svelte'
+  import { projectConsequenceView } from '$lib/game'
   import BountyDisplay from '$lib/components/BountyDisplay.svelte'
   import ConsequenceItem from '$lib/components/ConsequenceItem.svelte'
   import FactionBadge from '$lib/components/FactionBadge.svelte'
@@ -14,7 +13,6 @@
 
   // Derive views from game state
   let consequenceView = $derived(projectConsequenceView([], undefined, $gameState))
-  let playerState = $derived(projectPlayerState([], $gameState))
 
   async function handleContinue() {
     const result = await gameState.handleCommand({
@@ -41,21 +39,6 @@
 </script>
 
 <div class="consequence-screen">
-  <GameHeader
-    phase="consequence"
-    bounty={playerState.bounty}
-    reputations={playerState.reputations.map(f => ({
-      factionId: f.factionId,
-      value: f.value,
-      status: f.status
-    }))}
-    activeQuest={playerState.activeQuest ? {
-      title: playerState.activeQuest.title,
-      factionId: playerState.activeQuest.factionId,
-      progress: { current: playerState.activeQuest.currentDilemmaIndex, total: playerState.activeQuest.totalDilemmas }
-    } : null}
-  />
-
   <main class="consequence-content">
     {#if consequenceView}
       <header class="outcome-header">
@@ -139,7 +122,7 @@
 
       <!-- Continue Button -->
       <footer class="continue-section">
-        <button class="btn btn--primary" onclick={handleContinue}>
+        <button class="btn btn--primary" data-testid="btn-continue" onclick={handleContinue}>
           {#if consequenceView.hasNextDilemma}
             Continue
             <span class="btn-hint">A new dilemma awaits...</span>

@@ -22,6 +22,7 @@ export { default as AllianceOption } from './AllianceOption.svelte'
 
 // Layout components
 export { default as GameHeader } from './GameHeader.svelte'
+export { default as GameMenu } from './GameMenu.svelte'
 export { default as Modal } from './Modal.svelte'
 export { default as PhaseIndicator } from './PhaseIndicator.svelte'
 

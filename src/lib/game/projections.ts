@@ -611,6 +611,18 @@ export function evolveState(state: GameState, event: GameEvent): GameState {
         currentBattle: null
       }
 
+    case 'BOUNTY_MODIFIED':
+      return {
+        ...state,
+        bounty: event.data.newValue,
+        stats: {
+          ...state.stats,
+          totalBountyEarned: event.data.amount > 0
+            ? state.stats.totalBountyEarned + event.data.amount
+            : state.stats.totalBountyEarned
+        }
+      }
+
     // ========================================================================
     // Post-Battle Events
     // ========================================================================

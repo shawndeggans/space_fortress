@@ -1,7 +1,11 @@
 <script lang="ts">
   import '../lib/styles/tokens.css'
   import { onMount } from 'svelte'
+  import { goto } from '$app/navigation'
+  import { page } from '$app/stores'
   import { gameState, isLoading, gameError } from '$lib/stores/gameStore'
+  import { projectNavigationView } from '$lib/game/projections/navigationView'
+  import { GameHeader } from '$lib/components'
 
   interface Props {
     children: import('svelte').Snippet
@@ -9,9 +13,42 @@
 
   let { children }: Props = $props()
 
+  // Project navigation view from current game state
+  let navigationView = $derived(projectNavigationView($gameState))
+
+  // Determine if we should show the header (not on main menu)
+  let showHeader = $derived(
+    navigationView.showHeader &&
+    $page.url.pathname !== '/'
+  )
+
   onMount(async () => {
     await gameState.initialize()
   })
+
+  // Menu action handlers
+  async function handleSave() {
+    const saveName = `autosave-${Date.now()}`
+    const result = await gameState.saveGame(saveName)
+    if (result.success) {
+      // Could show a toast notification here
+      console.log('Game saved:', saveName)
+    }
+  }
+
+  function handleLoad() {
+    // Navigate to main menu to access load game
+    goto('/')
+  }
+
+  function handleSettings() {
+    // TODO: Implement settings modal
+    console.log('Settings not yet implemented')
+  }
+
+  function handleMainMenu() {
+    goto('/')
+  }
 </script>
 
 <div class="app-container">
@@ -23,13 +60,22 @@
       </div>
     </div>
   {:else}
+    {#if showHeader}
+      <GameHeader
+        {navigationView}
+        onSave={handleSave}
+        onLoad={handleLoad}
+        onSettings={handleSettings}
+        onMainMenu={handleMainMenu}
+      />
+    {/if}
     {@render children()}
   {/if}
 
   {#if $gameError}
-    <div class="error-toast">
-      <p>{$gameError}</p>
-      <button onclick={() => gameError.clear()}>Dismiss</button>
+    <div class="error-toast" data-testid="error-toast" role="alert">
+      <p data-testid="error-message">{$gameError}</p>
+      <button onclick={() => gameError.clear()} data-testid="btn-dismiss-error">Dismiss</button>
     </div>
   {/if}
 </div>

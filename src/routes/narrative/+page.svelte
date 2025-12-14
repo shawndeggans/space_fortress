@@ -4,8 +4,7 @@
 -->
 <script lang="ts">
   import { gameState } from '$lib/stores/gameStore'
-  import { projectDilemmaView, projectPlayerState } from '$lib/game'
-  import GameHeader from '$lib/components/GameHeader.svelte'
+  import { projectDilemmaView } from '$lib/game'
   import NpcVoiceBox from '$lib/components/NpcVoiceBox.svelte'
   import ChoiceButton from '$lib/components/ChoiceButton.svelte'
   import type { ChoiceData, ExtendedFactionId } from '$lib/components/types'
@@ -14,7 +13,6 @@
 
   // Derive views from game state
   let dilemmaView = $derived(projectDilemmaView([], undefined, $gameState))
-  let playerState = $derived(projectPlayerState([], $gameState))
 
   async function handleChoice(choiceId: string) {
     if (!dilemmaView) return
@@ -73,21 +71,6 @@
 </script>
 
 <div class="narrative-screen">
-  <GameHeader
-    phase={$gameState.currentPhase === 'narrative' ? 'narrative' : undefined}
-    bounty={playerState.bounty}
-    reputations={playerState.reputations.map(f => ({
-      factionId: f.factionId,
-      value: f.value,
-      status: f.status
-    }))}
-    activeQuest={playerState.activeQuest ? {
-      title: playerState.activeQuest.title,
-      factionId: playerState.activeQuest.factionId,
-      progress: { current: playerState.activeQuest.currentDilemmaIndex, total: playerState.activeQuest.totalDilemmas }
-    } : null}
-  />
-
   <main class="narrative-content">
     {#if dilemmaView}
       <!-- Situation Text -->

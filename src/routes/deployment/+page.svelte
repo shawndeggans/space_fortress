@@ -4,8 +4,7 @@
 -->
 <script lang="ts">
   import { gameState } from '$lib/stores/gameStore'
-  import { projectDeploymentView, projectPlayerState } from '$lib/game'
-  import GameHeader from '$lib/components/GameHeader.svelte'
+  import { projectDeploymentView } from '$lib/game'
   import BattleSlot from '$lib/components/BattleSlot.svelte'
   import Card from '$lib/components/Card.svelte'
   import type { CardDisplayData } from '$lib/components/types'
@@ -13,7 +12,6 @@
 
   // Derive views from game state
   let deploymentView = $derived(projectDeploymentView([], undefined, $gameState))
-  let playerState = $derived(projectPlayerState([], $gameState))
 
   // Local state for card positions (initialized from projection on first render)
   let positions = $state<(string | null)[]>([null, null, null, null, null])
@@ -104,21 +102,6 @@
 </script>
 
 <div class="deployment-screen">
-  <GameHeader
-    phase="deployment"
-    bounty={playerState.bounty}
-    reputations={playerState.reputations.map(f => ({
-      factionId: f.factionId,
-      value: f.value,
-      status: f.status
-    }))}
-    activeQuest={playerState.activeQuest ? {
-      title: playerState.activeQuest.title,
-      factionId: playerState.activeQuest.factionId,
-      progress: { current: playerState.activeQuest.currentDilemmaIndex, total: playerState.activeQuest.totalDilemmas }
-    } : null}
-  />
-
   <main class="deployment-content">
     <header class="section-header">
       <h1>Arrange Play Order</h1>
@@ -182,6 +165,7 @@
       <button
         class="lock-btn"
         class:lock-btn--disabled={!allPositionsFilled}
+        data-testid="btn-lock-orders"
         disabled={!allPositionsFilled}
         onclick={lockOrders}
       >

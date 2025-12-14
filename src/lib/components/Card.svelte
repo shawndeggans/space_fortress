@@ -57,6 +57,7 @@
 <button
   class="card card--{size} card--{state}"
   class:card--interactive={isInteractive}
+  data-testid="card-{card.id}"
   style="--card-faction-color: {factionColor}"
   onclick={isInteractive ? onclick : undefined}
   disabled={state === 'locked' || state === 'destroyed'}

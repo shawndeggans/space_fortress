@@ -80,7 +80,7 @@
           You have a game in progress:
           <span class="continue-phase">{$gameState.currentPhase}</span>
         </p>
-        <button class="btn btn--primary btn--large" onclick={continueGame}>
+        <button class="btn btn--primary btn--large" data-testid="btn-continue" onclick={continueGame}>
           Continue Game
         </button>
       </div>
@@ -88,10 +88,10 @@
     {/if}
 
     <div class="menu-buttons">
-      <button class="btn btn--primary btn--large" onclick={startGame}>
+      <button class="btn btn--primary btn--large" data-testid="btn-new-game" onclick={startGame}>
         New Game
       </button>
-      <button class="btn btn--secondary" onclick={() => showSaveMenu = !showSaveMenu}>
+      <button class="btn btn--secondary" data-testid="btn-load-game" onclick={() => showSaveMenu = !showSaveMenu}>
         {showSaveMenu ? 'Hide Saves' : 'Load Game'}
       </button>
     </div>

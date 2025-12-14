@@ -4,8 +4,7 @@
 -->
 <script lang="ts">
   import { gameState } from '$lib/stores/gameStore'
-  import { projectBattleView, projectBattleResultView, projectPlayerState } from '$lib/game'
-  import GameHeader from '$lib/components/GameHeader.svelte'
+  import { projectBattleView, projectBattleResultView } from '$lib/game'
   import Card from '$lib/components/Card.svelte'
   import DiceRoll from '$lib/components/DiceRoll.svelte'
   import type { CardDisplayData } from '$lib/components/types'
@@ -14,7 +13,6 @@
   // Derive views from game state
   let battleView = $derived(projectBattleView([], undefined, $gameState))
   let battleResult = $derived(projectBattleResultView([], undefined, $gameState))
-  let playerState = $derived(projectPlayerState([], $gameState))
 
   // Check if battle is complete
   let isComplete = $derived(battleView?.phase === 'complete')
@@ -36,23 +34,6 @@
 </script>
 
 <div class="battle-screen">
-  {#if playerState}
-    <GameHeader
-      phase="execution"
-      bounty={playerState.bounty}
-      reputations={playerState.reputations.map(f => ({
-        factionId: f.factionId,
-        value: f.value,
-        status: f.status
-      }))}
-      activeQuest={playerState.activeQuest ? {
-        title: playerState.activeQuest.title,
-        factionId: playerState.activeQuest.factionId,
-        progress: { current: playerState.activeQuest.currentDilemmaIndex, total: playerState.activeQuest.totalDilemmas }
-      } : null}
-    />
-  {/if}
-
   <main class="battle-content">
     {#if isComplete && battleResult}
       <!-- Battle Complete Summary -->
@@ -107,7 +88,7 @@
         </section>
 
         <footer class="battle-footer">
-          <button class="btn btn--primary" onclick={viewConsequences}>
+          <button class="btn btn--primary" data-testid="btn-view-consequences" onclick={viewConsequences}>
             View Consequences
           </button>
         </footer>

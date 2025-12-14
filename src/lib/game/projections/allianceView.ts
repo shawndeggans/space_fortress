@@ -34,6 +34,9 @@ export interface AllianceOptionView {
   bountyShare: number
   cardCount: number
   cardProfile: string  // e.g., "Tank", "Interceptor"
+
+  // Card economy guidance
+  resultingCardCount: number  // How many cards player would have after forming this alliance
 }
 
 export interface AllianceOptionsView {
@@ -49,9 +52,15 @@ export interface AllianceOptionsView {
   hasSelectedAlliance: boolean
   selectedFactionId: FactionId | null
 
+  // Card economy guidance
+  ownedCardCount: number
+  requiredCardCount: number  // Always 5 for battle
+  needsAlliance: boolean  // true if ownedCards < 5
+
   // Proceed without allies option
   canProceedAlone: boolean
   proceedAloneWarning: string
+  aloneBlockedReason: string | null  // If can't proceed alone, explains why
 }
 
 export interface AllianceTermsViewData {
@@ -227,6 +236,10 @@ export function projectAllianceOptions(events: GameEvent[], providedState?: Game
     battleContext = alliancePhaseEvent.data.battleContext
   }
 
+  // Card economy calculations
+  const REQUIRED_BATTLE_CARDS = 5
+  const ownedCardCount = state.ownedCards.length
+
   // Build faction options
   const options: AllianceOptionView[] = []
 
@@ -234,6 +247,7 @@ export function projectAllianceOptions(events: GameEvent[], providedState?: Game
     const currentRep = state.reputation[factionId]
     const status = getReputationStatus(currentRep)
     const isHostile = status === 'hostile'
+    const allianceCardCount = ALLIANCE_DATA[factionId].cardCount
 
     options.push({
       factionId,
@@ -245,8 +259,9 @@ export function projectAllianceOptions(events: GameEvent[], providedState?: Game
       currentReputation: currentRep,
       reputationStatus: status,
       bountyShare: Math.round(ALLIANCE_DATA[factionId].bountyShare * 100),
-      cardCount: ALLIANCE_DATA[factionId].cardCount,
-      cardProfile: FACTION_CARD_PROFILES[factionId]
+      cardCount: allianceCardCount,
+      cardProfile: FACTION_CARD_PROFILES[factionId],
+      resultingCardCount: ownedCardCount + allianceCardCount
     })
   }
 
@@ -256,6 +271,18 @@ export function projectAllianceOptions(events: GameEvent[], providedState?: Game
          state.activeQuest?.alliances.some(a => a.faction === (e.type === 'ALLIANCE_FORMED' ? e.data.factionId : e.data.factionId))
   )
 
+  // Determine if player can proceed alone
+  const needsAlliance = ownedCardCount < REQUIRED_BATTLE_CARDS
+  const canProceedAlone = !needsAlliance
+  let aloneBlockedReason: string | null = null
+  let proceedAloneWarning = 'You will enter battle with only your current fleet.'
+
+  if (needsAlliance) {
+    aloneBlockedReason = `You need ${REQUIRED_BATTLE_CARDS} cards for battle but only have ${ownedCardCount}. Form an alliance to gain more cards.`
+  } else {
+    proceedAloneWarning = 'You will enter battle without ally support. Consider forming an alliance for tactical advantage.'
+  }
+
   return {
     questId: state.activeQuest.questId,
     questTitle: QUEST_TITLES[state.activeQuest.questId] || state.activeQuest.questId,
@@ -263,8 +290,12 @@ export function projectAllianceOptions(events: GameEvent[], providedState?: Game
     options,
     hasSelectedAlliance: state.activeQuest.alliances.length > 0,
     selectedFactionId: state.activeQuest.alliances[0]?.faction || null,
-    canProceedAlone: true,
-    proceedAloneWarning: 'You will enter battle with only your current fleet. This is not recommended.'
+    ownedCardCount,
+    requiredCardCount: REQUIRED_BATTLE_CARDS,
+    needsAlliance,
+    canProceedAlone,
+    proceedAloneWarning,
+    aloneBlockedReason
   }
 }
 

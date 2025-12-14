@@ -111,8 +111,8 @@ describe('Gameplay Simulation', () => {
       // Verify phase changed to narrative
       expect(state.currentPhase).toBe('narrative')
 
-      // Verify dilemma was presented
-      expect(state.currentDilemmaId).toBe('quest_salvage_claim_dilemma_1')
+      // Verify dilemma was presented (actual dilemma ID from quest content)
+      expect(state.currentDilemmaId).toBe('dilemma_salvage_1_approach')
 
       console.log('✓ Simulation 3 passed: Quest acceptance works correctly')
     })
@@ -145,12 +145,12 @@ describe('Gameplay Simulation', () => {
         gameState
       )
 
-      // Make a choice
+      // Make a choice (actual dilemma ID from quest content)
       const { state, events } = executeCommand(
         {
           type: 'MAKE_CHOICE',
           data: {
-            dilemmaId: 'quest_salvage_claim_dilemma_1',
+            dilemmaId: 'dilemma_salvage_1_approach',
             choiceId: 'choice_hail_first'
           }
         },
@@ -755,9 +755,9 @@ describe('Gameplay Simulation', () => {
       expect(state.currentPhase).toBe('narrative')
       console.log('  - Quest accepted, in narrative phase')
 
-      // Make a choice
+      // Make a choice (actual dilemma ID from quest content)
       const choiceResult = executeCommand(
-        { type: 'MAKE_CHOICE', data: { dilemmaId: 'quest_salvage_claim_dilemma_1', choiceId: 'choice_hail_first' } },
+        { type: 'MAKE_CHOICE', data: { dilemmaId: 'dilemma_salvage_1_approach', choiceId: 'choice_hail_first' } },
         state
       )
       state = choiceResult.state

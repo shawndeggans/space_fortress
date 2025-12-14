@@ -49,3 +49,6 @@ export type { EndingViewData } from './endingView'
 
 export { projectChoiceArchaeologyView } from './choiceArchaeology'
 export type { ChoiceArchaeologyView } from './choiceArchaeology'
+
+export { projectNavigationView } from './navigationView'
+export type { NavigationView, PhaseStep, DisplayPhase, ReputationSummary, QuestProgress } from './navigationView'

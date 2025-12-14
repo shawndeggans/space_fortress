@@ -64,6 +64,7 @@
   class:battle-slot--filled={!isEmpty}
   class:battle-slot--drop-target={isDropTarget}
   class:battle-slot--clickable={onclick}
+  data-testid="slot-{position}"
   role={onclick || isDropTarget ? 'button' : 'region'}
   tabindex={onclick || isDropTarget ? 0 : -1}
   onclick={onclick}

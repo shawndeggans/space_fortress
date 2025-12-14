@@ -4,8 +4,7 @@
 -->
 <script lang="ts">
   import { gameState } from '$lib/stores/gameStore'
-  import { projectAllianceOptions, projectAllianceTermsView, projectPlayerState } from '$lib/game'
-  import GameHeader from '$lib/components/GameHeader.svelte'
+  import { projectAllianceOptions, projectAllianceTermsView } from '$lib/game'
   import AllianceOption from '$lib/components/AllianceOption.svelte'
   import Modal from '$lib/components/Modal.svelte'
   import FactionBadge from '$lib/components/FactionBadge.svelte'
@@ -14,7 +13,6 @@
 
   // Derive views from game state
   let allianceOptions = $derived(projectAllianceOptions([], $gameState))
-  let playerState = $derived(projectPlayerState([], $gameState))
 
   // Modal state
   let selectedFaction = $state<FactionId | null>(null)
@@ -61,22 +59,6 @@
 </script>
 
 <div class="alliance-screen">
-  {#if playerState}
-    <GameHeader
-      bounty={playerState.bounty}
-      reputations={playerState.reputations.map(f => ({
-        factionId: f.factionId,
-        value: f.value,
-        status: f.status
-      }))}
-      activeQuest={playerState.activeQuest ? {
-        title: playerState.activeQuest.title,
-        factionId: playerState.activeQuest.factionId,
-        progress: { current: playerState.activeQuest.currentDilemmaIndex, total: playerState.activeQuest.totalDilemmas }
-      } : null}
-    />
-  {/if}
-
   <main class="alliance-content">
     <header class="section-header">
       <h1>Form an Alliance</h1>
@@ -108,13 +90,36 @@
       </div>
     </section>
 
+    <!-- Card Count Info -->
+    {#if allianceOptions?.needsAlliance}
+      <section class="card-requirement-banner">
+        <span class="requirement-icon">⚠️</span>
+        <span class="requirement-text">
+          You have <strong>{allianceOptions.ownedCardCount}</strong> cards but need <strong>{allianceOptions.requiredCardCount}</strong> for battle.
+          Form an alliance to gain more cards.
+        </span>
+      </section>
+    {/if}
+
     <!-- Proceed Alone Option -->
     <section class="alone-section">
-      <button class="alone-btn" onclick={proceedWithoutAllies}>
+      <button
+        class="alone-btn"
+        class:alone-btn--blocked={!allianceOptions?.canProceedAlone}
+        data-testid="btn-proceed-alone"
+        disabled={!allianceOptions?.canProceedAlone}
+        onclick={proceedWithoutAllies}
+      >
         <span class="alone-title">Proceed Without Allies</span>
-        <span class="alone-warning">
-          {allianceOptions?.proceedAloneWarning || 'Warning: You will enter battle with only your current fleet.'}
-        </span>
+        {#if allianceOptions?.canProceedAlone}
+          <span class="alone-warning">
+            {allianceOptions?.proceedAloneWarning || 'You will enter battle with only your current fleet.'}
+          </span>
+        {:else}
+          <span class="alone-blocked">
+            {allianceOptions?.aloneBlockedReason || 'You need more cards to proceed alone.'}
+          </span>
+        {/if}
       </button>
     </section>
   </main>
@@ -178,9 +183,9 @@
     </div>
 
     {#snippet actions()}
-      <button class="btn btn--secondary" onclick={closeModal}>Cancel</button>
+      <button class="btn btn--secondary" data-testid="btn-cancel-alliance" onclick={closeModal}>Cancel</button>
       {#if termsView.canAccept}
-        <button class="btn btn--primary" onclick={formAlliance}>Form Alliance</button>
+        <button class="btn btn--primary" data-testid="btn-form-alliance" onclick={formAlliance}>Form Alliance</button>
       {:else}
         <button class="btn btn--disabled" disabled>Cannot Accept</button>
       {/if}
@@ -232,6 +237,31 @@
     gap: var(--space-4);
   }
 
+  .card-requirement-banner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    background: color-mix(in srgb, var(--warning) 15%, var(--bg-secondary));
+    border: 1px solid var(--warning);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--space-4);
+  }
+
+  .requirement-icon {
+    font-size: var(--font-size-xl);
+  }
+
+  .requirement-text {
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
+  }
+
+  .requirement-text strong {
+    color: var(--warning);
+    font-weight: 700;
+  }
+
   .alone-section {
     padding-top: var(--space-6);
     border-top: 1px solid var(--border-default);
@@ -248,8 +278,19 @@
     text-align: left;
   }
 
-  .alone-btn:hover {
+  .alone-btn:hover:not(:disabled) {
     border-color: var(--warning);
+    background: var(--bg-tertiary);
+  }
+
+  .alone-btn--blocked {
+    cursor: not-allowed;
+    opacity: 0.7;
+    background: var(--bg-tertiary);
+  }
+
+  .alone-btn--blocked:hover {
+    border-color: var(--border-default);
     background: var(--bg-tertiary);
   }
 
@@ -261,10 +302,20 @@
     margin-bottom: var(--space-2);
   }
 
+  .alone-btn--blocked .alone-title {
+    color: var(--text-muted);
+  }
+
   .alone-warning {
     display: block;
     font-size: var(--font-size-sm);
     color: var(--warning);
+  }
+
+  .alone-blocked {
+    display: block;
+    font-size: var(--font-size-sm);
+    color: var(--error);
   }
 
   /* Terms Modal Styles */

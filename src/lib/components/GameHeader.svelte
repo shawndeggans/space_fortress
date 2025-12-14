@@ -1,7 +1,15 @@
 <!--
-  GameHeader - Persistent header with quest tracker, reputation, and bounty
+  GameHeader - Persistent header with menu, quest tracker, phase indicator, reputation, and bounty
 
   Usage:
+    <GameHeader
+      navigationView={navView}
+      onSave={handleSave}
+      onLoad={handleLoad}
+      onMainMenu={handleMainMenu}
+    />
+
+    Or legacy mode (without navigationView):
     <GameHeader
       phase="deployment"
       bounty={1500}
@@ -11,8 +19,10 @@
 -->
 <script lang="ts">
   import type { FactionId, ReputationStatus, BattlePhase } from './types'
+  import type { NavigationView } from '$lib/game/projections/navigationView'
   import PhaseIndicator from './PhaseIndicator.svelte'
   import FactionBadge from './FactionBadge.svelte'
+  import GameMenu from './GameMenu.svelte'
 
   interface ReputationSummary {
     factionId: FactionId
@@ -27,18 +37,48 @@
   }
 
   interface Props {
+    // New navigation view prop
+    navigationView?: NavigationView | null
+    onSave?: () => void
+    onLoad?: () => void
+    onSettings?: () => void
+    onMainMenu?: () => void
+    // Legacy props (for backward compatibility)
     phase?: BattlePhase
-    bounty: number
-    reputations: ReputationSummary[]
+    bounty?: number
+    reputations?: ReputationSummary[]
     activeQuest?: ActiveQuestSummary | null
   }
 
   let {
+    navigationView = null,
+    onSave,
+    onLoad,
+    onSettings,
+    onMainMenu,
     phase,
-    bounty,
-    reputations,
+    bounty = 0,
+    reputations = [],
     activeQuest = null
   }: Props = $props()
+
+  // Use navigationView if provided, otherwise fall back to legacy props
+  let effectiveBounty = $derived(navigationView?.bounty ?? bounty)
+  let effectiveReputations = $derived(navigationView?.reputations ?? reputations)
+  let effectiveQuestProgress = $derived(
+    navigationView?.questProgress
+      ? {
+          title: navigationView.questProgress.title,
+          factionId: navigationView.questProgress.factionId,
+          progress: {
+            current: navigationView.questProgress.current,
+            total: navigationView.questProgress.total
+          }
+        }
+      : activeQuest
+  )
+  let showGameFlow = $derived(navigationView !== null && navigationView.phaseSteps.length > 0)
+  let canSave = $derived(navigationView?.canSave ?? true)
 
   const statusColors: Record<ReputationStatus, string> = {
     devoted: 'var(--rep-devoted)',
@@ -60,62 +100,90 @@
   }
 </script>
 
-<header class="game-header">
-  <div class="game-header__left">
-    <h1 class="game-header__title">Space Fortress</h1>
+<header class="game-header" data-testid="game-header">
+  <div class="game-header__row game-header__row--top">
+    <div class="game-header__left">
+      {#if navigationView}
+        <GameMenu
+          {canSave}
+          {onSave}
+          {onLoad}
+          {onSettings}
+          {onMainMenu}
+        />
+      {/if}
 
-    {#if activeQuest}
-      <div class="quest-tracker">
-        <FactionBadge faction={activeQuest.factionId} size="small" />
-        <span class="quest-title">{activeQuest.title}</span>
-        <span class="quest-progress">[{activeQuest.progress.current}/{activeQuest.progress.total}]</span>
-      </div>
-    {/if}
-  </div>
+      <h1 class="game-header__title">Space Fortress</h1>
 
-  <div class="game-header__center">
-    {#if phase}
-      <PhaseIndicator currentPhase={phase} variant="compact" />
-    {/if}
-  </div>
-
-  <div class="game-header__right">
-    <div class="bounty-display">
-      <span class="bounty-icon">💰</span>
-      <span class="bounty-value">{formatBounty(bounty)} cr</span>
-    </div>
-
-    <div class="rep-summary">
-      {#each reputations as rep}
-        <div
-          class="rep-mini"
-          style="color: {statusColors[rep.status]}"
-          title="{rep.factionId}: {formatRepValue(rep.value)}"
-        >
-          <FactionBadge faction={rep.factionId} size="small" />
-          <span class="rep-value">{formatRepValue(rep.value)}</span>
+      {#if effectiveQuestProgress}
+        <div class="quest-tracker">
+          <FactionBadge faction={effectiveQuestProgress.factionId} size="small" />
+          <span class="quest-title">{effectiveQuestProgress.title}</span>
+          <span class="quest-progress">[{effectiveQuestProgress.progress.current}/{effectiveQuestProgress.progress.total}]</span>
         </div>
-      {/each}
+      {/if}
+    </div>
+
+    <div class="game-header__right">
+      <div class="bounty-display">
+        <span class="bounty-icon">💰</span>
+        <span class="bounty-value">{formatBounty(effectiveBounty)} cr</span>
+      </div>
+
+      <div class="rep-summary">
+        {#each effectiveReputations as rep}
+          <div
+            class="rep-mini"
+            style="color: {statusColors[rep.status]}"
+            title="{rep.factionId}: {formatRepValue(rep.value)}"
+          >
+            <FactionBadge faction={rep.factionId} size="small" />
+            <span class="rep-value">{formatRepValue(rep.value)}</span>
+          </div>
+        {/each}
+      </div>
     </div>
   </div>
+
+  {#if showGameFlow && navigationView}
+    <div class="game-header__row game-header__row--phases">
+      <PhaseIndicator variant="gameFlow" phaseSteps={navigationView.phaseSteps} />
+    </div>
+  {:else if phase}
+    <div class="game-header__row game-header__row--phases">
+      <PhaseIndicator currentPhase={phase} variant="compact" />
+    </div>
+  {/if}
 </header>
 
 <style>
   .game-header {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    flex-direction: column;
     padding: var(--space-3) var(--space-4);
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-default);
+    gap: var(--space-2);
+  }
+
+  .game-header__row {
+    display: flex;
+    align-items: center;
     gap: var(--space-4);
-    flex-wrap: wrap;
+  }
+
+  .game-header__row--top {
+    justify-content: space-between;
+  }
+
+  .game-header__row--phases {
+    justify-content: center;
   }
 
   .game-header__left {
     display: flex;
     align-items: center;
-    gap: var(--space-4);
+    gap: var(--space-3);
     min-width: 0;
     flex: 1;
   }
@@ -153,11 +221,6 @@
   .quest-progress {
     color: var(--text-muted);
     font-family: var(--font-mono);
-  }
-
-  .game-header__center {
-    display: flex;
-    justify-content: center;
   }
 
   .game-header__right {
@@ -208,25 +271,33 @@
   /* Responsive */
   @media (max-width: 768px) {
     .game-header {
-      flex-direction: column;
-      align-items: stretch;
+      padding: var(--space-2) var(--space-3);
+    }
+
+    .game-header__row--top {
+      flex-wrap: wrap;
     }
 
     .game-header__left {
-      flex-direction: column;
-      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: var(--space-2);
     }
 
-    .game-header__center {
-      order: -1;
+    .game-header__title {
+      font-size: var(--font-size-base);
     }
 
     .game-header__right {
-      justify-content: space-between;
+      gap: var(--space-2);
     }
 
     .rep-summary {
-      flex-wrap: wrap;
+      display: none; /* Hide on mobile to save space */
+    }
+
+    .quest-tracker {
+      font-size: var(--font-size-xs);
+      padding: var(--space-1) var(--space-2);
     }
   }
 </style>

@@ -74,6 +74,7 @@
   <div
     class="alliance-option alliance-option--available"
     class:alliance-option--selected={selected}
+    data-testid="alliance-{faction}"
   >
     <header class="alliance-option__header">
       <FactionBadge {faction} showLabel size="medium" />
@@ -119,7 +120,7 @@
   </div>
 
 {:else}
-  <div class="alliance-option alliance-option--unavailable">
+  <div class="alliance-option alliance-option--unavailable" data-testid="alliance-{faction}">
     <header class="alliance-option__header alliance-option__header--unavailable">
       <FactionBadge {faction} showLabel size="medium" />
     </header>

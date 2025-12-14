@@ -4,8 +4,7 @@
 -->
 <script lang="ts">
   import { gameState } from '$lib/stores/gameStore'
-  import { projectCardPoolView, projectPlayerState } from '$lib/game'
-  import GameHeader from '$lib/components/GameHeader.svelte'
+  import { projectCardPoolView } from '$lib/game'
   import Card from '$lib/components/Card.svelte'
   import FactionBadge from '$lib/components/FactionBadge.svelte'
   import type { CardDisplayData, ExtendedFactionId } from '$lib/components/types'
@@ -15,7 +14,6 @@
 
   // Derive views from game state
   let cardPoolView = $derived(projectCardPoolView([], undefined, $gameState))
-  let playerState = $derived(projectPlayerState([], $gameState))
 
   // Local selection state (tracks card IDs)
   let selectedCardIds = $state<Set<string>>(new Set())
@@ -86,21 +84,6 @@
 </script>
 
 <div class="card-pool-screen">
-  <GameHeader
-    phase="commitment"
-    bounty={playerState.bounty}
-    reputations={playerState.reputations.map(f => ({
-      factionId: f.factionId,
-      value: f.value,
-      status: f.status
-    }))}
-    activeQuest={playerState.activeQuest ? {
-      title: playerState.activeQuest.title,
-      factionId: playerState.activeQuest.factionId,
-      progress: { current: playerState.activeQuest.currentDilemmaIndex, total: playerState.activeQuest.totalDilemmas }
-    } : null}
-  />
-
   <main class="card-pool-content">
     <header class="section-header">
       <h1>Select Your Fleet</h1>
@@ -147,6 +130,7 @@
       <button
         class="commit-btn"
         class:commit-btn--disabled={!canCommit}
+        data-testid="btn-commit-fleet"
         disabled={!canCommit}
         onclick={commitFleet}
       >
