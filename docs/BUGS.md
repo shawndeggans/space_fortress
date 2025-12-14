@@ -1,15 +1,19 @@
 # Space Fortress - QA Bug Report
 
 **Date:** 2025-12-14
-**QA Focus:** Code and UI
-**Test Status:** Unit tests pass (89/89), TypeScript check passes (0 errors, 1 warning)
+**QA Focus:** Code and UI, Gameplay Simulation
+**Test Status:** Unit tests pass (113/113), TypeScript check passes (0 errors, 1 warning)
 
-## ✅ STATUS: ALL BUGS FIXED
+## Current Status
 
+### Round 1 (Code/UI): ✅ ALL 80 BUGS FIXED
 All 80 TypeScript compile errors have been resolved. The codebase now compiles cleanly.
 
-**Before:** 80 errors, 2 warnings
-**After:** 0 errors, 1 warning (a11y - intentional behavior)
+### Round 2 (Gameplay Simulation): 1 NEW BUG FOUND
+22 gameplay simulations executed covering full game mechanics. 1 new bug discovered (BUG-022).
+
+**Before (Round 1):** 80 errors, 2 warnings
+**After (Round 1):** 0 errors, 1 warning (a11y - intentional behavior)
 
 ---
 
@@ -506,3 +510,108 @@ Either:
 
 ### Commands
 - `src/lib/game/commands.ts`
+
+---
+
+## Round 2: Gameplay Simulation Bugs
+
+### BUG-022: ActiveQuest Missing factionId Property
+
+**Status:** 🔴 OPEN
+**Severity:** Medium
+**Found in:** Gameplay Simulation Test #3
+
+**File:** `src/lib/game/projections.ts:161-170`
+
+**Description:**
+When a quest is accepted, the `QUEST_ACCEPTED` event contains `factionId`, but the `evolveState` function does not store it in the `activeQuest` state. This means the game loses track of which faction a quest belongs to.
+
+**Event Data Contains:**
+```typescript
+// events.ts line 50-56
+type: 'QUEST_ACCEPTED'
+data: {
+  questId: string
+  factionId: FactionId  // ← This data is available
+  initialBounty: number
+  initialCardIds: string[]
+}
+```
+
+**But evolveState Discards It:**
+```typescript
+// projections.ts line 161-170
+case 'QUEST_ACCEPTED':
+  return {
+    ...state,
+    activeQuest: {
+      questId: event.data.questId,
+      currentDilemmaIndex: 0,
+      dilemmasCompleted: 0,
+      alliances: [],
+      battlesWon: 0,
+      battlesLost: 0
+      // factionId is NOT stored!
+    },
+    ...
+  }
+```
+
+**Impact:**
+- Cannot track which faction the active quest belongs to
+- UI components that need quest faction info (GameHeader, alliance options) must look it up separately
+- Alliance logic may not correctly filter out the quest-giving faction
+
+**Fix Required:**
+1. Update `ActiveQuest` interface in `types.ts` to include `factionId: FactionId`
+2. Update `evolveState` in `projections.ts` to store `event.data.factionId`
+
+```typescript
+// types.ts - Add factionId to ActiveQuest
+export interface ActiveQuest {
+  questId: string
+  factionId: FactionId  // ADD THIS
+  currentDilemmaIndex: number
+  dilemmasCompleted: number
+  alliances: QuestAlliance[]
+  battlesWon: number
+  battlesLost: number
+}
+
+// projections.ts - Store factionId
+case 'QUEST_ACCEPTED':
+  return {
+    ...state,
+    activeQuest: {
+      questId: event.data.questId,
+      factionId: event.data.factionId,  // ADD THIS
+      currentDilemmaIndex: 0,
+      dilemmasCompleted: 0,
+      alliances: [],
+      battlesWon: 0,
+      battlesLost: 0
+    },
+    ...
+  }
+```
+
+---
+
+## Gameplay Simulation Test Summary
+
+22 simulations were executed testing the full game loop:
+
+| Category | Tests | Status |
+|----------|-------|--------|
+| Game Initialization | 2 | ✅ Pass |
+| Quest Flow | 2 | ⚠️ 1 bug found (BUG-022) |
+| Choice Making | 2 | ✅ Pass |
+| Alliance System | 3 | ✅ Pass |
+| Battle System | 3 | ✅ Pass |
+| Combat Resolution | 2 | ✅ Pass |
+| Opponent Generation | 2 | ✅ Pass |
+| Mediation System | 3 | ✅ Pass |
+| Deployment Phase | 2 | ✅ Pass |
+| Full Game Loop | 1 | ✅ Pass |
+
+**Test File:** `src/lib/game/__tests__/gameplay-simulation.test.ts`
