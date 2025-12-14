@@ -14,7 +14,7 @@
   const MAX_SELECTED = 5
 
   // Derive views from game state
-  let cardPoolView = $derived(projectCardPoolView([], $gameState))
+  let cardPoolView = $derived(projectCardPoolView([], undefined, $gameState))
   let playerState = $derived(projectPlayerState([], $gameState))
 
   // Local selection state (tracks card IDs)
@@ -24,7 +24,7 @@
   let canCommit = $derived(selectedCount === MAX_SELECTED)
 
   function toggleCard(cardId: string) {
-    const isLocked = cardPoolView.cards.find(c => c.id === cardId)?.isLocked
+    const isLocked = cardPoolView?.allCards.find(c => c.id === cardId)?.isLocked
     if (isLocked) return
 
     if (selectedCardIds.has(cardId)) {
@@ -52,17 +52,17 @@
     }
   }
 
-  function getCardState(card: typeof cardPoolView.cards[0]): 'default' | 'selected' | 'locked' {
+  function getCardState(card: typeof cardPoolView.allCards[0]): 'default' | 'selected' | 'locked' {
     if (card.isLocked) return 'locked'
     if (selectedCardIds.has(card.id)) return 'selected'
     return 'default'
   }
 
-  function toCardDisplayData(card: typeof cardPoolView.cards[0]): CardDisplayData {
+  function toCardDisplayData(card: typeof cardPoolView.allCards[0]): CardDisplayData {
     return {
       id: card.id,
       name: card.name,
-      faction: card.faction,
+      faction: card.factionId,
       attack: card.attack,
       armor: card.armor,
       agility: card.agility,
@@ -72,9 +72,10 @@
 
   // Group cards by faction for display
   let groupedCards = $derived(() => {
-    const groups = new Map<string, typeof cardPoolView.cards>()
-    for (const card of cardPoolView.cards) {
-      const faction = card.faction
+    if (!cardPoolView) return new Map()
+    const groups = new Map<string, typeof cardPoolView.allCards>()
+    for (const card of cardPoolView.allCards) {
+      const faction = card.factionId
       if (!groups.has(faction)) {
         groups.set(faction, [])
       }
@@ -112,16 +113,16 @@
     </header>
 
     <!-- Enemy Intel -->
-    {#if cardPoolView.enemyIntel}
+    {#if cardPoolView?.enemyFleet}
       <section class="enemy-intel">
         <h2>Enemy Fleet (Partial Intel)</h2>
         <div class="intel-details">
           <span class="intel-faction">
-            <FactionBadge faction={cardPoolView.enemyIntel.faction as ExtendedFactionId} size="small" />
-            {cardPoolView.enemyIntel.factionName}
+            <FactionBadge faction={cardPoolView.enemyFleet.factionId as ExtendedFactionId} size="small" />
+            {cardPoolView.enemyFleet.name}
           </span>
-          <span class="intel-count">{cardPoolView.enemyIntel.shipCount} ships</span>
-          <span class="intel-profile">{cardPoolView.enemyIntel.profile}</span>
+          <span class="intel-count">{cardPoolView.enemyFleet.shipCount} ships</span>
+          <span class="intel-profile">{cardPoolView.enemyFleet.profile}</span>
         </div>
       </section>
     {/if}
@@ -130,7 +131,7 @@
     <section class="cards-section">
       <h2>Your Cards</h2>
       <div class="card-grid">
-        {#each cardPoolView.cards as card}
+        {#each cardPoolView?.allCards || [] as card}
           <Card
             card={toCardDisplayData(card)}
             size="full"

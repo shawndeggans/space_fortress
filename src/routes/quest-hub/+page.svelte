@@ -4,13 +4,14 @@
 -->
 <script lang="ts">
   import { gameState } from '$lib/stores/gameStore'
-  import { projectQuestList, projectPlayerState } from '$lib/game'
+  import { projectQuestList, projectQuestDetail, projectPlayerState } from '$lib/game'
   import GameHeader from '$lib/components/GameHeader.svelte'
   import QuestCard from '$lib/components/QuestCard.svelte'
   import Modal from '$lib/components/Modal.svelte'
   import FactionBadge from '$lib/components/FactionBadge.svelte'
   import ConsequenceItem from '$lib/components/ConsequenceItem.svelte'
   import type { QuestDisplayData, FactionId } from '$lib/components/types'
+  import type { QuestListItem, CompletedQuestItem } from '$lib/game/projections/questList'
   import { goto } from '$app/navigation'
 
   // Derive views from game state
@@ -18,25 +19,28 @@
   let playerState = $derived(projectPlayerState([], $gameState))
 
   // Modal state
-  let selectedQuest = $state<typeof questList.available[0] | null>(null)
+  let selectedQuestId = $state<string | null>(null)
   let showQuestDetail = $state(false)
 
-  function handleQuestClick(quest: typeof questList.available[0]) {
-    selectedQuest = quest
+  // Get detailed quest info for modal
+  let questDetail = $derived(selectedQuestId ? projectQuestDetail([], selectedQuestId, $gameState) : null)
+
+  function handleQuestClick(quest: QuestListItem) {
+    selectedQuestId = quest.questId
     showQuestDetail = true
   }
 
   function closeModal() {
     showQuestDetail = false
-    selectedQuest = null
+    selectedQuestId = null
   }
 
   async function acceptQuest() {
-    if (!selectedQuest) return
+    if (!selectedQuestId) return
 
     const result = await gameState.handleCommand({
       type: 'ACCEPT_QUEST',
-      data: { questId: selectedQuest.id }
+      data: { questId: selectedQuestId }
     })
 
     if (result.success) {
@@ -50,14 +54,26 @@
   }
 
   // Transform quest data for QuestCard component
-  function toQuestDisplayData(quest: typeof questList.available[0]): QuestDisplayData {
+  function toQuestDisplayData(quest: QuestListItem): QuestDisplayData {
     return {
-      id: quest.id,
+      id: quest.questId,
       title: quest.title,
-      faction: quest.faction,
-      brief: quest.brief,
+      faction: quest.factionId,
+      brief: quest.briefDescription,
       bountyLevel: quest.bountyLevel,
       reputationRequired: quest.reputationRequired
+    }
+  }
+
+  // Transform completed quest data for QuestCard component
+  function toCompletedQuestDisplayData(quest: CompletedQuestItem): QuestDisplayData {
+    return {
+      id: quest.questId,
+      title: quest.title,
+      faction: quest.factionId,
+      brief: `Outcome: ${quest.outcome} | Bounty: ${quest.finalBounty} cr`,
+      bountyLevel: 0,
+      reputationRequired: 0
     }
   }
 </script>
@@ -118,7 +134,7 @@
         <div class="quest-grid">
           {#each questList.completed as quest}
             <QuestCard
-              quest={toQuestDisplayData(quest)}
+              quest={toCompletedQuestDisplayData(quest)}
               state="completed"
             />
           {/each}
@@ -134,57 +150,51 @@
   </main>
 </div>
 
-{#if showQuestDetail && selectedQuest}
-  <Modal title={selectedQuest.title} onclose={closeModal} size="medium">
+{#if showQuestDetail && questDetail}
+  <Modal title={questDetail.title} onclose={closeModal} size="medium">
     <div class="quest-detail">
       <div class="quest-detail__faction">
-        <FactionBadge faction={selectedQuest.faction} showLabel size="medium" />
+        <FactionBadge faction={questDetail.factionId} showLabel size="medium" />
       </div>
 
       <div class="quest-detail__description">
-        <p>{selectedQuest.description}</p>
+        <p>{questDetail.fullDescription}</p>
       </div>
 
-      {#if selectedQuest.giver}
+      {#if questDetail.questGiverName}
         <div class="quest-detail__giver">
           <h4>Quest Giver</h4>
           <div class="giver-info">
-            <FactionBadge faction={selectedQuest.giver.faction} size="small" />
-            <span class="giver-name">{selectedQuest.giver.name}</span>
+            <FactionBadge faction={questDetail.factionId} size="small" />
+            <span class="giver-name">{questDetail.questGiverName}</span>
           </div>
-          <p class="giver-quote">"{selectedQuest.giver.quote}"</p>
+          <p class="giver-quote">"{questDetail.questGiverDialogue}"</p>
         </div>
       {/if}
 
-      <div class="quest-detail__rewards">
-        <h4>Initial Rewards</h4>
-        <div class="consequences-list">
-          {#each selectedQuest.initialRewards.cards as card}
-            <ConsequenceItem
-              type="card_gained"
-              content={card.name}
-              faction={card.faction}
-            />
-          {/each}
-          {#each selectedQuest.initialRewards.reputation as rep}
-            <ConsequenceItem
-              type={rep.delta > 0 ? 'rep_up' : 'rep_down'}
-              content="{rep.faction} {rep.delta > 0 ? '+' : ''}{rep.delta}"
-            />
-          {/each}
+      {#if questDetail.initialCards.length > 0}
+        <div class="quest-detail__rewards">
+          <h4>Initial Rewards</h4>
+          <div class="consequences-list">
+            {#each questDetail.initialCards as card}
+              <ConsequenceItem
+                type="card_gained"
+                content={card.name}
+                faction={card.factionId}
+              />
+            {/each}
+          </div>
         </div>
-      </div>
+      {/if}
 
-      {#if selectedQuest.warnings.length > 0}
+      {#if questDetail.warningText}
         <div class="quest-detail__warnings">
           <h4>Warnings</h4>
           <div class="consequences-list">
-            {#each selectedQuest.warnings as warning}
-              <ConsequenceItem
-                type="risk"
-                content={warning}
-              />
-            {/each}
+            <ConsequenceItem
+              type="risk"
+              content={questDetail.warningText}
+            />
           </div>
         </div>
       {/if}

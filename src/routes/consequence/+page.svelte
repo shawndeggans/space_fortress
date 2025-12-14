@@ -13,7 +13,7 @@
   import { goto } from '$app/navigation'
 
   // Derive views from game state
-  let consequenceView = $derived(projectConsequenceView([], $gameState))
+  let consequenceView = $derived(projectConsequenceView([], undefined, $gameState))
   let playerState = $derived(projectPlayerState([], $gameState))
 
   async function handleContinue() {
@@ -24,7 +24,7 @@
 
     if (result.success) {
       // Navigate based on what comes next
-      if (consequenceView?.nextDilemmaId) {
+      if (consequenceView?.hasNextDilemma) {
         goto('/narrative')
       } else if (consequenceView?.questComplete) {
         // Check if game is ending
@@ -82,15 +82,15 @@
       <section class="section">
         <h2>Bounty</h2>
         <BountyDisplay
-          base={consequenceView.bounty.base}
+          base={consequenceView.bounty.baseReward}
           shares={consequenceView.bounty.shares.map(s => ({
             faction: s.factionId,
-            percent: s.percent,
+            percent: s.percentage,
             amount: s.amount
           }))}
-          bonuses={consequenceView.bounty.bonuses}
-          penalties={consequenceView.bounty.penalties}
-          net={consequenceView.bounty.net}
+          bonuses={consequenceView.bounty.modifiers.filter(m => m.isPositive).map(m => ({ reason: m.reason, amount: m.amount }))}
+          penalties={consequenceView.bounty.modifiers.filter(m => !m.isPositive).map(m => ({ reason: m.reason, amount: Math.abs(m.amount) }))}
+          net={consequenceView.bounty.netReward}
           variant="full"
         />
       </section>
@@ -122,15 +122,15 @@
             {#each consequenceView.cardsGained as card}
               <ConsequenceItem
                 type="card_gained"
-                content={card.name}
-                faction={card.faction}
+                content={card.cardName}
+                faction={card.factionId}
               />
             {/each}
             {#each consequenceView.cardsLost as card}
               <ConsequenceItem
                 type="card_lost"
-                content={card.name}
-                faction={card.faction}
+                content={card.cardName}
+                faction={card.factionId}
               />
             {/each}
           </div>
@@ -140,7 +140,7 @@
       <!-- Continue Button -->
       <footer class="continue-section">
         <button class="btn btn--primary" onclick={handleContinue}>
-          {#if consequenceView.nextDilemmaId}
+          {#if consequenceView.hasNextDilemma}
             Continue
             <span class="btn-hint">A new dilemma awaits...</span>
           {:else if consequenceView.questComplete}

@@ -12,16 +12,34 @@
   import { goto } from '$app/navigation'
 
   // Derive views from game state
-  let deploymentView = $derived(projectDeploymentView([], $gameState))
+  let deploymentView = $derived(projectDeploymentView([], undefined, $gameState))
   let playerState = $derived(projectPlayerState([], $gameState))
 
-  // Local state for card positions
+  // Local state for card positions (initialized from projection on first render)
   let positions = $state<(string | null)[]>([null, null, null, null, null])
+
+  // Initialize positions from projection if not already set
+  $effect(() => {
+    if (deploymentView && positions.every(p => p === null)) {
+      // Try to load existing positions from projection slots
+      const projectedPositions = deploymentView.slots.map(slot => slot.card?.id || null)
+      if (projectedPositions.some(p => p !== null)) {
+        positions = projectedPositions
+      }
+    }
+  })
+
+  // Get all committed cards from projection (cards in slots + unassigned cards)
+  let allCommittedCards = $derived(() => {
+    if (!deploymentView) return []
+    const slotCards = deploymentView.slots.filter(s => s.card !== null).map(s => s.card!)
+    return [...slotCards, ...deploymentView.unassignedCards]
+  })
 
   // Get unassigned cards (committed cards not yet in a position)
   let unassignedCards = $derived(() => {
     const assignedIds = new Set(positions.filter(Boolean))
-    return deploymentView.committedCards.filter(c => !assignedIds.has(c.id))
+    return allCommittedCards().filter(c => !assignedIds.has(c.id))
   })
 
   let allPositionsFilled = $derived(positions.every(p => p !== null))
@@ -58,7 +76,7 @@
     const result = await gameState.handleCommand({
       type: 'LOCK_ORDERS',
       data: {
-        battleId: deploymentView.battleId || 'battle-1',
+        battleId: deploymentView?.battleId || 'battle-1',
         positions: positions as string[]
       }
     })
@@ -68,16 +86,16 @@
     }
   }
 
-  function getCardById(cardId: string | null): typeof deploymentView.committedCards[0] | null {
+  function getCardById(cardId: string | null) {
     if (!cardId) return null
-    return deploymentView.committedCards.find(c => c.id === cardId) || null
+    return allCommittedCards().find(c => c.id === cardId) || null
   }
 
-  function toCardDisplayData(card: typeof deploymentView.committedCards[0]): CardDisplayData {
+  function toCardDisplayData(card: NonNullable<ReturnType<typeof getCardById>>): CardDisplayData {
     return {
       id: card.id,
       name: card.name,
-      faction: card.faction,
+      faction: card.factionId,
       attack: card.attack,
       armor: card.armor,
       agility: card.agility
@@ -110,12 +128,13 @@
     <!-- Position Slots -->
     <section class="positions-section">
       <div class="positions-row">
-        {#each [0, 1, 2, 3, 4] as i}
+        {#each [1, 2, 3, 4, 5] as pos}
+          {@const i = pos - 1}
           {@const cardId = positions[i]}
           {@const card = getCardById(cardId)}
           <BattleSlot
-            position={i + 1}
-            card={card ? toCardDisplayData(card) : null}
+            position={pos as 1 | 2 | 3 | 4 | 5}
+            card={card ? toCardDisplayData(card) : undefined}
             isDropTarget={true}
             ondrop={(droppedCardId) => handleDrop(droppedCardId, i)}
             onclick={card ? () => removeFromPosition(i) : undefined}
@@ -133,8 +152,10 @@
             <div
               class="draggable-card"
               role="button"
+              tabindex="0"
               draggable="true"
               ondragstart={(e) => e.dataTransfer?.setData('text/plain', card.id)}
+              onkeydown={(e) => e.key === 'Enter' && handleCardClick(card.id)}
             >
               <Card
                 card={toCardDisplayData(card)}
