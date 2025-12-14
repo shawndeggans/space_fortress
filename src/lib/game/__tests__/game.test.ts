@@ -1,178 +1,411 @@
 import { describe, it, expect } from 'vitest'
 import { evolveState, getInitialState, rebuildState } from '../projections'
 import { decide, InvalidCommandError } from '../decider'
-import type { GameEvent, GameCommand, GameState } from '../types'
+import type { GameEvent } from '../events'
+import type { GameCommand } from '../commands'
+import type { GameState } from '../types'
 
 describe('Event Projections', () => {
   it('returns initial state correctly', () => {
     const state = getInitialState()
-    expect(state.status).toBe('not_started')
-    expect(state.moralAlignment).toBe(0)
-    expect(state.choicesMade).toEqual([])
-    expect(state.inventory).toEqual([])
+    expect(state.gameStatus).toBe('not_started')
+    expect(state.currentPhase).toBe('not_started')
+    expect(state.bounty).toBe(0)
+    expect(state.ownedCards).toEqual([])
+    expect(state.reputation.ironveil).toBe(0)
+    expect(state.reputation.ashfall).toBe(0)
   })
 
   it('handles GAME_STARTED event', () => {
     const state = getInitialState()
     const event: GameEvent = {
       type: 'GAME_STARTED',
-      data: { playerId: 'player-1', startedAt: '2024-01-01T00:00:00Z' }
+      data: {
+        timestamp: '2024-01-01T00:00:00Z',
+        playerId: 'player-1',
+        starterCardIds: ['card-1', 'card-2']
+      }
     }
     const newState = evolveState(state, event)
     expect(newState.playerId).toBe('player-1')
-    expect(newState.status).toBe('in_progress')
-    expect(newState.currentLocation).toBe('starting_room')
+    expect(newState.gameStatus).toBe('in_progress')
+    expect(newState.startedAt).toBe('2024-01-01T00:00:00Z')
+  })
+
+  it('handles PHASE_CHANGED event', () => {
+    const state: GameState = {
+      ...getInitialState(),
+      gameStatus: 'in_progress'
+    }
+    const event: GameEvent = {
+      type: 'PHASE_CHANGED',
+      data: {
+        timestamp: '2024-01-01T00:00:00Z',
+        fromPhase: 'not_started',
+        toPhase: 'quest_hub'
+      }
+    }
+    const newState = evolveState(state, event)
+    expect(newState.currentPhase).toBe('quest_hub')
+  })
+
+  it('handles QUEST_ACCEPTED event', () => {
+    const state: GameState = {
+      ...getInitialState(),
+      gameStatus: 'in_progress',
+      availableQuestIds: ['quest-1', 'quest-2']
+    }
+    const event: GameEvent = {
+      type: 'QUEST_ACCEPTED',
+      data: {
+        timestamp: '2024-01-01T00:00:00Z',
+        questId: 'quest-1',
+        factionId: 'ironveil',
+        initialBounty: 500,
+        initialCardIds: []
+      }
+    }
+    const newState = evolveState(state, event)
+    expect(newState.activeQuest).not.toBeNull()
+    expect(newState.activeQuest?.questId).toBe('quest-1')
+    expect(newState.bounty).toBe(500)
+    expect(newState.availableQuestIds).not.toContain('quest-1')
+  })
+
+  it('handles REPUTATION_CHANGED event', () => {
+    const state = getInitialState()
+    const event: GameEvent = {
+      type: 'REPUTATION_CHANGED',
+      data: {
+        timestamp: '2024-01-01T00:00:00Z',
+        factionId: 'ironveil',
+        delta: 25,
+        newValue: 25,
+        source: 'choice'
+      }
+    }
+    const newState = evolveState(state, event)
+    expect(newState.reputation.ironveil).toBe(25)
+  })
+
+  it('handles CARD_GAINED event', () => {
+    const state = getInitialState()
+    const event: GameEvent = {
+      type: 'CARD_GAINED',
+      data: {
+        timestamp: '2024-01-01T00:00:00Z',
+        cardId: 'ironveil_cruiser',
+        factionId: 'ironveil',
+        source: 'quest'
+      }
+    }
+    const newState = evolveState(state, event)
+    expect(newState.ownedCards).toHaveLength(1)
+    expect(newState.ownedCards[0].id).toBe('ironveil_cruiser')
+    expect(newState.stats.cardsAcquired).toBe(1)
   })
 
   it('handles CHOICE_MADE event', () => {
     const state: GameState = {
       ...getInitialState(),
-      status: 'in_progress'
+      gameStatus: 'in_progress',
+      activeQuest: {
+        questId: 'quest-1',
+        currentDilemmaIndex: 0,
+        dilemmasCompleted: 0,
+        alliances: [],
+        battlesWon: 0,
+        battlesLost: 0
+      }
     }
     const event: GameEvent = {
       type: 'CHOICE_MADE',
-      data: { choiceId: 'choice-1', option: 'help', madeAt: '2024-01-01T00:00:00Z' }
+      data: {
+        timestamp: '2024-01-01T00:00:00Z',
+        dilemmaId: 'dilemma-1',
+        choiceId: 'choice-a',
+        questId: 'quest-1'
+      }
     }
     const newState = evolveState(state, event)
-    expect(newState.choicesMade).toHaveLength(1)
-    expect(newState.choicesMade[0]).toEqual({ choiceId: 'choice-1', option: 'help' })
+    expect(newState.choiceHistory).toHaveLength(1)
+    expect(newState.choiceHistory[0].choiceId).toBe('choice-a')
+    expect(newState.stats.choicesMade).toBe(1)
   })
 
-  it('handles MORAL_ALIGNMENT_CHANGED event', () => {
+  it('handles BATTLE_TRIGGERED event', () => {
     const state: GameState = {
       ...getInitialState(),
-      moralAlignment: 0
+      gameStatus: 'in_progress'
     }
     const event: GameEvent = {
-      type: 'MORAL_ALIGNMENT_CHANGED',
-      data: { delta: 25, newValue: 25 }
+      type: 'BATTLE_TRIGGERED',
+      data: {
+        timestamp: '2024-01-01T00:00:00Z',
+        battleId: 'battle-1',
+        questId: 'quest-1',
+        context: 'Scavengers attack',
+        opponentType: 'scavengers',
+        opponentFactionId: 'scavengers',
+        difficulty: 'medium'
+      }
     }
     const newState = evolveState(state, event)
-    expect(newState.moralAlignment).toBe(25)
+    expect(newState.currentBattle).not.toBeNull()
+    expect(newState.currentBattle?.battleId).toBe('battle-1')
+    expect(newState.currentBattle?.phase).toBe('selection')
+  })
+
+  it('handles CARD_SELECTED event', () => {
+    const state: GameState = {
+      ...getInitialState(),
+      currentBattle: {
+        battleId: 'battle-1',
+        phase: 'selection',
+        selectedCardIds: [],
+        positions: [null, null, null, null, null],
+        currentRound: 0,
+        rounds: []
+      }
+    }
+    const event: GameEvent = {
+      type: 'CARD_SELECTED',
+      data: {
+        timestamp: '2024-01-01T00:00:00Z',
+        cardId: 'card-1',
+        battleId: 'battle-1'
+      }
+    }
+    const newState = evolveState(state, event)
+    expect(newState.currentBattle?.selectedCardIds).toContain('card-1')
+  })
+
+  it('handles BATTLE_RESOLVED event', () => {
+    const state: GameState = {
+      ...getInitialState(),
+      gameStatus: 'in_progress',
+      currentBattle: {
+        battleId: 'battle-1',
+        phase: 'execution',
+        selectedCardIds: ['card-1'],
+        positions: ['card-1', null, null, null, null],
+        currentRound: 5,
+        rounds: []
+      },
+      activeQuest: {
+        questId: 'quest-1',
+        currentDilemmaIndex: 0,
+        dilemmasCompleted: 0,
+        alliances: [],
+        battlesWon: 0,
+        battlesLost: 0
+      }
+    }
+    const event: GameEvent = {
+      type: 'BATTLE_RESOLVED',
+      data: {
+        timestamp: '2024-01-01T00:00:00Z',
+        battleId: 'battle-1',
+        outcome: 'victory',
+        playerWins: 3,
+        opponentWins: 2,
+        draws: 0,
+        roundsSummary: []
+      }
+    }
+    const newState = evolveState(state, event)
+    expect(newState.currentBattle?.outcome).toBe('victory')
+    expect(newState.stats.battlesWon).toBe(1)
+    expect(newState.activeQuest?.battlesWon).toBe(1)
   })
 
   it('rebuilds identical state from events', () => {
     const events: GameEvent[] = [
-      { type: 'GAME_STARTED', data: { playerId: 'player-1', startedAt: '2024-01-01T00:00:00Z' } },
-      { type: 'LOCATION_ENTERED', data: { locationId: 'starting_room', enteredAt: '2024-01-01T00:00:00Z' } },
-      { type: 'CHOICE_MADE', data: { choiceId: 'moral_dilemma_1', option: 'help', madeAt: '2024-01-01T00:00:01Z' } },
-      { type: 'MORAL_ALIGNMENT_CHANGED', data: { delta: 25, newValue: 25 } }
+      {
+        type: 'GAME_STARTED',
+        data: { timestamp: '2024-01-01T00:00:00Z', playerId: 'player-1', starterCardIds: [] }
+      },
+      {
+        type: 'PHASE_CHANGED',
+        data: { timestamp: '2024-01-01T00:00:01Z', fromPhase: 'not_started', toPhase: 'quest_hub' }
+      },
+      {
+        type: 'QUESTS_GENERATED',
+        data: { timestamp: '2024-01-01T00:00:01Z', questIds: ['quest-1', 'quest-2'] }
+      },
+      {
+        type: 'REPUTATION_CHANGED',
+        data: { timestamp: '2024-01-01T00:00:02Z', factionId: 'ironveil', delta: 25, newValue: 25, source: 'choice' }
+      }
     ]
 
     const state1 = rebuildState(events)
     const state2 = rebuildState(events)
 
     expect(state1).toEqual(state2)
-    expect(state1.moralAlignment).toBe(25)
-    expect(state1.choicesMade).toHaveLength(1)
-  })
-
-  it('handles events in batches', () => {
-    const events: GameEvent[] = [
-      { type: 'GAME_STARTED', data: { playerId: 'player-1', startedAt: '2024-01-01' } },
-      { type: 'CHOICE_MADE', data: { choiceId: 'a', option: 'help', madeAt: '2024-01-01' } },
-      { type: 'MORAL_ALIGNMENT_CHANGED', data: { delta: 25, newValue: 25 } },
-      { type: 'CHOICE_MADE', data: { choiceId: 'b', option: 'honest', madeAt: '2024-01-01' } },
-      { type: 'MORAL_ALIGNMENT_CHANGED', data: { delta: 15, newValue: 40 } }
-    ]
-
-    // Process all at once
-    const stateAll = rebuildState(events)
-
-    // Process in batches of 2
-    let stateBatched = getInitialState()
-    for (let i = 0; i < events.length; i += 2) {
-      const batch = events.slice(i, i + 2)
-      stateBatched = batch.reduce(evolveState, stateBatched)
-    }
-
-    expect(stateAll.moralAlignment).toBe(stateBatched.moralAlignment)
-    expect(stateAll.choicesMade).toEqual(stateBatched.choicesMade)
+    expect(state1.reputation.ironveil).toBe(25)
+    expect(state1.currentPhase).toBe('quest_hub')
   })
 })
 
 describe('Decider', () => {
-  it('generates GAME_STARTED events from START_GAME command', () => {
+  it('generates events from START_GAME command', () => {
     const state = getInitialState()
     const command: GameCommand = {
       type: 'START_GAME',
-      data: { playerId: 'player-1', timestamp: '2024-01-01T00:00:00Z' }
+      data: { playerId: 'player-1' }
     }
     const events = decide(command, state)
-    expect(events).toHaveLength(2) // GAME_STARTED + LOCATION_ENTERED
+
+    // Should generate: GAME_STARTED, PHASE_CHANGED, CARD_GAINED (x3), QUESTS_GENERATED
+    expect(events.length).toBeGreaterThanOrEqual(5)
     expect(events[0].type).toBe('GAME_STARTED')
-    expect(events[1].type).toBe('LOCATION_ENTERED')
+    expect(events[1].type).toBe('PHASE_CHANGED')
+
+    const gameStarted = events.find(e => e.type === 'GAME_STARTED')
+    expect(gameStarted).toBeDefined()
   })
 
   it('throws error if game already started', () => {
     const state: GameState = {
       ...getInitialState(),
-      status: 'in_progress'
+      gameStatus: 'in_progress'
     }
     const command: GameCommand = {
       type: 'START_GAME',
-      data: { playerId: 'player-1', timestamp: '2024-01-01T00:00:00Z' }
+      data: { playerId: 'player-1' }
     }
     expect(() => decide(command, state)).toThrow(InvalidCommandError)
   })
 
-  it('generates events from MAKE_CHOICE command with moral alignment', () => {
+  it('handles ACCEPT_QUEST command', () => {
     const state: GameState = {
       ...getInitialState(),
-      status: 'in_progress',
-      moralAlignment: 0
+      gameStatus: 'in_progress',
+      currentPhase: 'quest_hub'
     }
     const command: GameCommand = {
-      type: 'MAKE_CHOICE',
-      data: { choiceId: 'moral_dilemma_1', option: 'help' }
+      type: 'ACCEPT_QUEST',
+      data: { questId: 'quest_salvage_claim' }
     }
     const events = decide(command, state)
-    expect(events).toHaveLength(2)
-    expect(events[0].type).toBe('CHOICE_MADE')
-    expect(events[1].type).toBe('MORAL_ALIGNMENT_CHANGED')
-    expect((events[1] as any).data.delta).toBe(25)
+
+    expect(events.length).toBeGreaterThanOrEqual(2)
+    expect(events[0].type).toBe('QUEST_ACCEPTED')
+    expect(events[1].type).toBe('PHASE_CHANGED')
   })
 
-  it('generates negative alignment for ignore choice', () => {
+  it('throws error when accepting quest with active quest', () => {
     const state: GameState = {
       ...getInitialState(),
-      status: 'in_progress',
-      moralAlignment: 0
+      gameStatus: 'in_progress',
+      activeQuest: {
+        questId: 'existing-quest',
+        currentDilemmaIndex: 0,
+        dilemmasCompleted: 0,
+        alliances: [],
+        battlesWon: 0,
+        battlesLost: 0
+      }
     }
     const command: GameCommand = {
-      type: 'MAKE_CHOICE',
-      data: { choiceId: 'moral_dilemma_1', option: 'ignore' }
-    }
-    const events = decide(command, state)
-    expect(events).toHaveLength(2)
-    expect((events[1] as any).data.delta).toBe(-25)
-  })
-
-  it('throws error if choice already made', () => {
-    const state: GameState = {
-      ...getInitialState(),
-      status: 'in_progress',
-      choicesMade: [{ choiceId: 'moral_dilemma_1', option: 'help' }]
-    }
-    const command: GameCommand = {
-      type: 'MAKE_CHOICE',
-      data: { choiceId: 'moral_dilemma_1', option: 'ignore' }
+      type: 'ACCEPT_QUEST',
+      data: { questId: 'quest-2' }
     }
     expect(() => decide(command, state)).toThrow(InvalidCommandError)
   })
 
-  it('handles item collection', () => {
+  it('handles SELECT_CARD command', () => {
     const state: GameState = {
       ...getInitialState(),
-      status: 'in_progress'
+      gameStatus: 'in_progress',
+      currentPhase: 'card_selection',
+      ownedCards: [{
+        id: 'card-1',
+        name: 'Test Card',
+        faction: 'ironveil',
+        attack: 3,
+        armor: 3,
+        agility: 3,
+        source: 'starter',
+        acquiredAt: '2024-01-01',
+        isLocked: false
+      }],
+      currentBattle: {
+        battleId: 'battle-1',
+        phase: 'selection',
+        selectedCardIds: [],
+        positions: [null, null, null, null, null],
+        currentRound: 0,
+        rounds: []
+      }
     }
     const command: GameCommand = {
-      type: 'COLLECT_ITEM',
-      data: { itemId: 'key-1' }
+      type: 'SELECT_CARD',
+      data: { cardId: 'card-1' }
     }
     const events = decide(command, state)
+
     expect(events).toHaveLength(1)
-    expect(events[0].type).toBe('ITEM_COLLECTED')
-    expect((events[0] as any).data.itemId).toBe('key-1')
+    expect(events[0].type).toBe('CARD_SELECTED')
+  })
+
+  it('throws error when selecting card not owned', () => {
+    const state: GameState = {
+      ...getInitialState(),
+      gameStatus: 'in_progress',
+      currentPhase: 'card_selection',
+      ownedCards: [],
+      currentBattle: {
+        battleId: 'battle-1',
+        phase: 'selection',
+        selectedCardIds: [],
+        positions: [null, null, null, null, null],
+        currentRound: 0,
+        rounds: []
+      }
+    }
+    const command: GameCommand = {
+      type: 'SELECT_CARD',
+      data: { cardId: 'nonexistent-card' }
+    }
+    expect(() => decide(command, state)).toThrow(InvalidCommandError)
+  })
+
+  it('handles FORM_ALLIANCE command', () => {
+    const state: GameState = {
+      ...getInitialState(),
+      gameStatus: 'in_progress',
+      currentPhase: 'alliance',
+      reputation: {
+        ...getInitialState().reputation,
+        ironveil: 30  // Friendly status
+      }
+    }
+    const command: GameCommand = {
+      type: 'FORM_ALLIANCE',
+      data: { factionId: 'ironveil' }
+    }
+    const events = decide(command, state)
+
+    expect(events.length).toBeGreaterThanOrEqual(1)
+    expect(events[0].type).toBe('ALLIANCE_FORMED')
+  })
+
+  it('throws error when forming alliance with hostile faction', () => {
+    const state: GameState = {
+      ...getInitialState(),
+      gameStatus: 'in_progress',
+      currentPhase: 'alliance',
+      reputation: {
+        ...getInitialState().reputation,
+        ironveil: -80  // Hostile status
+      }
+    }
+    const command: GameCommand = {
+      type: 'FORM_ALLIANCE',
+      data: { factionId: 'ironveil' }
+    }
+    expect(() => decide(command, state)).toThrow(InvalidCommandError)
   })
 })

@@ -1,5 +1,6 @@
 import initSqlJs, { type Database } from 'sql.js'
-import type { GameEvent, StoredEvent, SaveGamePreview, GameState } from '../game/types'
+import type { StoredEvent, SaveGamePreview, GameState } from '../game/types'
+import type { GameEvent } from '../game/events'
 
 const DB_NAME = 'space_fortress_db'
 const DB_STORE = 'database'
@@ -203,9 +204,10 @@ export class BrowserEventStore {
     const previewData: SaveGamePreview = {
       save_name: saveName,
       player_id: playerId,
-      location: state.currentLocation,
-      moralAlignment: state.moralAlignment,
-      choiceCount: state.choicesMade.length,
+      phase: state.currentPhase,
+      activeQuestTitle: state.activeQuest?.questId,
+      bounty: state.bounty,
+      questsCompleted: state.completedQuests.length,
       saved_at: new Date().toISOString()
     }
 
