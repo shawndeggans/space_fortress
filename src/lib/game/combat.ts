@@ -429,8 +429,8 @@ export function generateBattleEvents(
     data: {
       timestamp,
       battleId,
-      playerFleet: playerFleet.map(c => ({ id: c.id, name: c.name })),
-      opponentFleet: opponentFleet.map(c => ({ id: c.id, name: c.name }))
+      playerCardIds: playerFleet.map(c => c.id),
+      opponentCards: opponentFleet
     }
   })
 
@@ -551,9 +551,12 @@ export function generateBattleEvents(
       draws: resolution.draws,
       roundsSummary: resolution.rounds.map(r => ({
         roundNumber: r.roundNumber,
-        outcome: r.outcome,
-        playerCardId: r.playerCard.id,
-        opponentCardId: r.opponentCard.id
+        playerCard: r.playerCard,
+        opponentCard: r.opponentCard,
+        initiative: r.initiative.firstStriker,
+        playerRoll: r.playerRoll,
+        opponentRoll: r.opponentRoll,
+        outcome: r.outcome
       }))
     }
   })
