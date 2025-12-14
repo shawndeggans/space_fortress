@@ -9,10 +9,11 @@
   import NpcVoiceBox from '$lib/components/NpcVoiceBox.svelte'
   import ChoiceButton from '$lib/components/ChoiceButton.svelte'
   import type { ChoiceData, ExtendedFactionId } from '$lib/components/types'
+  import type { ChoiceData as ProjectionChoiceData } from '$lib/game/projections/dilemmaView'
   import { goto } from '$app/navigation'
 
   // Derive views from game state
-  let dilemmaView = $derived(projectDilemmaView([], $gameState))
+  let dilemmaView = $derived(projectDilemmaView([], undefined, $gameState))
   let playerState = $derived(projectPlayerState([], $gameState))
 
   async function handleChoice(choiceId: string) {
@@ -21,15 +22,14 @@
     const result = await gameState.handleCommand({
       type: 'MAKE_CHOICE',
       data: {
-        dilemmaId: dilemmaView.id,
-        choiceId,
-        questId: $gameState.activeQuest?.questId || ''
+        dilemmaId: dilemmaView.dilemmaId,
+        choiceId
       }
     })
 
     if (result.success) {
       // Navigate based on what the choice triggers
-      const choice = dilemmaView.choices.find(c => c.id === choiceId)
+      const choice = dilemmaView.choices.find(c => c.choiceId === choiceId)
       if (choice?.triggersAlliance) {
         goto('/alliance')
       } else if (choice?.triggersBattle) {
@@ -47,18 +47,24 @@
     }
   }
 
-  function transformChoice(choice: typeof dilemmaView.choices[0]): ChoiceData {
+  // Transform projection ChoiceData to component ChoiceData
+  function transformChoice(choice: ProjectionChoiceData): ChoiceData {
     return {
-      id: choice.id,
+      id: choice.choiceId,
       label: choice.label,
       description: choice.description,
       consequences: {
-        reputation: choice.consequences.reputation,
-        cards: choice.consequences.cards,
-        bounty: choice.consequences.bounty,
-        risk: choice.consequences.risk
+        reputation: choice.reputationPreviews.map(rp => ({
+          faction: rp.factionId,
+          delta: rp.delta
+        })),
+        cards: [
+          ...choice.cardsGained.map(c => ({ action: 'gain' as const, cardName: c, faction: 'meridian' as const })),
+          ...choice.cardsLost.map(c => ({ action: 'lose' as const, cardName: c, faction: 'meridian' as const }))
+        ],
+        bounty: choice.bountyModifier ? { modifier: choice.bountyModifier, reason: 'choice' } : undefined,
+        risk: choice.riskDescription ? { description: choice.riskDescription, probability: choice.riskProbability || 0 } : undefined
       },
-      nextStep: choice.nextStep,
       triggersBattle: choice.triggersBattle,
       triggersAlliance: choice.triggersAlliance,
       triggersMediation: choice.triggersMediation
@@ -95,8 +101,7 @@
           <NpcVoiceBox
             npc={{
               name: voice.npcName,
-              faction: voice.faction as ExtendedFactionId,
-              portrait: voice.portrait
+              faction: voice.factionId as ExtendedFactionId
             }}
             dialogue={voice.dialogue}
             variant="full"
@@ -110,7 +115,7 @@
           <ChoiceButton
             choice={transformChoice(choice)}
             variant="full"
-            onselect={() => handleChoice(choice.id)}
+            onselect={() => handleChoice(choice.choiceId)}
           />
         {/each}
       </section>

@@ -53,17 +53,17 @@
 
       <!-- Narrative Summary -->
       <section class="narrative-section">
-        <p>{endingView.narrativeSummary}</p>
+        <p>{endingView.summaryText}</p>
       </section>
 
       <!-- Final Standings -->
       <section class="standings-section">
         <h2>Final Standings</h2>
         <div class="standings-list">
-          {#each endingView.factionStandings as faction}
+          {#each endingView.standings as faction}
             <ReputationBar
               faction={faction.factionId}
-              value={faction.value}
+              value={faction.reputation}
               variant="compact"
             />
           {/each}
@@ -74,30 +74,12 @@
       <section class="stats-section">
         <h2>Record</h2>
         <div class="stats-grid">
-          <div class="stat-item">
-            <span class="stat-value">{endingView.stats.questsCompleted}</span>
-            <span class="stat-label">Quests Completed</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-value">{endingView.stats.battlesWon}</span>
-            <span class="stat-label">Battles Won</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-value">{endingView.stats.battlesLost}</span>
-            <span class="stat-label">Battles Lost</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-value">{endingView.stats.battlesAvoided}</span>
-            <span class="stat-label">Battles Avoided</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-value">{endingView.stats.diplomaticResolutions}</span>
-            <span class="stat-label">Diplomatic Resolutions</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-value">{endingView.stats.betrayals}</span>
-            <span class="stat-label">Betrayals</span>
-          </div>
+          {#each endingView.statistics.slice(0, 6) as stat}
+            <div class="stat-item">
+              <span class="stat-value">{stat.value}</span>
+              <span class="stat-label">{stat.label}</span>
+            </div>
+          {/each}
         </div>
       </section>
 

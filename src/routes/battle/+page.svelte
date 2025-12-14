@@ -163,7 +163,7 @@
         <section class="combat-log">
           <div class="log-entries">
             {#each battleView.combatLog as entry}
-              <div class="log-entry" class:highlight={entry.isHighlight}>
+              <div class="log-entry" class:highlight={entry.type === 'outcome'}>
                 <p>{entry.text}</p>
               </div>
             {/each}

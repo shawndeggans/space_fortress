@@ -13,7 +13,7 @@
   import { goto } from '$app/navigation'
 
   // Derive views from game state
-  let allianceOptions = $derived(projectAllianceOptions([], undefined, $gameState))
+  let allianceOptions = $derived(projectAllianceOptions([], $gameState))
   let playerState = $derived(projectPlayerState([], $gameState))
 
   // Modal state
@@ -38,8 +38,7 @@
     const result = await gameState.handleCommand({
       type: 'FORM_ALLIANCE',
       data: {
-        factionId: selectedFaction,
-        questId: $gameState.activeQuest?.questId || ''
+        factionId: selectedFaction
       }
     })
 
@@ -52,7 +51,7 @@
   async function proceedWithoutAllies() {
     const result = await gameState.handleCommand({
       type: 'DECLINE_ALL_ALLIANCES',
-      data: { questId: $gameState.activeQuest?.questId || '' }
+      data: {}
     })
 
     if (result.success) {
@@ -73,7 +72,7 @@
       activeQuest={playerState.activeQuest ? {
         title: playerState.activeQuest.title,
         factionId: playerState.activeQuest.factionId,
-        progress: playerState.activeQuest.currentDilemmaIndex / playerState.activeQuest.totalDilemmas
+        progress: { current: playerState.activeQuest.currentDilemmaIndex, total: playerState.activeQuest.totalDilemmas }
       } : null}
     />
   {/if}
