@@ -2,17 +2,17 @@ import { writable, get } from 'svelte/store'
 import type { GameState, GameCommand, SaveGamePreview } from '../game/types'
 import { getInitialState, evolveState, rebuildState } from '../game/projections'
 import { decide, InvalidCommandError } from '../game/decider'
-import { getEventStore, type SQLiteEventStore } from '../eventStore/SQLiteEventStore'
+import { getEventStore, type BrowserEventStore } from '../eventStore/BrowserEventStore'
 
 const gameStateStore = writable<GameState>(getInitialState())
 const saveGamesStore = writable<SaveGamePreview[]>([])
 const errorStore = writable<string | null>(null)
 const isLoadingStore = writable<boolean>(true)
 
-let eventStore: SQLiteEventStore | null = null
+let eventStore: BrowserEventStore | null = null
 let currentPlayerId = 'player-1'
 
-async function ensureEventStore(): Promise<SQLiteEventStore> {
+async function ensureEventStore(): Promise<BrowserEventStore> {
   if (!eventStore) {
     eventStore = await getEventStore()
   }
