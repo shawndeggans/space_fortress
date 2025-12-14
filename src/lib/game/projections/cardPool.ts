@@ -15,7 +15,7 @@ import type {
   FactionId,
   OwnedCard,
   CardBattleHistory
-} from '../types'
+, GameState } from '../types'
 import { rebuildState } from '../projections'
 
 // ----------------------------------------------------------------------------
@@ -114,8 +114,8 @@ const MAX_FLEET_SIZE = 5
 // Projection Function
 // ----------------------------------------------------------------------------
 
-export function projectCardPoolView(events: GameEvent[], battleId?: string): CardPoolView {
-  const state = rebuildState(events)
+export function projectCardPoolView(events: GameEvent[], battleId?: string, providedState?: GameState): CardPoolView {
+  const state = providedState ?? rebuildState(events)
 
   // Determine if we're in battle context
   const isBattleContext = !!state.currentBattle || !!battleId

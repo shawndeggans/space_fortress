@@ -4,7 +4,7 @@
 -->
 <script lang="ts">
   import { gameState } from '$lib/stores/gameStore'
-  import { projectCardPoolView, projectPlayerState } from '$lib/game/projections'
+  import { projectCardPoolView, projectPlayerState } from '$lib/game'
   import GameHeader from '$lib/components/GameHeader.svelte'
   import Card from '$lib/components/Card.svelte'
   import FactionBadge from '$lib/components/FactionBadge.svelte'

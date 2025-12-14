@@ -4,7 +4,7 @@
 -->
 <script lang="ts">
   import { gameState } from '$lib/stores/gameStore'
-  import { projectConsequenceView, projectPlayerState } from '$lib/game/projections'
+  import { projectConsequenceView, projectPlayerState } from '$lib/game'
   import GameHeader from '$lib/components/GameHeader.svelte'
   import BountyDisplay from '$lib/components/BountyDisplay.svelte'
   import ConsequenceItem from '$lib/components/ConsequenceItem.svelte'

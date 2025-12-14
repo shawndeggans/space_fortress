@@ -12,7 +12,7 @@
 // ============================================================================
 
 import type { GameEvent } from '../events'
-import type { FactionId, ReputationStatus } from '../types'
+import type { FactionId, ReputationStatus , GameState } from '../types'
 import { rebuildState } from '../projections'
 import { getReputationStatus } from '../types'
 
@@ -216,8 +216,8 @@ const FLAVOR_QUOTES: Record<FactionId, Record<ReputationStatus, string>> = {
 // Projection Functions
 // ----------------------------------------------------------------------------
 
-export function projectReputationDashboard(events: GameEvent[]): ReputationDashboardView {
-  const state = rebuildState(events)
+export function projectReputationDashboard(events: GameEvent[], providedState?: GameState): ReputationDashboardView {
+  const state = providedState ?? rebuildState(events)
 
   // Calculate reputation trends from events
   const trends = calculateTrends(events)
@@ -273,8 +273,8 @@ export function projectReputationDashboard(events: GameEvent[]): ReputationDashb
   }
 }
 
-export function projectFactionDetailView(events: GameEvent[], factionId: FactionId): FactionDetailViewData {
-  const state = rebuildState(events)
+export function projectFactionDetailView(events: GameEvent[], factionId: FactionId, providedState?: GameState): FactionDetailViewData {
+  const state = providedState ?? rebuildState(events)
   const trends = calculateTrends(events)
 
   const rep = state.reputation[factionId]

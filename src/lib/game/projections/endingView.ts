@@ -16,7 +16,7 @@ import type {
   FactionId,
   ReputationStatus,
   EndingType
-} from '../types'
+, GameState } from '../types'
 import { rebuildState } from '../projections'
 import { getReputationStatus } from '../types'
 
@@ -155,8 +155,8 @@ const ENDINGS: Record<EndingType, EndingData> = {
 // Projection Function
 // ----------------------------------------------------------------------------
 
-export function projectEndingView(events: GameEvent[]): EndingViewData | null {
-  const state = rebuildState(events)
+export function projectEndingView(events: GameEvent[], providedState?: GameState): EndingViewData | null {
+  const state = providedState ?? rebuildState(events)
 
   // Check if game has ended
   if (state.gameStatus !== 'ended') return null

@@ -15,7 +15,7 @@ import type { GameEvent } from '../events'
 import type {
   FactionId,
   BattleOutcome
-} from '../types'
+, GameState } from '../types'
 import { rebuildState, filterEventsByType } from '../projections'
 
 // ----------------------------------------------------------------------------
@@ -148,8 +148,8 @@ const OUTCOME_NARRATIVES: Record<BattleOutcome, string[]> = {
 // Projection Function
 // ----------------------------------------------------------------------------
 
-export function projectConsequenceView(events: GameEvent[], battleId?: string): ConsequenceViewData | null {
-  const state = rebuildState(events)
+export function projectConsequenceView(events: GameEvent[], battleId?: string, providedState?: GameState): ConsequenceViewData | null {
+  const state = providedState ?? rebuildState(events)
 
   // Get battle info
   const battle = state.currentBattle

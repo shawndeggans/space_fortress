@@ -15,7 +15,7 @@ import type {
   FactionId,
   ReputationStatus,
   QuestStatus
-} from '../types'
+, GameState } from '../types'
 import { rebuildState } from '../projections'
 import { getReputationStatus } from '../types'
 
@@ -167,8 +167,8 @@ const QUEST_DATA: Record<string, QuestData> = {
 // Projection Functions
 // ----------------------------------------------------------------------------
 
-export function projectQuestList(events: GameEvent[]): QuestListView {
-  const state = rebuildState(events)
+export function projectQuestList(events: GameEvent[], providedState?: GameState): QuestListView {
+  const state = providedState ?? rebuildState(events)
 
   const available: QuestListItem[] = []
   const locked: QuestListItem[] = []
@@ -228,8 +228,8 @@ export function projectQuestList(events: GameEvent[]): QuestListView {
   }
 }
 
-export function projectQuestDetail(events: GameEvent[], questId: string): QuestDetailView | null {
-  const state = rebuildState(events)
+export function projectQuestDetail(events: GameEvent[], questId: string, providedState?: GameState): QuestDetailView | null {
+  const state = providedState ?? rebuildState(events)
   const questData = QUEST_DATA[questId]
 
   if (!questData) return null

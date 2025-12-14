@@ -11,7 +11,7 @@
 // ============================================================================
 
 import type { GameEvent } from '../events'
-import type { FactionId } from '../types'
+import type { FactionId , GameState } from '../types'
 import { rebuildState } from '../projections'
 
 // ----------------------------------------------------------------------------
@@ -143,8 +143,8 @@ const PATTERN_DESCRIPTIONS: Record<string, string> = {
 // Projection Function
 // ----------------------------------------------------------------------------
 
-export function projectChoiceArchaeologyView(events: GameEvent[]): ChoiceArchaeologyView {
-  const state = rebuildState(events)
+export function projectChoiceArchaeologyView(events: GameEvent[], providedState?: GameState): ChoiceArchaeologyView {
+  const state = providedState ?? rebuildState(events)
 
   // Get all choice events
   const choiceEvents = events.filter(

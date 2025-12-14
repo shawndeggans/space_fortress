@@ -11,7 +11,7 @@
 // ============================================================================
 
 import type { GameEvent } from '../events'
-import type { FactionId, ReputationStatus } from '../types'
+import type { FactionId, ReputationStatus , GameState } from '../types'
 import { rebuildState } from '../projections'
 import { getReputationStatus } from '../types'
 
@@ -199,8 +199,8 @@ const QUEST_TITLES: Record<string, string> = {
 // Projection Function
 // ----------------------------------------------------------------------------
 
-export function projectMediationView(events: GameEvent[], mediationId?: string): MediationViewData | null {
-  const state = rebuildState(events)
+export function projectMediationView(events: GameEvent[], mediationId?: string, providedState?: GameState): MediationViewData | null {
+  const state = providedState ?? rebuildState(events)
 
   // Get mediation ID from state or parameter
   const targetMediationId = mediationId || state.currentMediationId

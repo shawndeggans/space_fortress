@@ -23,19 +23,19 @@
       case 'alliance':
         goto('/alliance')
         break
-      case 'commitment':
+      case 'card_selection':
         goto('/card-pool')
         break
       case 'deployment':
         goto('/deployment')
         break
-      case 'execution':
+      case 'battle':
         goto('/battle')
         break
       case 'consequence':
         goto('/consequence')
         break
-      case 'ended':
+      case 'ending':
         goto('/ending')
         break
     }

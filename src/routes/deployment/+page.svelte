@@ -4,7 +4,7 @@
 -->
 <script lang="ts">
   import { gameState } from '$lib/stores/gameStore'
-  import { projectDeploymentView, projectPlayerState } from '$lib/game/projections'
+  import { projectDeploymentView, projectPlayerState } from '$lib/game'
   import GameHeader from '$lib/components/GameHeader.svelte'
   import BattleSlot from '$lib/components/BattleSlot.svelte'
   import Card from '$lib/components/Card.svelte'

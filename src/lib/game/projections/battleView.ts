@@ -18,7 +18,7 @@ import type {
   RoundOutcome,
   BattleOutcome,
   CombatRoll
-} from '../types'
+, GameState } from '../types'
 import { rebuildState } from '../projections'
 
 // ----------------------------------------------------------------------------
@@ -135,8 +135,8 @@ const TOTAL_ROUNDS = 5
 // Projection Functions
 // ----------------------------------------------------------------------------
 
-export function projectBattleView(events: GameEvent[], battleId?: string): BattleViewData | null {
-  const state = rebuildState(events)
+export function projectBattleView(events: GameEvent[], battleId?: string, providedState?: GameState): BattleViewData | null {
+  const state = providedState ?? rebuildState(events)
 
   if (!state.currentBattle) {
     return null
@@ -227,11 +227,11 @@ export function projectBattleView(events: GameEvent[], battleId?: string): Battl
   }
 }
 
-export function projectBattleResultView(events: GameEvent[], battleId?: string): BattleResultViewData | null {
+export function projectBattleResultView(events: GameEvent[], battleId?: string, providedState?: GameState): BattleResultViewData | null {
   const battleView = projectBattleView(events, battleId)
   if (!battleView) return null
 
-  const state = rebuildState(events)
+  const state = providedState ?? rebuildState(events)
   const battle = state.currentBattle
 
   // Get final outcome

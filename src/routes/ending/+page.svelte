@@ -4,7 +4,7 @@
 -->
 <script lang="ts">
   import { gameState } from '$lib/stores/gameStore'
-  import { projectEndingView } from '$lib/game/projections'
+  import { projectEndingView } from '$lib/game'
   import ReputationBar from '$lib/components/ReputationBar.svelte'
   import type { FactionId, ReputationStatus } from '$lib/components/types'
   import { goto } from '$app/navigation'

@@ -14,7 +14,7 @@ import type { GameEvent } from '../events'
 import type {
   FactionId,
   ReputationStatus
-} from '../types'
+, GameState } from '../types'
 import { rebuildState } from '../projections'
 import { getReputationStatus } from '../types'
 
@@ -209,8 +209,8 @@ const QUEST_TITLES: Record<string, string> = {
 // Projection Functions
 // ----------------------------------------------------------------------------
 
-export function projectAllianceOptions(events: GameEvent[]): AllianceOptionsView | null {
-  const state = rebuildState(events)
+export function projectAllianceOptions(events: GameEvent[], providedState?: GameState): AllianceOptionsView | null {
+  const state = providedState ?? rebuildState(events)
 
   if (!state.activeQuest) return null
 
@@ -268,8 +268,8 @@ export function projectAllianceOptions(events: GameEvent[]): AllianceOptionsView
   }
 }
 
-export function projectAllianceTermsView(events: GameEvent[], factionId: FactionId): AllianceTermsViewData | null {
-  const state = rebuildState(events)
+export function projectAllianceTermsView(events: GameEvent[], factionId: FactionId, providedState?: GameState): AllianceTermsViewData | null {
+  const state = providedState ?? rebuildState(events)
   const allianceData = ALLIANCE_DATA[factionId]
 
   if (!allianceData) return null

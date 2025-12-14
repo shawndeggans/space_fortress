@@ -4,7 +4,7 @@
 -->
 <script lang="ts">
   import { gameState } from '$lib/stores/gameStore'
-  import { projectDilemmaView, projectPlayerState } from '$lib/game/projections'
+  import { projectDilemmaView, projectPlayerState } from '$lib/game'
   import GameHeader from '$lib/components/GameHeader.svelte'
   import NpcVoiceBox from '$lib/components/NpcVoiceBox.svelte'
   import ChoiceButton from '$lib/components/ChoiceButton.svelte'

@@ -11,7 +11,7 @@
 // ============================================================================
 
 import type { GameEvent } from '../events'
-import type { FactionId, Card } from '../types'
+import type { FactionId, Card , GameState } from '../types'
 import { rebuildState } from '../projections'
 
 // ----------------------------------------------------------------------------
@@ -90,8 +90,8 @@ const TACTICS_TIPS = [
 // Projection Function
 // ----------------------------------------------------------------------------
 
-export function projectDeploymentView(events: GameEvent[], battleId?: string): DeploymentViewData | null {
-  const state = rebuildState(events)
+export function projectDeploymentView(events: GameEvent[], battleId?: string, providedState?: GameState): DeploymentViewData | null {
+  const state = providedState ?? rebuildState(events)
 
   if (!state.currentBattle) {
     return null

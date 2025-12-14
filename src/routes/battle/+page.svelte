@@ -4,7 +4,7 @@
 -->
 <script lang="ts">
   import { gameState } from '$lib/stores/gameStore'
-  import { projectBattleView, projectBattleResultView, projectPlayerState } from '$lib/game/projections'
+  import { projectBattleView, projectBattleResultView, projectPlayerState } from '$lib/game'
   import GameHeader from '$lib/components/GameHeader.svelte'
   import Card from '$lib/components/Card.svelte'
   import DiceRoll from '$lib/components/DiceRoll.svelte'

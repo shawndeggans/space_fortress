@@ -14,7 +14,7 @@ import type { GameEvent } from '../events'
 import type {
   FactionId,
   ReputationStatus
-} from '../types'
+, GameState } from '../types'
 import { rebuildState } from '../projections'
 import { getReputationStatus } from '../types'
 
@@ -188,8 +188,8 @@ const QUEST_TITLES: Record<string, string> = {
 // Projection Function
 // ----------------------------------------------------------------------------
 
-export function projectDilemmaView(events: GameEvent[], dilemmaId?: string): DilemmaViewData | null {
-  const state = rebuildState(events)
+export function projectDilemmaView(events: GameEvent[], dilemmaId?: string, providedState?: GameState): DilemmaViewData | null {
+  const state = providedState ?? rebuildState(events)
 
   // Use provided dilemmaId or current one from state
   const targetDilemmaId = dilemmaId || state.currentDilemmaId

@@ -17,7 +17,7 @@ export * from './commands'
 // Decider
 export { decide, InvalidCommandError } from './decider'
 
-// Projections
+// Core Projections
 export {
   getInitialState,
   evolveState,
@@ -26,3 +26,6 @@ export {
   filterEventsByType,
   getLatestEvent
 } from './projections'
+
+// View Projections (re-export from projections folder)
+export * from './projections/index'

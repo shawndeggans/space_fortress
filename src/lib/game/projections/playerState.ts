@@ -17,7 +17,7 @@ import type {
   ReputationStatus,
   GamePhase,
   ActiveQuest
-} from '../types'
+, GameState } from '../types'
 import { rebuildState } from '../projections'
 import { getReputationStatus } from '../types'
 
@@ -100,8 +100,8 @@ const QUEST_DILEMMA_COUNTS: Record<string, number> = {
 // Projection Function
 // ----------------------------------------------------------------------------
 
-export function projectPlayerState(events: GameEvent[]): PlayerStateView {
-  const state = rebuildState(events)
+export function projectPlayerState(events: GameEvent[], providedState?: GameState): PlayerStateView {
+  const state = providedState ?? rebuildState(events)
 
   // Build faction reputation summaries
   const factionIds: FactionId[] = [
