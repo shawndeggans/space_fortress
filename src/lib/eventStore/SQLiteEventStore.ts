@@ -1,5 +1,6 @@
 import Database from '@tauri-apps/plugin-sql'
-import type { GameEvent, StoredEvent, SaveGamePreview, GameState } from '../game/types'
+import type { StoredEvent, SaveGamePreview, GameState } from '../game/types'
+import type { GameEvent } from '../game/events'
 
 export class SQLiteEventStore {
   private db: Database | null = null
@@ -84,9 +85,10 @@ export class SQLiteEventStore {
     const previewData: SaveGamePreview = {
       save_name: saveName,
       player_id: playerId,
-      location: state.currentLocation,
-      moralAlignment: state.moralAlignment,
-      choiceCount: state.choicesMade.length,
+      phase: state.currentPhase,
+      activeQuestTitle: state.activeQuest?.questId,
+      bounty: state.bounty,
+      questsCompleted: state.completedQuests.length,
       saved_at: new Date().toISOString()
     }
 

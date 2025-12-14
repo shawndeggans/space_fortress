@@ -1,5 +1,7 @@
 import { writable, get } from 'svelte/store'
-import type { GameState, GameCommand, SaveGamePreview } from '../game/types'
+import type { GameState, SaveGamePreview } from '../game/types'
+import type { GameCommand } from '../game/commands'
+import type { GameEvent } from '../game/events'
 import { getInitialState, evolveState, rebuildState } from '../game/projections'
 import { decide, InvalidCommandError } from '../game/decider'
 import { getEventStore, type BrowserEventStore } from '../eventStore/BrowserEventStore'
