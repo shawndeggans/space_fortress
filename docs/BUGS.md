@@ -9,8 +9,8 @@
 ### Round 1 (Code/UI): ✅ ALL 80 BUGS FIXED
 All 80 TypeScript compile errors have been resolved. The codebase now compiles cleanly.
 
-### Round 2 (Gameplay Simulation): 1 NEW BUG FOUND
-22 gameplay simulations executed covering full game mechanics. 1 new bug discovered (BUG-022).
+### Round 2 (Gameplay Simulation): ✅ ALL BUGS FIXED
+22 gameplay simulations executed covering full game mechanics. BUG-022 has been fixed.
 
 **Before (Round 1):** 80 errors, 2 warnings
 **After (Round 1):** 0 errors, 1 warning (a11y - intentional behavior)
@@ -517,9 +517,10 @@ Either:
 
 ### BUG-022: ActiveQuest Missing factionId Property
 
-**Status:** 🔴 OPEN
+**Status:** ✅ FIXED
 **Severity:** Medium
 **Found in:** Gameplay Simulation Test #3
+**Fixed in:** 2025-12-14
 
 **File:** `src/lib/game/projections.ts:161-170`
 

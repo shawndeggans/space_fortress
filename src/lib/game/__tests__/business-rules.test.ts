@@ -174,7 +174,7 @@ describe('INVARIANT: Safe Card Loss', () => {
       events.cardGained('quest_card_1', 'ironveil', 'quest'), // 4 cards
       events.cardGained('quest_card_2', 'ironveil', 'quest'), // 5 cards
       events.phaseChanged('quest_hub', 'narrative'),
-      events.dilemmaPresented('dilemma_1', 'quest_salvage_claim', 'A difficult choice...')
+      events.dilemmaPresented('dilemma_1', 'quest_salvage_claim')
     ]
 
     const state = rebuildState(givenEvents)
@@ -192,40 +192,30 @@ describe('INVARIANT: Safe Card Loss', () => {
 
 describe('RULE: Commit Fleet Requires 5 Cards', () => {
 
-  it('GIVEN: 4 cards selected, WHEN: COMMIT_FLEET, THEN: should throw error', () => {
+  it('GIVEN: 4 cards owned, WHEN: COMMIT_FLEET with 4, THEN: should throw error', () => {
     const givenEvents = [
-      ...createGameStartEvents(),
+      ...createGameStartEvents(),  // 3 starter cards
       events.questAccepted('quest_salvage_claim', 'ironveil', 500),
-      events.cardGained('extra_card_1', 'ironveil', 'quest'),
+      events.cardGained('extra_card_1', 'ironveil', 'quest'),  // 4 cards total
       events.phaseChanged('alliance', 'card_selection'),
-      events.battleTriggered('battle-1', 'quest_salvage_claim', 'Scavenger attack'),
-      // Select only 4 cards
-      events.cardSelected('starter_scout', 'battle-1'),
-      events.cardSelected('starter_freighter', 'battle-1'),
-      events.cardSelected('starter_corvette', 'battle-1'),
-      events.cardSelected('starter_interceptor', 'battle-1')
+      events.battleTriggered('battle-1', 'quest_salvage_claim', 'Scavenger attack')
     ]
 
     testDecider({
       given: givenEvents,
-      when: commands.commitFleet(['starter_scout', 'starter_freighter', 'starter_corvette', 'starter_interceptor']),
+      when: commands.commitFleet(['starter_scout', 'starter_freighter', 'starter_corvette', 'extra_card_1']),
       then: expectError('Must select exactly 5 cards')
     })
   })
 
-  it('GIVEN: 5 cards selected, WHEN: COMMIT_FLEET, THEN: should succeed', () => {
+  it('GIVEN: 5 cards owned, WHEN: COMMIT_FLEET with 5, THEN: should succeed', () => {
     const givenEvents = [
-      ...createGameStartEvents(),
+      ...createGameStartEvents(),  // 3 starter cards
       events.questAccepted('quest_salvage_claim', 'ironveil', 500),
       events.cardGained('extra_card_1', 'ironveil', 'quest'),
+      events.cardGained('extra_card_2', 'ironveil', 'alliance'),  // 5 cards total
       events.phaseChanged('alliance', 'card_selection'),
-      events.battleTriggered('battle-1', 'quest_salvage_claim', 'Scavenger attack'),
-      // Select all 5 cards
-      events.cardSelected('starter_scout', 'battle-1'),
-      events.cardSelected('starter_freighter', 'battle-1'),
-      events.cardSelected('starter_corvette', 'battle-1'),
-      events.cardSelected('starter_interceptor', 'battle-1'),
-      events.cardSelected('extra_card_1', 'battle-1')
+      events.battleTriggered('battle-1', 'quest_salvage_claim', 'Scavenger attack')
     ]
 
     testDecider({
@@ -234,27 +224,22 @@ describe('RULE: Commit Fleet Requires 5 Cards', () => {
         'starter_scout',
         'starter_freighter',
         'starter_corvette',
-        'starter_interceptor',
-        'extra_card_1'
+        'extra_card_1',
+        'extra_card_2'
       ]),
       then: expectContains('FLEET_COMMITTED')
     })
   })
 
-  it('GIVEN: 6 cards selected, WHEN: COMMIT_FLEET with 5, THEN: should succeed', () => {
+  it('GIVEN: 6 cards owned, WHEN: COMMIT_FLEET with 5, THEN: should succeed', () => {
     const givenEvents = [
-      ...createGameStartEvents(),
+      ...createGameStartEvents(),  // 3 starter cards
       events.questAccepted('quest_salvage_claim', 'ironveil', 500),
       events.cardGained('extra_card_1', 'ironveil', 'quest'),
       events.cardGained('extra_card_2', 'ironveil', 'alliance'),
+      events.cardGained('extra_card_3', 'ironveil', 'alliance'),  // 6 cards total
       events.phaseChanged('alliance', 'card_selection'),
-      events.battleTriggered('battle-1', 'quest_salvage_claim', 'Scavenger attack'),
-      events.cardSelected('starter_scout', 'battle-1'),
-      events.cardSelected('starter_freighter', 'battle-1'),
-      events.cardSelected('starter_corvette', 'battle-1'),
-      events.cardSelected('starter_interceptor', 'battle-1'),
-      events.cardSelected('extra_card_1', 'battle-1')
-      // extra_card_2 not selected
+      events.battleTriggered('battle-1', 'quest_salvage_claim', 'Scavenger attack')
     ]
 
     testDecider({
@@ -263,8 +248,9 @@ describe('RULE: Commit Fleet Requires 5 Cards', () => {
         'starter_scout',
         'starter_freighter',
         'starter_corvette',
-        'starter_interceptor',
-        'extra_card_1'
+        'extra_card_1',
+        'extra_card_2'
+        // extra_card_3 not selected - that's fine
       ]),
       then: expectContains('FLEET_COMMITTED')
     })
@@ -463,5 +449,37 @@ describe('UI GUIDANCE: Alliance Options View', () => {
 
     const view = projectAllianceOptions(givenEvents)
     expect(view?.canProceedAlone).toBe(true)
+  })
+})
+
+// ============================================================================
+// BUG-022: ActiveQuest Must Store factionId
+// ============================================================================
+// Rule: When a quest is accepted, the activeQuest state must include factionId
+
+describe('BUG-022: ActiveQuest stores factionId', () => {
+
+  it('GIVEN: Game started, WHEN: QUEST_ACCEPTED with factionId, THEN: activeQuest.factionId should be set', () => {
+    const givenEvents = [
+      ...createGameStartEvents(),
+      events.questAccepted('quest_salvage_claim', 'ironveil', 500)
+    ]
+
+    const state = rebuildState(givenEvents)
+
+    expect(state.activeQuest).not.toBeNull()
+    expect(state.activeQuest?.questId).toBe('quest_salvage_claim')
+    expect(state.activeQuest?.factionId).toBe('ironveil')
+  })
+
+  it('GIVEN: Quest accepted from different faction, WHEN: checking state, THEN: correct factionId stored', () => {
+    const givenEvents = [
+      ...createGameStartEvents(),
+      events.questAccepted('quest_sanctuary_run', 'ashfall', 750)
+    ]
+
+    const state = rebuildState(givenEvents)
+
+    expect(state.activeQuest?.factionId).toBe('ashfall')
   })
 })

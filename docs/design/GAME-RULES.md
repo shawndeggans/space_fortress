@@ -212,13 +212,13 @@ THEN:  InvalidCommandError("Faction is hostile")
 
 ### RULE: Alliance Card Provision
 ```
-Faction     | Cards Provided (2 each)
-------------|-------------------------
-ironveil    | ironveil_cruiser, ironveil_interceptor
-collective  | collective_drone, collective_carrier
-freeminer   | freeminer_hauler, freeminer_gunship
-outerrim    | outerrim_raider, outerrim_scout
-corporate   | corporate_liner, corporate_escort
+Faction        | Cards Provided (2 each)
+---------------|-------------------------
+ironveil       | Hammerhead, The Creditor
+ashfall        | Phoenix Rising, Redhawk
+meridian       | Negotiator, Deal Broker
+void_wardens   | Bulwark, Sentinel
+sundered_oath  | Oathbreaker, Betrayer's Edge
 ```
 
 **Invariant**: Each alliance provides exactly 2 cards
@@ -474,16 +474,14 @@ GIVEN: Player is about to transition to card_selection phase
 WHEN:  Total available cards (owned + potential alliance) < 5
 THEN:  System must prevent this state OR provide escape route
 
-Current State: PARTIALLY IMPLEMENTED
-Problem: Player can enter card_selection with < 5 cards
-Impact: Player stuck at "Select Your Fleet" with no way forward
+Current State: ✅ IMPLEMENTED
+Solution: FINALIZE_ALLIANCES command validates minimum 5 cards before transitioning
+Implementation: decider.ts handleFinalizeAlliances() checks ownedCards.length >= 5
 ```
 
-**Required Fix Options**:
-1. Prevent battle trigger if cards < 5 (with alliance option)
-2. Ensure quest structure always grants enough cards
-3. Add "forfeit battle" option with consequences
-4. Auto-grant emergency cards with penalty
+**How it works**:
+- Player stays in alliance phase until they have enough cards
+- Error message guides player: "Need 5 cards for battle but only have X. Form more alliances to continue."
 
 ### INVARIANT 2: Alliance Cards Must Be Available
 
@@ -493,13 +491,15 @@ GIVEN: Player has formed alliance with faction F
 WHEN:  Entering card_selection phase
 THEN:  Alliance cards from faction F must be in available pool
 
-Current State: NOT IMPLEMENTED
-Problem: allianceCards calculated in allianceView but not in cardPool
-Impact: Alliance provides no benefit; cards not selectable
+Current State: ✅ IMPLEMENTED
+Solution: FORM_ALLIANCE command emits CARD_GAINED events for each alliance card
+Implementation: decider.ts handleFormAlliance() generates CARD_GAINED for 2 faction cards
 ```
 
-**Required Fix**:
-- `cardPool.ts` must include `state.currentAlliance?.cards` in available cards
+**How it works**:
+- Alliance cards are added to ownedCards via CARD_GAINED events
+- Cards appear in card pool projection automatically
+- Source tracked as 'alliance' for display purposes
 
 ### INVARIANT 3: Card Loss Cannot Create Unwinnable State
 
@@ -549,9 +549,15 @@ GIVEN: Game state at any point
 WHEN:  Save and reload
 THEN:  Reloaded state must be valid and playable
 
-Current State: NOT IMPLEMENTED
-Impact: No save/load system yet
+Current State: ✅ IMPLEMENTED
+Solution: Event-based persistence with localStorage
+Implementation: gameStore.ts saveGame/loadGame using event replay
 ```
+
+**How it works**:
+- Save stores events + metadata (phase, bounty, etc.)
+- Load replays events through evolveState to rebuild state
+- Main menu shows save previews with phase, bounty info
 
 ---
 
@@ -575,11 +581,11 @@ Impact: No save/load system yet
 ### Alliance Cards (2 per faction)
 | Faction | Cards |
 |---------|-------|
-| ironveil | ironveil_cruiser, ironveil_interceptor |
-| collective | collective_drone, collective_carrier |
-| freeminer | freeminer_hauler, freeminer_gunship |
-| outerrim | outerrim_raider, outerrim_scout |
-| corporate | corporate_liner, corporate_escort |
+| ironveil | Hammerhead, The Creditor |
+| ashfall | Phoenix Rising, Redhawk |
+| meridian | Negotiator, Deal Broker |
+| void_wardens | Bulwark, Sentinel |
+| sundered_oath | Oathbreaker, Betrayer's Edge |
 
 ### Choice Reward Cards (variable)
 Documented per quest in `content/quests.ts`
@@ -588,16 +594,16 @@ Documented per quest in `content/quests.ts`
 
 ## Implementation Checklist
 
-- [ ] Add minimum card check before `card_selection` phase transition
-- [ ] Include alliance cards in `cardPool.ts` projection
+- [x] Add minimum card check before `card_selection` phase transition (FINALIZE_ALLIANCES)
+- [x] Include alliance cards in `cardPool.ts` projection (via CARD_GAINED events)
 - [ ] Add card count validation to choice consequences
 - [ ] Audit all quest paths for card balance
 - [ ] Add "forfeit" option as escape valve
-- [ ] Implement save/load system with state validation
+- [x] Implement save/load system with state validation
 - [ ] Add UI warnings for risky card-losing choices
 
 ---
 
-*Document Version: 1.0*
-*Last Updated: Based on codebase analysis*
+*Document Version: 1.1*
+*Last Updated: 2025-12-15*
 *Reference: Event Modeling methodology from designdoc.md*

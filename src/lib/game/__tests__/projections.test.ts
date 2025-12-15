@@ -347,7 +347,10 @@ describe('Alliance Options Projection', () => {
 
   it('projects alliance options for active quest', () => {
     const events: GameEvent[] = [
-      ...createGameStartEvents(),
+      ...createGameStartEvents(),  // 3 starter cards
+      // Add 2 more cards so player has 5 total (enough to proceed alone)
+      { type: 'CARD_GAINED', data: { timestamp: ts(900), cardId: 'extra_card_1', factionId: 'ironveil', source: 'quest' } },
+      { type: 'CARD_GAINED', data: { timestamp: ts(950), cardId: 'extra_card_2', factionId: 'ironveil', source: 'quest' } },
       {
         type: 'QUEST_ACCEPTED',
         data: { timestamp: ts(1000), questId: 'quest_salvage_claim', factionId: 'ironveil', initialBounty: 500, initialCardIds: [] }
@@ -357,7 +360,7 @@ describe('Alliance Options Projection', () => {
 
     expect(view).not.toBeNull()
     expect(view?.options.length).toBeGreaterThan(0)
-    expect(view?.canProceedAlone).toBe(true)
+    expect(view?.canProceedAlone).toBe(true)  // Now true because player has 5 cards
   })
 })
 

@@ -12,7 +12,7 @@ import type { GameState } from '../types'
 import type { GameEvent } from '../events'
 import type { GameCommand } from '../commands'
 import { resolveBattle, executeBattle, setRngSeed } from '../combat'
-import type { Card } from '../types'
+import type { Card, OwnedCard } from '../types'
 import { generateOpponentFleet, generateAdaptiveFleet } from '../opponents'
 
 // Helper to apply events to state
@@ -105,8 +105,7 @@ describe('Gameplay Simulation', () => {
       // Verify quest was accepted
       expect(state.activeQuest).not.toBeNull()
       expect(state.activeQuest?.questId).toBe('quest_salvage_claim')
-      // BUG: factionId is not being stored on activeQuest (see BUGS.md BUG-022)
-      // expect(state.activeQuest?.factionId).toBe('ironveil')
+      expect(state.activeQuest?.factionId).toBe('ironveil')  // Fixed: BUG-022
 
       // Verify phase changed to narrative
       expect(state.currentPhase).toBe('narrative')
@@ -182,14 +181,21 @@ describe('Gameplay Simulation', () => {
 
   describe('Alliance System', () => {
     it('Simulation 7: Form alliance with neutral faction', () => {
-      // Create a state in alliance phase
+      // Create a state in alliance phase with 3 starter cards
+      const starterCards: OwnedCard[] = [
+        { id: 'starter1', name: 'Starter Ship 1', faction: 'meridian', attack: 3, armor: 3, agility: 3, source: 'starter', acquiredAt: '2024-01-01', isLocked: false },
+        { id: 'starter2', name: 'Starter Ship 2', faction: 'meridian', attack: 3, armor: 3, agility: 3, source: 'starter', acquiredAt: '2024-01-01', isLocked: false },
+        { id: 'starter3', name: 'Starter Ship 3', faction: 'meridian', attack: 3, armor: 3, agility: 3, source: 'starter', acquiredAt: '2024-01-01', isLocked: false }
+      ]
       let state = getInitialState()
       state = {
         ...state,
         gameStatus: 'in_progress',
         currentPhase: 'alliance',
+        ownedCards: starterCards,
         activeQuest: {
           questId: 'test_quest',
+          factionId: 'ironveil',
           currentDilemmaIndex: 1,
           dilemmasCompleted: 0,
           alliances: [],
@@ -205,7 +211,8 @@ describe('Gameplay Simulation', () => {
         }
       }
 
-      const { state: newState, events } = executeCommand(
+      // Form alliance - stays in alliance phase (allows multiple alliances)
+      const { state: afterAlliance, events } = executeCommand(
         { type: 'FORM_ALLIANCE', data: { factionId: 'meridian' } },
         state
       )
@@ -216,10 +223,20 @@ describe('Gameplay Simulation', () => {
       expect(allianceEvent?.data.factionId).toBe('meridian')
       expect(allianceEvent?.data.bountyShare).toBe(0.30) // Neutral = 30%
 
-      // Verify phase changed to card_selection
-      expect(newState.currentPhase).toBe('card_selection')
+      // Should stay in alliance phase (can form more alliances)
+      expect(afterAlliance.currentPhase).toBe('alliance')
 
-      console.log('✓ Simulation 7 passed: Alliance formation works')
+      // Finalize alliances to transition to card_selection
+      const { state: finalState, events: finalizeEvents } = executeCommand(
+        { type: 'FINALIZE_ALLIANCES', data: {} },
+        afterAlliance
+      )
+
+      // Verify phase changed to card_selection
+      expect(finalState.currentPhase).toBe('card_selection')
+      expect(finalizeEvents.some(e => e.type === 'BATTLE_TRIGGERED')).toBe(true)
+
+      console.log('✓ Simulation 7 passed: Alliance formation and finalization works')
     })
 
     it('Simulation 8: Cannot form alliance with hostile faction', () => {
@@ -230,6 +247,7 @@ describe('Gameplay Simulation', () => {
         currentPhase: 'alliance',
         activeQuest: {
           questId: 'test_quest',
+          factionId: 'ironveil',
           currentDilemmaIndex: 1,
           dilemmasCompleted: 0,
           alliances: [],
@@ -260,6 +278,7 @@ describe('Gameplay Simulation', () => {
         currentPhase: 'alliance',
         activeQuest: {
           questId: 'test_quest',
+          factionId: 'ironveil',
           currentDilemmaIndex: 1,
           dilemmasCompleted: 0,
           alliances: [],
@@ -297,6 +316,7 @@ describe('Gameplay Simulation', () => {
         currentPhase: 'card_selection',
         activeQuest: {
           questId: 'test_quest',
+          factionId: 'ironveil',
           currentDilemmaIndex: 1,
           dilemmasCompleted: 0,
           alliances: [],
@@ -313,14 +333,12 @@ describe('Gameplay Simulation', () => {
         ],
         currentBattle: {
           battleId: 'battle-1',
-          context: 'Test battle',
-          opponentFleet: [],
           selectedCardIds: [],
           positions: [null, null, null, null, null],
-          phase: 'card_selection',
+          phase: 'selection',
           currentRound: 0,
           rounds: [],
-          outcome: null
+          outcome: undefined
         }
       }
 
@@ -348,6 +366,7 @@ describe('Gameplay Simulation', () => {
         currentPhase: 'card_selection',
         activeQuest: {
           questId: 'test_quest',
+          factionId: 'ironveil',
           currentDilemmaIndex: 1,
           dilemmasCompleted: 0,
           alliances: [],
@@ -355,18 +374,16 @@ describe('Gameplay Simulation', () => {
           battlesLost: 0
         },
         ownedCards: [
-          { id: 'locked_card', name: 'Locked Card', factionId: 'ironveil', attack: 4, armor: 4, agility: 4, source: 'quest', acquiredAt: '', isLocked: true }
+          { id: 'locked_card', name: 'Locked Card', faction: 'ironveil', attack: 4, armor: 4, agility: 4, source: 'quest', acquiredAt: '', isLocked: true }
         ],
         currentBattle: {
           battleId: 'battle-1',
-          context: 'Test battle',
-          opponentFleet: [],
           selectedCardIds: [],
           positions: [null, null, null, null, null],
-          phase: 'card_selection',
+          phase: 'selection',
           currentRound: 0,
           rounds: [],
-          outcome: null
+          outcome: undefined
         }
       }
 
@@ -385,6 +402,7 @@ describe('Gameplay Simulation', () => {
         currentPhase: 'card_selection',
         activeQuest: {
           questId: 'test_quest',
+          factionId: 'ironveil',
           currentDilemmaIndex: 1,
           dilemmasCompleted: 0,
           alliances: [],
@@ -401,14 +419,12 @@ describe('Gameplay Simulation', () => {
         ],
         currentBattle: {
           battleId: 'battle-1',
-          context: 'Test battle',
-          opponentFleet: [],
           selectedCardIds: ['card1', 'card2', 'card3', 'card4', 'card5'], // Already 5 selected
           positions: [null, null, null, null, null],
-          phase: 'card_selection',
+          phase: 'selection',
           currentRound: 0,
           rounds: [],
-          outcome: null
+          outcome: undefined
         }
       }
 
@@ -423,19 +439,19 @@ describe('Gameplay Simulation', () => {
   describe('Combat Resolution', () => {
     it('Simulation 13: Combat resolves correctly with seeded RNG', () => {
       const playerFleet: Card[] = [
-        { id: 'p1', name: 'Player Card 1', factionId: 'meridian', attack: 4, armor: 3, agility: 3 },
-        { id: 'p2', name: 'Player Card 2', factionId: 'meridian', attack: 3, armor: 4, agility: 2 },
-        { id: 'p3', name: 'Player Card 3', factionId: 'meridian', attack: 5, armor: 2, agility: 4 },
-        { id: 'p4', name: 'Player Card 4', factionId: 'meridian', attack: 2, armor: 5, agility: 2 },
-        { id: 'p5', name: 'Player Card 5', factionId: 'meridian', attack: 3, armor: 3, agility: 3 }
+        { id: 'p1', name: 'Player Card 1', faction: 'meridian', attack: 4, armor: 3, agility: 3 },
+        { id: 'p2', name: 'Player Card 2', faction: 'meridian', attack: 3, armor: 4, agility: 2 },
+        { id: 'p3', name: 'Player Card 3', faction: 'meridian', attack: 5, armor: 2, agility: 4 },
+        { id: 'p4', name: 'Player Card 4', faction: 'meridian', attack: 2, armor: 5, agility: 2 },
+        { id: 'p5', name: 'Player Card 5', faction: 'meridian', attack: 3, armor: 3, agility: 3 }
       ]
 
       const opponentFleet: Card[] = [
-        { id: 'o1', name: 'Opponent Card 1', factionId: 'ashfall', attack: 3, armor: 3, agility: 3 },
-        { id: 'o2', name: 'Opponent Card 2', factionId: 'ashfall', attack: 3, armor: 3, agility: 3 },
-        { id: 'o3', name: 'Opponent Card 3', factionId: 'ashfall', attack: 3, armor: 3, agility: 3 },
-        { id: 'o4', name: 'Opponent Card 4', factionId: 'ashfall', attack: 3, armor: 3, agility: 3 },
-        { id: 'o5', name: 'Opponent Card 5', factionId: 'ashfall', attack: 3, armor: 3, agility: 3 }
+        { id: 'o1', name: 'Opponent Card 1', faction: 'ashfall', attack: 3, armor: 3, agility: 3 },
+        { id: 'o2', name: 'Opponent Card 2', faction: 'ashfall', attack: 3, armor: 3, agility: 3 },
+        { id: 'o3', name: 'Opponent Card 3', faction: 'ashfall', attack: 3, armor: 3, agility: 3 },
+        { id: 'o4', name: 'Opponent Card 4', faction: 'ashfall', attack: 3, armor: 3, agility: 3 },
+        { id: 'o5', name: 'Opponent Card 5', faction: 'ashfall', attack: 3, armor: 3, agility: 3 }
       ]
 
       // Set seed for deterministic results
@@ -470,19 +486,19 @@ describe('Gameplay Simulation', () => {
 
     it('Simulation 14: Higher stats generally win', () => {
       const strongFleet: Card[] = [
-        { id: 'p1', name: 'Strong 1', factionId: 'meridian', attack: 6, armor: 6, agility: 5 },
-        { id: 'p2', name: 'Strong 2', factionId: 'meridian', attack: 6, armor: 6, agility: 5 },
-        { id: 'p3', name: 'Strong 3', factionId: 'meridian', attack: 6, armor: 6, agility: 5 },
-        { id: 'p4', name: 'Strong 4', factionId: 'meridian', attack: 6, armor: 6, agility: 5 },
-        { id: 'p5', name: 'Strong 5', factionId: 'meridian', attack: 6, armor: 6, agility: 5 }
+        { id: 'p1', name: 'Strong 1', faction: 'meridian', attack: 6, armor: 6, agility: 5 },
+        { id: 'p2', name: 'Strong 2', faction: 'meridian', attack: 6, armor: 6, agility: 5 },
+        { id: 'p3', name: 'Strong 3', faction: 'meridian', attack: 6, armor: 6, agility: 5 },
+        { id: 'p4', name: 'Strong 4', faction: 'meridian', attack: 6, armor: 6, agility: 5 },
+        { id: 'p5', name: 'Strong 5', faction: 'meridian', attack: 6, armor: 6, agility: 5 }
       ]
 
       const weakFleet: Card[] = [
-        { id: 'o1', name: 'Weak 1', factionId: 'ashfall', attack: 1, armor: 1, agility: 1 },
-        { id: 'o2', name: 'Weak 2', factionId: 'ashfall', attack: 1, armor: 1, agility: 1 },
-        { id: 'o3', name: 'Weak 3', factionId: 'ashfall', attack: 1, armor: 1, agility: 1 },
-        { id: 'o4', name: 'Weak 4', factionId: 'ashfall', attack: 1, armor: 1, agility: 1 },
-        { id: 'o5', name: 'Weak 5', factionId: 'ashfall', attack: 1, armor: 1, agility: 1 }
+        { id: 'o1', name: 'Weak 1', faction: 'ashfall', attack: 1, armor: 1, agility: 1 },
+        { id: 'o2', name: 'Weak 2', faction: 'ashfall', attack: 1, armor: 1, agility: 1 },
+        { id: 'o3', name: 'Weak 3', faction: 'ashfall', attack: 1, armor: 1, agility: 1 },
+        { id: 'o4', name: 'Weak 4', faction: 'ashfall', attack: 1, armor: 1, agility: 1 },
+        { id: 'o5', name: 'Weak 5', faction: 'ashfall', attack: 1, armor: 1, agility: 1 }
       ]
 
       // Run multiple times to check probability
@@ -572,6 +588,7 @@ describe('Gameplay Simulation', () => {
         currentPhase: 'mediation',
         activeQuest: {
           questId: 'test_quest',
+          factionId: 'ironveil',
           currentDilemmaIndex: 1,
           dilemmasCompleted: 0,
           alliances: [],
@@ -601,6 +618,7 @@ describe('Gameplay Simulation', () => {
         currentPhase: 'mediation',
         activeQuest: {
           questId: 'test_quest',
+          factionId: 'ironveil',
           currentDilemmaIndex: 1,
           dilemmasCompleted: 0,
           alliances: [],
@@ -632,6 +650,7 @@ describe('Gameplay Simulation', () => {
         currentPhase: 'mediation',
         activeQuest: {
           questId: 'test_quest',
+          factionId: 'ironveil',
           currentDilemmaIndex: 1,
           dilemmasCompleted: 0,
           alliances: [],
@@ -665,6 +684,7 @@ describe('Gameplay Simulation', () => {
         currentPhase: 'deployment',
         activeQuest: {
           questId: 'test_quest',
+          factionId: 'ironveil',
           currentDilemmaIndex: 1,
           dilemmasCompleted: 0,
           alliances: [],
@@ -673,14 +693,12 @@ describe('Gameplay Simulation', () => {
         },
         currentBattle: {
           battleId: 'battle-1',
-          context: 'Test battle',
-          opponentFleet: [],
           selectedCardIds: ['card1', 'card2', 'card3', 'card4', 'card5'],
           positions: [null, null, null, null, null],
           phase: 'deployment',
           currentRound: 0,
           rounds: [],
-          outcome: null
+          outcome: undefined
         }
       }
 
@@ -706,6 +724,7 @@ describe('Gameplay Simulation', () => {
         currentPhase: 'deployment',
         activeQuest: {
           questId: 'test_quest',
+          factionId: 'ironveil',
           currentDilemmaIndex: 1,
           dilemmasCompleted: 0,
           alliances: [],
@@ -714,14 +733,12 @@ describe('Gameplay Simulation', () => {
         },
         currentBattle: {
           battleId: 'battle-1',
-          context: 'Test battle',
-          opponentFleet: [],
           selectedCardIds: ['card1', 'card2', 'card3', 'card4', 'card5'],
           positions: [null, null, null, null, null],
           phase: 'deployment',
           currentRound: 0,
           rounds: [],
-          outcome: null
+          outcome: undefined
         }
       }
 
@@ -774,48 +791,61 @@ describe('Gameplay Simulation', () => {
 // Any bugs discovered during simulation will be documented here
 
 describe('Bug Detection', () => {
-  it('BUG CHECK: Verify LOCK_ORDERS command signature', () => {
-    // The LOCK_ORDERS command in decider.ts expects Record<string, never> but
-    // the UI sends { battleId, positions }
+  it('BUG CHECK: Verify LOCK_ORDERS executes battle', () => {
+    // LOCK_ORDERS now executes battle and generates all battle events
     let state = getInitialState()
+
+    // Create test cards for the fleet
+    const testCards = [
+      { id: 'card1', name: 'Test Card 1', faction: 'meridian' as const, attack: 3, armor: 3, agility: 3, source: 'starter' as const, acquiredAt: '2024-01-01', isLocked: false },
+      { id: 'card2', name: 'Test Card 2', faction: 'meridian' as const, attack: 3, armor: 3, agility: 3, source: 'starter' as const, acquiredAt: '2024-01-01', isLocked: false },
+      { id: 'card3', name: 'Test Card 3', faction: 'meridian' as const, attack: 3, armor: 3, agility: 3, source: 'starter' as const, acquiredAt: '2024-01-01', isLocked: false },
+      { id: 'card4', name: 'Test Card 4', faction: 'meridian' as const, attack: 3, armor: 3, agility: 3, source: 'starter' as const, acquiredAt: '2024-01-01', isLocked: false },
+      { id: 'card5', name: 'Test Card 5', faction: 'meridian' as const, attack: 3, armor: 3, agility: 3, source: 'starter' as const, acquiredAt: '2024-01-01', isLocked: false },
+    ]
+
     state = {
       ...state,
       gameStatus: 'in_progress',
       currentPhase: 'deployment',
+      ownedCards: testCards,
       activeQuest: {
         questId: 'test_quest',
         factionId: 'ironveil',
         currentDilemmaIndex: 1,
-        totalDilemmas: 3,
-        bounty: 500,
-        alliance: null,
-        choicesMade: []
+        dilemmasCompleted: 0,
+        alliances: [],
+        battlesWon: 0,
+        battlesLost: 0
       },
       currentBattle: {
         battleId: 'battle-1',
-        context: 'Test battle',
-        opponentFleet: [],
+        phase: 'deployment',
         selectedCardIds: ['card1', 'card2', 'card3', 'card4', 'card5'],
         positions: ['card1', 'card2', 'card3', 'card4', 'card5'], // All filled
-        phase: 'deployment',
         currentRound: 0,
         rounds: [],
-        outcome: null
+        outcome: undefined,
+        opponentType: 'scavengers',
+        difficulty: 'medium'
       }
     }
 
-    // BUG: The decider handleLockOrders function signature says Record<string, never>
-    // but the UI sends { battleId, positions }
-    // This test documents the mismatch
     const { events } = executeCommand(
-      { type: 'LOCK_ORDERS', data: {} }, // Using empty data as per type
+      { type: 'LOCK_ORDERS', data: {} },
       state
     )
 
-    // Should succeed with empty data (uses state)
+    // Should have ORDERS_LOCKED event
     expect(events.find(e => e.type === 'ORDERS_LOCKED')).toBeDefined()
+    // Should have BATTLE_STARTED event (battle now executes)
+    expect(events.find(e => e.type === 'BATTLE_STARTED')).toBeDefined()
+    // Should have BATTLE_RESOLVED event
+    expect(events.find(e => e.type === 'BATTLE_RESOLVED')).toBeDefined()
+    // Should have PHASE_CHANGED to battle
+    expect(events.find(e => e.type === 'PHASE_CHANGED')).toBeDefined()
 
-    console.log('⚠️ Note: LOCK_ORDERS command data mismatch between UI and decider - UI sends positions but decider ignores them')
+    console.log(`✓ LOCK_ORDERS now executes battle - generated ${events.length} events`)
   })
 
   it('BUG CHECK: ACKNOWLEDGE_OUTCOME command signature mismatch', () => {
@@ -827,11 +857,9 @@ describe('Bug Detection', () => {
       currentPhase: 'consequence',
       currentBattle: {
         battleId: 'battle-1',
-        context: 'Test battle',
-        opponentFleet: [],
+        phase: 'resolved',
         selectedCardIds: [],
         positions: [],
-        phase: 'complete',
         currentRound: 5,
         rounds: [],
         outcome: 'victory'

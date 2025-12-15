@@ -40,7 +40,6 @@
     const result = await gameState.handleCommand({
       type: 'COMMIT_FLEET',
       data: {
-        battleId: cardPoolView.battleId || 'battle-1',
         cardIds: Array.from(selectedCardIds)
       }
     })

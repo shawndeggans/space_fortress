@@ -14,7 +14,7 @@ import { decide, InvalidCommandError } from '../decider'
 import { rebuildState, getInitialState } from '../projections'
 import type { GameCommand } from '../commands'
 import type { GameEvent } from '../events'
-import type { GameState, FactionId, OwnedCard } from '../types'
+import type { GameState, FactionId, OwnedCard, GamePhase } from '../types'
 
 // ----------------------------------------------------------------------------
 // Core Test Helper
@@ -71,11 +71,12 @@ export function testDecider(params: {
     })
   } else if (params.then.type === 'contains') {
     const events = decide(params.when, state)
-    const foundEvent = events.find(e => e.type === params.then.eventType)
+    const expectation = params.then as { type: 'contains'; eventType: string; withData?: Record<string, unknown> }
+    const foundEvent = events.find(e => e.type === expectation.eventType)
     expect(foundEvent).toBeDefined()
 
-    if (params.then.withData) {
-      expect(foundEvent?.data).toMatchObject(params.then.withData)
+    if (expectation.withData) {
+      expect(foundEvent?.data).toMatchObject(expectation.withData)
     }
   }
 }
@@ -134,7 +135,7 @@ export const events = {
     }
   }),
 
-  phaseChanged: (fromPhase: string, toPhase: string): GameEvent => ({
+  phaseChanged: (fromPhase: GamePhase, toPhase: GamePhase): GameEvent => ({
     type: 'PHASE_CHANGED',
     data: { timestamp: ts(), fromPhase, toPhase }
   }),
@@ -149,9 +150,9 @@ export const events = {
     data: { timestamp: ts(), cardId, factionId, source }
   }),
 
-  cardLost: (cardId: string, reason: string = 'choice'): GameEvent => ({
+  cardLost: (cardId: string, factionId: FactionId = 'meridian', reason: 'reputation' | 'betrayal' | 'choice' | 'penalty' = 'choice'): GameEvent => ({
     type: 'CARD_LOST',
-    data: { timestamp: ts(), cardId, reason }
+    data: { timestamp: ts(), cardId, factionId, reason }
   }),
 
   questAccepted: (questId: string, factionId: FactionId = 'ironveil', initialBounty = 500): GameEvent => ({
@@ -165,7 +166,7 @@ export const events = {
     }
   }),
 
-  reputationChanged: (factionId: FactionId, delta: number, newValue: number, source = 'choice'): GameEvent => ({
+  reputationChanged: (factionId: FactionId, delta: number, newValue: number, source: 'quest' | 'choice' | 'alliance' | 'battle' | 'betrayal' | 'discovery' = 'choice'): GameEvent => ({
     type: 'REPUTATION_CHANGED',
     data: { timestamp: ts(), factionId, delta, newValue, source }
   }),
@@ -180,14 +181,14 @@ export const events = {
     }
   }),
 
-  allianceFormed: (factionId: FactionId, bountyShare: number, cardIds: string[]): GameEvent => ({
+  allianceFormed: (factionId: FactionId, bountyShare: number, cardIdsProvided: string[], isSecret = false): GameEvent => ({
     type: 'ALLIANCE_FORMED',
     data: {
       timestamp: ts(),
       factionId,
       bountyShare,
-      cardIds,
-      battleRole: 'attacker'
+      cardIdsProvided,
+      isSecret
     }
   }),
 
@@ -214,15 +215,12 @@ export const events = {
     data: { timestamp: ts(), battleId, cardIds }
   }),
 
-  dilemmaPresented: (dilemmaId: string, questId: string, situation: string): GameEvent => ({
+  dilemmaPresented: (dilemmaId: string, questId: string): GameEvent => ({
     type: 'DILEMMA_PRESENTED',
     data: {
       timestamp: ts(),
       dilemmaId,
-      questId,
-      situation,
-      voiceIds: [],
-      choiceIds: []
+      questId
     }
   }),
 
@@ -317,7 +315,7 @@ export function createEventsWithCardCount(cardCount: number): GameEvent[] {
   // Remove cards if we need fewer than 4
   const cardsToRemove = Math.max(0, 4 - cardCount)
   for (let i = 0; i < cardsToRemove; i++) {
-    baseEvents.push(events.cardLost(`starter_scout`, 'test_removal'))
+    baseEvents.push(events.cardLost('starter_scout', 'meridian', 'choice'))
   }
 
   return baseEvents

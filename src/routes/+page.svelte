@@ -6,39 +6,14 @@
   import { gameState, saveGames } from '$lib/stores/gameStore'
   import type { SaveGamePreview } from '$lib/game/types'
   import { goto } from '$app/navigation'
-  import { onMount } from 'svelte'
+  import { navigateToPhase } from '$lib/navigation'
 
   let saveName = $state('quicksave')
   let showSaveMenu = $state(false)
 
   // Route to the appropriate screen based on game phase
-  function navigateToPhase() {
-    switch ($gameState.currentPhase) {
-      case 'quest_hub':
-        goto('/quest-hub')
-        break
-      case 'narrative':
-        goto('/narrative')
-        break
-      case 'alliance':
-        goto('/alliance')
-        break
-      case 'card_selection':
-        goto('/card-pool')
-        break
-      case 'deployment':
-        goto('/deployment')
-        break
-      case 'battle':
-        goto('/battle')
-        break
-      case 'consequence':
-        goto('/consequence')
-        break
-      case 'ending':
-        goto('/ending')
-        break
-    }
+  function handleNavigateToPhase() {
+    navigateToPhase($gameState.currentPhase)
   }
 
   async function startGame() {
@@ -51,13 +26,13 @@
   }
 
   async function continueGame() {
-    navigateToPhase()
+    handleNavigateToPhase()
   }
 
   async function load(saveToLoad: SaveGamePreview) {
     await gameState.loadGame(saveToLoad.save_name)
     showSaveMenu = false
-    navigateToPhase()
+    handleNavigateToPhase()
   }
 
   async function deleteSave(saveToDelete: SaveGamePreview) {

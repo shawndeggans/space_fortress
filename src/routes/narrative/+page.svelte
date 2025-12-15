@@ -10,6 +10,7 @@
   import type { ChoiceData, ExtendedFactionId } from '$lib/components/types'
   import type { ChoiceData as ProjectionChoiceData } from '$lib/game/projections/dilemmaView'
   import { goto } from '$app/navigation'
+  import { navigateToPhase } from '$lib/navigation'
 
   // Derive views from game state
   let dilemmaView = $derived(projectDilemmaView([], undefined, $gameState))
@@ -28,17 +29,17 @@
     if (result.success) {
       // Navigate based on what the choice triggers
       const choice = dilemmaView.choices.find(c => c.choiceId === choiceId)
-      if (choice?.triggersAlliance) {
-        goto('/alliance')
-      } else if (choice?.triggersBattle) {
-        goto('/card-pool')
+      if (choice?.triggersAlliance || choice?.triggersBattle) {
+        // Both alliance and battle choices go to alliance screen first
+        // Player must form alliance (or decline) before card selection
+        navigateToPhase('alliance')
       } else if (choice?.triggersMediation) {
-        goto('/mediation')
+        navigateToPhase('mediation')
       } else {
         // Stay on narrative for next dilemma or navigate based on phase
         const newPhase = $gameState.currentPhase
         if (newPhase === 'consequence') {
-          goto('/consequence')
+          navigateToPhase('consequence')
         }
         // Otherwise stay on narrative for next dilemma
       }

@@ -94,6 +94,7 @@ export interface Quest {
 
 export interface ActiveQuest {
   questId: string
+  factionId: FactionId
   currentDilemmaIndex: number
   dilemmasCompleted: number
   alliances: QuestAlliance[]
@@ -246,12 +247,18 @@ export interface BattleSetup {
 
 export interface BattleState {
   battleId: string
+  questId?: string
   phase: 'selection' | 'deployment' | 'execution' | 'resolved'
   selectedCardIds: string[]
   positions: (string | null)[]
   currentRound: number
   rounds: RoundResult[]
   outcome?: BattleOutcome
+  // Opponent info (from BATTLE_TRIGGERED)
+  opponentType?: string
+  opponentFactionId?: FactionId | 'scavengers' | 'pirates'
+  difficulty?: 'easy' | 'medium' | 'hard'
+  context?: string
 }
 
 export interface RoundResult {

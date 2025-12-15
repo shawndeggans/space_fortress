@@ -42,6 +42,18 @@
 
     if (result.success) {
       closeModal()
+      // Stay on alliance screen - player can form more alliances!
+      // Will navigate when they click "Continue to Card Selection"
+    }
+  }
+
+  async function continueToCardSelection() {
+    const result = await gameState.handleCommand({
+      type: 'FINALIZE_ALLIANCES',
+      data: {}
+    })
+
+    if (result.success) {
       goto('/card-pool')
     }
   }
@@ -67,8 +79,33 @@
       {/if}
     </header>
 
+    <!-- Alliance Summary (shows when player has formed alliances) -->
+    {#if allianceOptions && allianceOptions.allianceCount > 0}
+      <section class="alliance-summary">
+        <h2>Your Alliances ({allianceOptions.allianceCount})</h2>
+        <div class="summary-details">
+          <div class="allied-factions">
+            {#each allianceOptions.alliedFactionIds as factionId}
+              <FactionBadge faction={factionId} size="small" showLabel />
+            {/each}
+          </div>
+          <div class="summary-stats">
+            <span class="stat">
+              <span class="stat-label">Total Bounty Share:</span>
+              <span class="stat-value">{allianceOptions.totalBountyShare}%</span>
+            </span>
+            <span class="stat">
+              <span class="stat-label">Your Cards:</span>
+              <span class="stat-value">{allianceOptions.ownedCardCount}</span>
+            </span>
+          </div>
+        </div>
+      </section>
+    {/if}
+
     <!-- Available Allies -->
     <section class="allies-section">
+      <h2>Available Factions</h2>
       <div class="allies-grid">
         {#each allianceOptions?.options || [] as option}
           <AllianceOption
@@ -79,7 +116,11 @@
               cardProfile: option.cardProfile,
               cardCount: option.cardCount,
               bountyShare: option.bountyShare
-            } : null}
+            } : (option.isAllied ? {
+              cardProfile: option.cardProfile,
+              cardCount: option.cardCount,
+              bountyShare: option.bountyShare
+            } : null)}
             reputation={{
               value: option.currentReputation,
               status: option.reputationStatus
@@ -101,26 +142,41 @@
       </section>
     {/if}
 
-    <!-- Proceed Alone Option -->
-    <section class="alone-section">
-      <button
-        class="alone-btn"
-        class:alone-btn--blocked={!allianceOptions?.canProceedAlone}
-        data-testid="btn-proceed-alone"
-        disabled={!allianceOptions?.canProceedAlone}
-        onclick={proceedWithoutAllies}
-      >
-        <span class="alone-title">Proceed Without Allies</span>
-        {#if allianceOptions?.canProceedAlone}
-          <span class="alone-warning">
-            {allianceOptions?.proceedAloneWarning || 'You will enter battle with only your current fleet.'}
-          </span>
-        {:else}
-          <span class="alone-blocked">
-            {allianceOptions?.aloneBlockedReason || 'You need more cards to proceed alone.'}
-          </span>
-        {/if}
-      </button>
+    <!-- Action Buttons -->
+    <section class="action-section">
+      <!-- Continue to Card Selection (primary action when player has enough cards) -->
+      {#if allianceOptions?.canContinue && allianceOptions.allianceCount > 0}
+        <button
+          class="continue-btn"
+          data-testid="btn-continue-to-cards"
+          onclick={continueToCardSelection}
+        >
+          Continue to Card Selection
+          <span class="card-count-badge">{allianceOptions.ownedCardCount} cards</span>
+        </button>
+      {/if}
+
+      <!-- Proceed Without Allies (only shown if no alliances formed) -->
+      {#if allianceOptions?.allianceCount === 0}
+        <button
+          class="alone-btn"
+          class:alone-btn--blocked={!allianceOptions?.canProceedAlone}
+          data-testid="btn-proceed-alone"
+          disabled={!allianceOptions?.canProceedAlone}
+          onclick={proceedWithoutAllies}
+        >
+          <span class="alone-title">Proceed Without Allies</span>
+          {#if allianceOptions?.canProceedAlone}
+            <span class="alone-warning">
+              {allianceOptions?.proceedAloneWarning || 'You will enter battle with only your current fleet.'}
+            </span>
+          {:else}
+            <span class="alone-blocked">
+              {allianceOptions?.aloneBlockedReason || 'You need more cards to proceed alone.'}
+            </span>
+          {/if}
+        </button>
+      {/if}
     </section>
   </main>
 </div>
@@ -260,11 +316,6 @@
   .requirement-text strong {
     color: var(--warning);
     font-weight: 700;
-  }
-
-  .alone-section {
-    padding-top: var(--space-6);
-    border-top: 1px solid var(--border-default);
   }
 
   .alone-btn {
@@ -466,5 +517,98 @@
     background: var(--bg-tertiary);
     color: var(--text-dim);
     cursor: not-allowed;
+  }
+
+  /* Alliance Summary */
+  .alliance-summary {
+    padding: var(--space-4);
+    background: color-mix(in srgb, var(--success) 10%, var(--bg-secondary));
+    border: 1px solid var(--success);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--space-6);
+  }
+
+  .alliance-summary h2 {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    color: var(--success);
+    margin: 0 0 var(--space-3) 0;
+  }
+
+  .summary-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+  }
+
+  .allied-factions {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+  }
+
+  .summary-stats {
+    display: flex;
+    gap: var(--space-4);
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
+  .stat-label {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+  }
+
+  .stat-value {
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  /* Action Section */
+  .action-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding-top: var(--space-6);
+    border-top: 1px solid var(--border-default);
+  }
+
+  .continue-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3);
+    width: 100%;
+    padding: var(--space-4);
+    background: var(--accent-gradient);
+    border: none;
+    border-radius: var(--radius-lg);
+    color: white;
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+  }
+
+  .continue-btn:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+  }
+
+  .card-count-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--space-1) var(--space-2);
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
   }
 </style>

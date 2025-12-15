@@ -37,6 +37,9 @@ export interface AllianceOptionView {
 
   // Card economy guidance
   resultingCardCount: number  // How many cards player would have after forming this alliance
+
+  // Alliance state
+  isAllied: boolean  // Whether player already formed alliance with this faction
 }
 
 export interface AllianceOptionsView {
@@ -51,6 +54,9 @@ export interface AllianceOptionsView {
   // State
   hasSelectedAlliance: boolean
   selectedFactionId: FactionId | null
+  allianceCount: number  // Number of alliances formed
+  alliedFactionIds: FactionId[]  // List of factions already allied
+  totalBountyShare: number  // Total bounty share percentage across all alliances
 
   // Card economy guidance
   ownedCardCount: number
@@ -59,6 +65,7 @@ export interface AllianceOptionsView {
 
   // Proceed without allies option
   canProceedAlone: boolean
+  canContinue: boolean  // Can continue to card selection (has 5+ cards)
   proceedAloneWarning: string
   aloneBlockedReason: string | null  // If can't proceed alone, explains why
 }
@@ -240,6 +247,11 @@ export function projectAllianceOptions(events: GameEvent[], providedState?: Game
   const REQUIRED_BATTLE_CARDS = 5
   const ownedCardCount = state.ownedCards.length
 
+  // Get already-allied factions
+  const alliedFactionIds = state.activeQuest.alliances.map(a => a.faction)
+  const allianceCount = alliedFactionIds.length
+  const totalBountyShare = state.activeQuest.alliances.reduce((sum, a) => sum + Math.round(a.bountyShare * 100), 0)
+
   // Build faction options
   const options: AllianceOptionView[] = []
 
@@ -247,6 +259,7 @@ export function projectAllianceOptions(events: GameEvent[], providedState?: Game
     const currentRep = state.reputation[factionId]
     const status = getReputationStatus(currentRep)
     const isHostile = status === 'hostile'
+    const isAllied = alliedFactionIds.includes(factionId)
     const allianceCardCount = ALLIANCE_DATA[factionId].cardCount
 
     options.push({
@@ -254,26 +267,22 @@ export function projectAllianceOptions(events: GameEvent[], providedState?: Game
       factionName: FACTION_NAMES[factionId],
       factionIcon: FACTION_ICONS[factionId],
       factionColor: FACTION_COLORS[factionId],
-      available: !isHostile,
-      unavailableReason: isHostile ? "We don't work with your kind." : undefined,
+      available: !isHostile && !isAllied,
+      unavailableReason: isAllied ? 'Already allied' : (isHostile ? "We don't work with your kind." : undefined),
       currentReputation: currentRep,
       reputationStatus: status,
       bountyShare: Math.round(ALLIANCE_DATA[factionId].bountyShare * 100),
       cardCount: allianceCardCount,
       cardProfile: FACTION_CARD_PROFILES[factionId],
-      resultingCardCount: ownedCardCount + allianceCardCount
+      resultingCardCount: ownedCardCount + allianceCardCount,
+      isAllied
     })
   }
 
-  // Check if alliance already formed
-  const allianceFormedEvent = events.find(
-    e => (e.type === 'ALLIANCE_FORMED' || e.type === 'SECRET_ALLIANCE_FORMED') &&
-         state.activeQuest?.alliances.some(a => a.faction === (e.type === 'ALLIANCE_FORMED' ? e.data.factionId : e.data.factionId))
-  )
-
-  // Determine if player can proceed alone
+  // Determine if player can proceed alone (no alliances, but enough cards)
   const needsAlliance = ownedCardCount < REQUIRED_BATTLE_CARDS
-  const canProceedAlone = !needsAlliance
+  const canProceedAlone = !needsAlliance && allianceCount === 0
+  const canContinue = ownedCardCount >= REQUIRED_BATTLE_CARDS  // Has enough cards to continue
   let aloneBlockedReason: string | null = null
   let proceedAloneWarning = 'You will enter battle with only your current fleet.'
 
@@ -288,12 +297,16 @@ export function projectAllianceOptions(events: GameEvent[], providedState?: Game
     questTitle: QUEST_TITLES[state.activeQuest.questId] || state.activeQuest.questId,
     battleContext,
     options,
-    hasSelectedAlliance: state.activeQuest.alliances.length > 0,
+    hasSelectedAlliance: allianceCount > 0,
     selectedFactionId: state.activeQuest.alliances[0]?.faction || null,
+    allianceCount,
+    alliedFactionIds,
+    totalBountyShare,
     ownedCardCount,
     requiredCardCount: REQUIRED_BATTLE_CARDS,
     needsAlliance,
     canProceedAlone,
+    canContinue,
     proceedAloneWarning,
     aloneBlockedReason
   }
