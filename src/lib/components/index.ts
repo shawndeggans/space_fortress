@@ -29,3 +29,6 @@ export { default as PhaseIndicator } from './PhaseIndicator.svelte'
 // Consequence components
 export { default as BountyDisplay } from './BountyDisplay.svelte'
 export { default as ConsequenceItem } from './ConsequenceItem.svelte'
+
+// Debug components
+export { default as DebugPanel } from './DebugPanel.svelte'

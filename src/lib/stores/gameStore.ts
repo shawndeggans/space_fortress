@@ -170,6 +170,16 @@ export const gameState = {
 
   getPlayerId(): string {
     return currentPlayerId
+  },
+
+  async getAllEvents(): Promise<GameEvent[]> {
+    try {
+      const store = await ensureEventStore()
+      return await store.getEvents(`player-${currentPlayerId}`)
+    } catch (error) {
+      console.error('Failed to get events:', error)
+      return []
+    }
   }
 }
 
