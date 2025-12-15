@@ -184,7 +184,9 @@ export interface SetCardPositionCommand {
 
 export interface LockOrdersCommand {
   type: 'LOCK_ORDERS'
-  data: {}
+  data: {
+    positions: string[]  // Card IDs in position order (1-5)
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -423,8 +425,8 @@ export const CommandFactory = {
     return { type: 'SET_CARD_POSITION', data: { cardId, position } }
   },
 
-  lockOrders(): LockOrdersCommand {
-    return { type: 'LOCK_ORDERS', data: {} }
+  lockOrders(positions: string[]): LockOrdersCommand {
+    return { type: 'LOCK_ORDERS', data: { positions } }
   },
 
   leanTowardFaction(towardFactionId: FactionId): LeanTowardFactionCommand {

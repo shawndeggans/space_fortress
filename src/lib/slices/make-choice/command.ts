@@ -69,6 +69,7 @@ export interface MakeChoiceState {
   activeQuest: { questId: string } | null
   reputation: Record<FactionId, number>
   bounty: number
+  ownedCards: Array<{ id: string }>
 }
 
 // ----------------------------------------------------------------------------
@@ -150,6 +151,25 @@ export function handleMakeChoice(
   events.push(choiceMade)
 
   const consequences = choice.consequences
+
+  // Validate card loss won't drop below minimum (only if choice causes loss)
+  const MIN_BATTLE_CARDS = 5
+  const cardsToLose = consequences.cardsLost.filter(cardId =>
+    state.ownedCards.some(c => c.id === cardId)
+  ).length
+
+  if (cardsToLose > 0) {
+    const cardsToGain = consequences.cardsGained.length
+    const netCardChange = cardsToGain - cardsToLose
+    const projectedCardCount = state.ownedCards.length + netCardChange
+
+    if (projectedCardCount < MIN_BATTLE_CARDS) {
+      throw new MakeChoiceError(
+        `This choice would leave you with ${projectedCardCount} cards, ` +
+        `but you need at least ${MIN_BATTLE_CARDS} for battle. Choose differently.`
+      )
+    }
+  }
 
   // 2. Apply reputation changes
   for (const repChange of consequences.reputationChanges) {

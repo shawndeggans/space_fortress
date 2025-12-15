@@ -275,9 +275,9 @@ export const commands = {
     data: { cardIds }
   }),
 
-  lockOrders: (battleId: string, positions: string[]): GameCommand => ({
+  lockOrders: (positions: string[]): GameCommand => ({
     type: 'LOCK_ORDERS',
-    data: { battleId, positions }
+    data: { positions }
   })
 }
 

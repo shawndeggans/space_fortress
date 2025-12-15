@@ -12,15 +12,26 @@ import type { GameCommand } from './commands'
 import type { GameEvent } from './events'
 import type {
   GameState,
-  FactionId,
-  getReputationStatus,
-  canFormAlliance,
-  Card
+  FactionId
 } from './types'
 import { getDilemmaById, getQuestById, getQuestFirstDilemma } from './content/quests'
 import { getCardById, getAllianceCardIds } from './content/cards'
-import { executeBattle } from './combat'
-import { generateOpponentFleet } from './opponents'
+import {
+  handleSetCardPosition as sliceHandleSetCardPosition,
+  handleLockOrders as sliceHandleLockOrders,
+  type DeploymentState
+} from '../slices/deployment'
+import {
+  handleLeanTowardFaction as sliceHandleLeanTowardFaction,
+  handleRefuseToLean as sliceHandleRefuseToLean,
+  handleAcceptCompromise as sliceHandleAcceptCompromise,
+  type MediationState
+} from '../slices/mediation'
+import {
+  handleAcknowledgeOutcome as sliceHandleAcknowledgeOutcome,
+  handleContinueToNextPhase as sliceHandleContinueToNextPhase,
+  type ConsequenceState
+} from '../slices/consequence'
 
 // ----------------------------------------------------------------------------
 // Error Types
@@ -42,7 +53,27 @@ function timestamp(): string {
 }
 
 function generateId(prefix: string): string {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
+}
+
+function toConsequenceState(state: GameState): ConsequenceState {
+  let activeQuestInfo: ConsequenceState['activeQuest'] = null
+
+  if (state.activeQuest) {
+    const quest = getQuestById(state.activeQuest.questId)
+    activeQuestInfo = {
+      questId: state.activeQuest.questId,
+      currentDilemmaIndex: state.activeQuest.currentDilemmaIndex,
+      totalDilemmas: quest ? quest.dilemmaIds.length : 1
+    }
+  }
+
+  return {
+    currentPhase: state.currentPhase,
+    currentBattle: state.currentBattle ? { battleId: state.currentBattle.battleId } : null,
+    hasAcknowledgedOutcome: false, // This would be tracked in state if needed
+    activeQuest: activeQuestInfo
+  }
 }
 
 // Get reputation status from value
@@ -123,13 +154,13 @@ export function decide(command: GameCommand, state: GameState): GameEvent[] {
       return handleViewPosition(command, state)
 
     case 'LEAN_TOWARD_FACTION':
-      return handleLeanTowardFaction(command, state)
+      return sliceHandleLeanTowardFaction(command, state as unknown as MediationState)
 
     case 'REFUSE_TO_LEAN':
-      return handleRefuseToLean(command, state)
+      return sliceHandleRefuseToLean(command, state as unknown as MediationState)
 
     case 'ACCEPT_COMPROMISE':
-      return handleAcceptCompromise(command, state)
+      return sliceHandleAcceptCompromise(command, state as unknown as MediationState)
 
     // ========================================================================
     // Battle: Card Selection
@@ -145,14 +176,14 @@ export function decide(command: GameCommand, state: GameState): GameEvent[] {
       return handleCommitFleet(command, state)
 
     // ========================================================================
-    // Battle: Deployment
+    // Battle: Deployment (delegated to deployment slice)
     // ========================================================================
 
     case 'SET_CARD_POSITION':
-      return handleSetCardPosition(command, state)
+      return sliceHandleSetCardPosition(command, state as DeploymentState)
 
     case 'LOCK_ORDERS':
-      return handleLockOrders(command, state)
+      return sliceHandleLockOrders(command, state as DeploymentState)
 
     // ========================================================================
     // Battle: Execution
@@ -166,10 +197,10 @@ export function decide(command: GameCommand, state: GameState): GameEvent[] {
     // ========================================================================
 
     case 'ACKNOWLEDGE_OUTCOME':
-      return handleAcknowledgeOutcome(command, state)
+      return sliceHandleAcknowledgeOutcome(command, toConsequenceState(state))
 
     case 'CONTINUE_TO_NEXT_PHASE':
-      return handleContinueToNextPhase(command, state)
+      return sliceHandleContinueToNextPhase(command, toConsequenceState(state))
 
     // ========================================================================
     // Information Commands (mostly generate view events or none)
@@ -343,7 +374,26 @@ function handleAcceptQuest(
         initialBounty: quest.initialBounty,
         initialCardIds: quest.initialCards
       }
-    },
+    }
+  ]
+
+  // Emit CARD_GAINED events for each initial quest card
+  for (const cardId of quest.initialCards) {
+    const card = getCardById(cardId)
+    if (card) {
+      events.push({
+        type: 'CARD_GAINED',
+        data: {
+          timestamp: ts,
+          cardId,
+          factionId: card.faction,
+          source: 'quest'
+        }
+      })
+    }
+  }
+
+  events.push(
     {
       type: 'PHASE_CHANGED',
       data: {
@@ -360,7 +410,7 @@ function handleAcceptQuest(
         questId
       }
     }
-  ]
+  )
 
   return events
 }
@@ -426,6 +476,25 @@ function handleMakeChoice(
   ]
 
   const consequences = choice.consequences
+
+  // Validate card loss won't drop below minimum (only if choice causes loss)
+  const MIN_BATTLE_CARDS = 5
+  const cardsToLose = consequences.cardsLost.filter(cardId =>
+    state.ownedCards.some(c => c.id === cardId)
+  ).length
+
+  if (cardsToLose > 0) {
+    const cardsToGain = consequences.cardsGained.length
+    const netCardChange = cardsToGain - cardsToLose
+    const projectedCardCount = state.ownedCards.length + netCardChange
+
+    if (projectedCardCount < MIN_BATTLE_CARDS) {
+      throw new InvalidCommandError(
+        `This choice would leave you with ${projectedCardCount} cards, ` +
+        `but you need at least ${MIN_BATTLE_CARDS} for battle. Choose differently.`
+      )
+    }
+  }
 
   // Apply reputation changes
   for (const repChange of consequences.reputationChanges) {
@@ -845,91 +914,6 @@ function handleViewPosition(
   ]
 }
 
-function handleLeanTowardFaction(
-  command: { type: 'LEAN_TOWARD_FACTION'; data: { towardFactionId: FactionId } },
-  state: GameState
-): GameEvent[] {
-  if (state.currentPhase !== 'mediation') {
-    throw new InvalidCommandError('Not in mediation phase')
-  }
-
-  // TODO: Determine the "away" faction from mediation content
-  const awayFactionId: FactionId = command.data.towardFactionId === 'ironveil' ? 'ashfall' : 'ironveil'
-
-  const ts = timestamp()
-
-  return [
-    {
-      type: 'MEDIATION_LEANED',
-      data: {
-        timestamp: ts,
-        towardFactionId: command.data.towardFactionId,
-        awayFromFactionId: awayFactionId
-      }
-    }
-  ]
-}
-
-function handleRefuseToLean(
-  command: { type: 'REFUSE_TO_LEAN'; data: Record<string, never> },
-  state: GameState
-): GameEvent[] {
-  if (state.currentPhase !== 'mediation') {
-    throw new InvalidCommandError('Not in mediation phase')
-  }
-
-  const ts = timestamp()
-
-  return [
-    {
-      type: 'MEDIATION_COLLAPSED',
-      data: {
-        timestamp: ts,
-        reason: 'Player refused to lean toward either party',
-        battleTriggered: true
-      }
-    },
-    {
-      type: 'PHASE_CHANGED',
-      data: {
-        timestamp: ts,
-        fromPhase: 'mediation',
-        toPhase: 'card_selection'
-      }
-    }
-  ]
-}
-
-function handleAcceptCompromise(
-  command: { type: 'ACCEPT_COMPROMISE'; data: Record<string, never> },
-  state: GameState
-): GameEvent[] {
-  if (state.currentPhase !== 'mediation') {
-    throw new InvalidCommandError('Not in mediation phase')
-  }
-
-  const ts = timestamp()
-
-  return [
-    {
-      type: 'COMPROMISE_ACCEPTED',
-      data: {
-        timestamp: ts,
-        terms: 'Diplomatic resolution reached',
-        bountyModifier: 0.5  // Reduced bounty for diplomatic path
-      }
-    },
-    {
-      type: 'PHASE_CHANGED',
-      data: {
-        timestamp: ts,
-        fromPhase: 'mediation',
-        toPhase: 'consequence'
-      }
-    }
-  ]
-}
-
 // ----------------------------------------------------------------------------
 // Battle: Card Selection Handlers
 // ----------------------------------------------------------------------------
@@ -1054,181 +1038,14 @@ function handleCommitFleet(
 }
 
 // ----------------------------------------------------------------------------
-// Battle: Deployment Handlers
-// ----------------------------------------------------------------------------
-
-function handleSetCardPosition(
-  command: { type: 'SET_CARD_POSITION'; data: { cardId: string; position: number } },
-  state: GameState
-): GameEvent[] {
-  if (state.currentPhase !== 'deployment') {
-    throw new InvalidCommandError('Not in deployment phase')
-  }
-
-  if (!state.currentBattle) {
-    throw new InvalidCommandError('No active battle')
-  }
-
-  if (command.data.position < 1 || command.data.position > 5) {
-    throw new InvalidCommandError('Position must be 1-5')
-  }
-
-  if (!state.currentBattle.selectedCardIds.includes(command.data.cardId)) {
-    throw new InvalidCommandError('Card not in selected fleet')
-  }
-
-  return [
-    {
-      type: 'CARD_POSITIONED',
-      data: {
-        timestamp: timestamp(),
-        cardId: command.data.cardId,
-        position: command.data.position,
-        battleId: state.currentBattle.battleId
-      }
-    }
-  ]
-}
-
-function handleLockOrders(
-  command: { type: 'LOCK_ORDERS'; data: Record<string, never> },
-  state: GameState
-): GameEvent[] {
-  if (state.currentPhase !== 'deployment') {
-    throw new InvalidCommandError('Not in deployment phase')
-  }
-
-  if (!state.currentBattle) {
-    throw new InvalidCommandError('No active battle')
-  }
-
-  // Verify all 5 positions are filled
-  const positions = state.currentBattle.positions
-  if (positions.some(p => p === null)) {
-    throw new InvalidCommandError('All 5 positions must be filled')
-  }
-
-  const ts = timestamp()
-  const events: GameEvent[] = []
-
-  // First emit ORDERS_LOCKED
-  events.push({
-    type: 'ORDERS_LOCKED',
-    data: {
-      timestamp: ts,
-      battleId: state.currentBattle.battleId,
-      positions: positions as string[]
-    }
-  })
-
-  // Build player fleet from positions (order matters!)
-  const playerFleet: Card[] = (positions as string[]).map(cardId => {
-    const card = state.ownedCards.find(c => c.id === cardId)
-    if (!card) {
-      throw new InvalidCommandError(`Card not found in owned cards: ${cardId}`)
-    }
-    return {
-      id: card.id,
-      name: card.name,
-      faction: card.faction,
-      attack: card.attack,
-      armor: card.armor,
-      agility: card.agility
-    }
-  })
-
-  // Generate opponent fleet based on battle context
-  const opponentFleet = generateOpponentFleet({
-    questId: state.currentBattle.questId || state.activeQuest?.questId || 'unknown',
-    opponentType: state.currentBattle.opponentType || 'scavengers',
-    difficulty: state.currentBattle.difficulty || 'medium'
-  })
-
-  // Execute the battle and generate all battle events
-  const { events: battleEvents } = executeBattle(
-    {
-      battleId: state.currentBattle.battleId,
-      questId: state.currentBattle.questId || state.activeQuest?.questId || 'unknown',
-      context: state.currentBattle.context || 'Combat engagement',
-      timestamp: ts
-    },
-    playerFleet,
-    opponentFleet.cards
-  )
-
-  // Add all battle events
-  events.push(...battleEvents)
-
-  // Finally transition to battle phase
-  events.push({
-    type: 'PHASE_CHANGED',
-    data: {
-      timestamp: ts,
-      fromPhase: 'deployment',
-      toPhase: 'battle'
-    }
-  })
-
-  return events
-}
-
-// ----------------------------------------------------------------------------
 // Battle: Execution Handlers
 // ----------------------------------------------------------------------------
 
 function handleContinueBattle(
-  command: { type: 'CONTINUE_BATTLE'; data: Record<string, never> },
-  state: GameState
+  _command: { type: 'CONTINUE_BATTLE'; data: Record<string, never> },
+  _state: GameState
 ): GameEvent[] {
   // Battle execution is handled by the combat engine, not direct commands
   // This command is for UI flow (player clicks "Continue" to see next round)
   return []
-}
-
-// ----------------------------------------------------------------------------
-// Consequence Handlers
-// ----------------------------------------------------------------------------
-
-function handleAcknowledgeOutcome(
-  command: { type: 'ACKNOWLEDGE_OUTCOME'; data: Record<string, never> },
-  state: GameState
-): GameEvent[] {
-  if (state.currentPhase !== 'consequence') {
-    throw new InvalidCommandError('Not in consequence phase')
-  }
-
-  if (!state.currentBattle) {
-    throw new InvalidCommandError('No battle to acknowledge')
-  }
-
-  return [
-    {
-      type: 'OUTCOME_ACKNOWLEDGED',
-      data: {
-        timestamp: timestamp(),
-        battleId: state.currentBattle.battleId
-      }
-    }
-  ]
-}
-
-function handleContinueToNextPhase(
-  command: { type: 'CONTINUE_TO_NEXT_PHASE'; data: Record<string, never> },
-  state: GameState
-): GameEvent[] {
-  // Determine next phase based on game state
-  // This is context-dependent and would check quest progress, etc.
-  const ts = timestamp()
-
-  // Default: go back to narrative for next dilemma or quest hub
-  return [
-    {
-      type: 'PHASE_CHANGED',
-      data: {
-        timestamp: ts,
-        fromPhase: state.currentPhase,
-        toPhase: 'narrative'  // Or 'quest_hub' if quest is complete
-      }
-    }
-  ]
 }

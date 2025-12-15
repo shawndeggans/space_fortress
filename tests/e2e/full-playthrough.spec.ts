@@ -14,7 +14,7 @@ import {
   startNewGame,
   acceptQuest,
   makeChoice,
-  proceedWithoutAlliance,
+  formAllianceAndContinue,
   waitForHydration,
   expectScreen,
 } from './helpers/gameActions'
@@ -93,7 +93,7 @@ test.describe('Alliance Phase', () => {
     }
   })
 
-  test('can proceed without alliance', async ({ page }) => {
+  test('proceed alone button is disabled without enough cards', async ({ page }) => {
     await startNewGame(page)
     await acceptQuest(page)
     await makeChoice(page, 1)
@@ -103,8 +103,13 @@ test.describe('Alliance Phase', () => {
     }
 
     if (page.url().includes('/alliance')) {
-      await proceedWithoutAlliance(page)
-      await expectScreen(page, 'card-pool')
+      await expectScreen(page, 'alliance')
+
+      // Verify proceed alone button is DISABLED (player has only 4 cards, needs 5)
+      await expect(selectors.alliance.proceedAloneButton(page)).toBeDisabled()
+
+      // Verify the warning message is shown
+      await expect(page.locator('.card-requirement-banner')).toBeVisible()
     }
   })
 })
@@ -116,7 +121,8 @@ test.describe('Card Pool Phase', () => {
     await makeChoice(page, 0) // Choice that triggers battle directly
 
     if (page.url().includes('/alliance')) {
-      await proceedWithoutAlliance(page)
+      // Form alliance to get enough cards for battle (3 starter + 1 quest + 2 alliance = 6)
+      await formAllianceAndContinue(page)
     }
 
     if (page.url().includes('/card-pool')) {
@@ -126,38 +132,37 @@ test.describe('Card Pool Phase', () => {
       await expect(selectors.common.heading(page, /Select Your Fleet/i)).toBeVisible()
       await expect(selectors.cardPool.anyCard(page).first()).toBeVisible()
 
-      // Verify we have the 3 starter cards
+      // Verify we have 6+ cards (3 starter + 1 quest + 2 alliance)
       const cardCount = await selectors.cardPool.anyCard(page).count()
-      expect(cardCount).toBeGreaterThanOrEqual(3)
+      expect(cardCount).toBeGreaterThanOrEqual(6)
     }
   })
 
-  test('can select cards (up to available count)', async ({ page }) => {
+  test('can select cards for battle', async ({ page }) => {
     await startNewGame(page)
     await acceptQuest(page)
     await makeChoice(page, 0)
 
     if (page.url().includes('/alliance')) {
-      await proceedWithoutAlliance(page)
+      await formAllianceAndContinue(page)
     }
 
     if (page.url().includes('/card-pool')) {
       const cards = selectors.cardPool.anyCard(page)
       const cardCount = await cards.count()
 
-      // Select all available cards
-      for (let i = 0; i < cardCount; i++) {
+      // Select 5 cards for battle
+      for (let i = 0; i < 5 && i < cardCount; i++) {
         await cards.nth(i).click()
         await page.waitForTimeout(100)
       }
 
-      // Verify selection count shows cards selected
+      // Verify selection count shows 5 cards selected
       const selectionText = await page.locator('.selection-count').textContent()
-      expect(selectionText).toContain(`${cardCount}`)
+      expect(selectionText).toContain('5')
 
-      // Note: Can't proceed to battle without 5 cards (game logic limitation)
-      // The commit button should be disabled with only 3 cards
-      await expect(selectors.cardPool.commitFleetButton(page)).toBeDisabled()
+      // With 5+ cards, commit button should be ENABLED
+      await expect(selectors.cardPool.commitFleetButton(page)).toBeEnabled()
     }
   })
 })
@@ -199,56 +204,43 @@ test.describe('Quest Selection', () => {
 })
 
 test.describe('Full Battle Flow', () => {
-  test('can complete battle with cards gained through choices', async ({ page }) => {
+  test('can complete battle with alliance cards', async ({ page }) => {
     await startNewGame(page)
     await acceptQuest(page)
 
-    // Path to get 5 cards:
-    // Start: 3 starter cards + 1 quest card = 4 cards
-    // Navigate to gain an extra card through choice consequences
+    // Make choice that triggers battle/alliance
+    await makeChoice(page, 0)
 
-    // Dilemma 1: Choose "Hail the vessels" (choice index 1) to go to dilemma 2
-    await makeChoice(page, 1)
-
-    // Should still be on narrative for dilemma 2
-    if (page.url().includes('/narrative')) {
-      // Dilemma 2: Choose "Release the survivors" (choice index 1) to get ashfall_ember card
-      // This gives us 5 cards total
-      await makeChoice(page, 1)
-    }
-
-    // Navigate to card pool (through alliance if needed)
+    // Form alliance to get enough cards (3 starter + 1 quest + 2 alliance = 6)
     if (page.url().includes('/alliance')) {
-      await proceedWithoutAlliance(page)
+      await formAllianceAndContinue(page)
     }
 
-    // We should now have 5 cards and can proceed to battle
+    // Now we have 6 cards and can proceed to battle
     if (page.url().includes('/card-pool')) {
       await expectScreen(page, 'card-pool')
 
-      // Verify we have 5+ cards
+      // Verify we have 6+ cards
       const cards = selectors.cardPool.anyCard(page)
       const cardCount = await cards.count()
 
       // Log card count for debugging
       console.log(`Available cards for battle: ${cardCount}`)
+      expect(cardCount).toBeGreaterThanOrEqual(6)
 
-      // If we have 5+ cards, we can select them and commit
-      if (cardCount >= 5) {
-        // Select 5 cards
-        for (let i = 0; i < 5; i++) {
-          await cards.nth(i).click()
-          await page.waitForTimeout(100)
-        }
-
-        // Commit fleet button should be enabled
-        await expect(selectors.cardPool.commitFleetButton(page)).toBeEnabled({ timeout: 5000 })
-        await selectors.cardPool.commitFleetButton(page).click()
-
-        // Should navigate to deployment
-        await page.waitForURL('**/deployment', { timeout: 10000 })
-        await expectScreen(page, 'deployment')
+      // Select 5 cards
+      for (let i = 0; i < 5; i++) {
+        await cards.nth(i).click()
+        await page.waitForTimeout(100)
       }
+
+      // Commit fleet button should be enabled
+      await expect(selectors.cardPool.commitFleetButton(page)).toBeEnabled({ timeout: 5000 })
+      await selectors.cardPool.commitFleetButton(page).click()
+
+      // Should navigate to deployment
+      await page.waitForURL('**/deployment', { timeout: 10000 })
+      await expectScreen(page, 'deployment')
     }
   })
 })

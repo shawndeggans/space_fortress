@@ -41,6 +41,7 @@ export const alliance = {
   proceedAloneButton: (page: Page) => page.getByTestId('btn-proceed-alone'),
   formAllianceButton: (page: Page) => page.getByTestId('btn-form-alliance'),
   cancelAllianceButton: (page: Page) => page.getByTestId('btn-cancel-alliance'),
+  continueToCardsButton: (page: Page) => page.getByTestId('btn-continue-to-cards'),
 }
 
 /**

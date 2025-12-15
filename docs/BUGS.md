@@ -1,8 +1,8 @@
 # Space Fortress - QA Bug Report
 
-**Date:** 2025-12-14
-**QA Focus:** Code and UI, Gameplay Simulation
-**Test Status:** Unit tests pass (113/113), TypeScript check passes (0 errors, 1 warning)
+**Date:** 2025-12-15
+**QA Focus:** Code and UI, Gameplay Simulation, E2E Playtesting
+**Test Status:** Unit tests pass (361/361), E2E tests pass (48/48), TypeScript check passes (0 errors)
 
 ## Current Status
 
@@ -12,8 +12,68 @@ All 80 TypeScript compile errors have been resolved. The codebase now compiles c
 ### Round 2 (Gameplay Simulation): ✅ ALL BUGS FIXED
 22 gameplay simulations executed covering full game mechanics. BUG-022 has been fixed.
 
+### Round 3 (E2E Playtesting): ✅ BUG FOUND AND FIXED
+48 E2E tests executed covering URL navigation, card economy, and game flow. BUG-R3-001 has been fixed.
+
 **Before (Round 1):** 80 errors, 2 warnings
 **After (Round 1):** 0 errors, 1 warning (a11y - intentional behavior)
+
+---
+
+## Round 3: E2E Playtesting Bugs
+
+### BUG-R3-001: FLEET_COMMITTED Event Handler Missing Card IDs ✅ FIXED
+
+**File:** `src/lib/game/projections.ts:472-480`
+
+**Description:**
+The `FLEET_COMMITTED` event handler only updated the battle phase to `deployment` but did not store the committed card IDs. This caused the deployment screen to show "Assign 5 more cards" with no cards available to drag.
+
+**Root Cause:**
+The projection handler was missing the line to store `selectedCardIds` from the event data.
+
+**Before (Broken):**
+```typescript
+case 'FLEET_COMMITTED':
+  if (!state.currentBattle) return state
+  return {
+    ...state,
+    currentBattle: {
+      ...state.currentBattle,
+      phase: 'deployment'  // Missing: selectedCardIds
+    }
+  }
+```
+
+**After (Fixed):**
+```typescript
+case 'FLEET_COMMITTED':
+  if (!state.currentBattle) return state
+  return {
+    ...state,
+    currentBattle: {
+      ...state.currentBattle,
+      phase: 'deployment',
+      selectedCardIds: event.data.cardIds  // Added
+    }
+  }
+```
+
+**Impact:** Critical - Players could not complete battles as cards weren't available on deployment screen.
+
+**Tests Added:**
+- `tests/e2e/url-edge-cases.spec.ts` - 11 tests for URL navigation edge cases
+- `tests/e2e/card-economy-edge-cases.spec.ts` - 5 tests for card economy validation
+
+---
+
+## A11y Warnings (Low Priority)
+
+**File:** `src/lib/components/BattleSlot.svelte:61`
+- Noninteractive element with nonnegative tabIndex value
+
+**File:** `src/lib/components/GameMenu.svelte:113`
+- `<div>` with click handler without ARIA role
 
 ---
 

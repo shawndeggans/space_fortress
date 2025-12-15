@@ -44,8 +44,8 @@ test.describe('Route Accessibility', () => {
     const response = await page.goto('/mediation')
     expect(response?.status()).toBe(200)
 
-    // Page should render content
-    await expect(page.locator('h1')).toBeVisible()
+    // Page should render content (h1 with mediation, h2 with "No Active Mediation" fallback)
+    await expect(page.locator('h1, h2').first()).toBeVisible()
   })
 
   test('card-pool route exists (maps to card_selection phase)', async ({ page }) => {

@@ -228,7 +228,7 @@ export function projectBattleView(events: GameEvent[], battleId?: string, provid
 }
 
 export function projectBattleResultView(events: GameEvent[], battleId?: string, providedState?: GameState): BattleResultViewData | null {
-  const battleView = projectBattleView(events, battleId)
+  const battleView = projectBattleView(events, battleId, providedState)
   if (!battleView) return null
 
   const state = providedState ?? rebuildState(events)
