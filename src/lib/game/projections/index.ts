@@ -35,9 +35,9 @@ export type { BattleViewData, BattleResultViewData } from './battleView'
 export { projectConsequenceView } from './consequenceView'
 export type { ConsequenceViewData } from './consequenceView'
 
-// Extended system projections
-export { projectAllianceOptions, projectAllianceTermsView } from './allianceView'
-export type { AllianceOptionsView, AllianceTermsViewData } from './allianceView'
+// Alliance projections - now from form-alliance slice
+export { projectAllianceOptions, projectAllianceTermsView } from '../../slices/form-alliance'
+export type { AllianceOptionsView, AllianceTermsViewData } from '../../slices/form-alliance'
 
 export { projectMediationView } from './mediationView'
 export type { MediationViewData } from './mediationView'
