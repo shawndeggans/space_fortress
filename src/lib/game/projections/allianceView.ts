@@ -34,6 +34,12 @@ export interface AllianceOptionView {
   bountyShare: number
   cardCount: number
   cardProfile: string  // e.g., "Tank", "Interceptor"
+
+  // Card economy guidance
+  resultingCardCount: number  // How many cards player would have after forming this alliance
+
+  // Alliance state
+  isAllied: boolean  // Whether player already formed alliance with this faction
 }
 
 export interface AllianceOptionsView {
@@ -48,10 +54,20 @@ export interface AllianceOptionsView {
   // State
   hasSelectedAlliance: boolean
   selectedFactionId: FactionId | null
+  allianceCount: number  // Number of alliances formed
+  alliedFactionIds: FactionId[]  // List of factions already allied
+  totalBountyShare: number  // Total bounty share percentage across all alliances
+
+  // Card economy guidance
+  ownedCardCount: number
+  requiredCardCount: number  // Always 5 for battle
+  needsAlliance: boolean  // true if ownedCards < 5
 
   // Proceed without allies option
   canProceedAlone: boolean
+  canContinue: boolean  // Can continue to card selection (has 5+ cards)
   proceedAloneWarning: string
+  aloneBlockedReason: string | null  // If can't proceed alone, explains why
 }
 
 export interface AllianceTermsViewData {
@@ -227,6 +243,15 @@ export function projectAllianceOptions(events: GameEvent[], providedState?: Game
     battleContext = alliancePhaseEvent.data.battleContext
   }
 
+  // Card economy calculations
+  const REQUIRED_BATTLE_CARDS = 5
+  const ownedCardCount = state.ownedCards.length
+
+  // Get already-allied factions
+  const alliedFactionIds = state.activeQuest.alliances.map(a => a.faction)
+  const allianceCount = alliedFactionIds.length
+  const totalBountyShare = state.activeQuest.alliances.reduce((sum, a) => sum + Math.round(a.bountyShare * 100), 0)
+
   // Build faction options
   const options: AllianceOptionView[] = []
 
@@ -234,37 +259,56 @@ export function projectAllianceOptions(events: GameEvent[], providedState?: Game
     const currentRep = state.reputation[factionId]
     const status = getReputationStatus(currentRep)
     const isHostile = status === 'hostile'
+    const isAllied = alliedFactionIds.includes(factionId)
+    const allianceCardCount = ALLIANCE_DATA[factionId].cardCount
 
     options.push({
       factionId,
       factionName: FACTION_NAMES[factionId],
       factionIcon: FACTION_ICONS[factionId],
       factionColor: FACTION_COLORS[factionId],
-      available: !isHostile,
-      unavailableReason: isHostile ? "We don't work with your kind." : undefined,
+      available: !isHostile && !isAllied,
+      unavailableReason: isAllied ? 'Already allied' : (isHostile ? "We don't work with your kind." : undefined),
       currentReputation: currentRep,
       reputationStatus: status,
       bountyShare: Math.round(ALLIANCE_DATA[factionId].bountyShare * 100),
-      cardCount: ALLIANCE_DATA[factionId].cardCount,
-      cardProfile: FACTION_CARD_PROFILES[factionId]
+      cardCount: allianceCardCount,
+      cardProfile: FACTION_CARD_PROFILES[factionId],
+      resultingCardCount: ownedCardCount + allianceCardCount,
+      isAllied
     })
   }
 
-  // Check if alliance already formed
-  const allianceFormedEvent = events.find(
-    e => (e.type === 'ALLIANCE_FORMED' || e.type === 'SECRET_ALLIANCE_FORMED') &&
-         state.activeQuest?.alliances.some(a => a.faction === (e.type === 'ALLIANCE_FORMED' ? e.data.factionId : e.data.factionId))
-  )
+  // Determine if player can proceed alone (no alliances, but enough cards)
+  const needsAlliance = ownedCardCount < REQUIRED_BATTLE_CARDS
+  const canProceedAlone = !needsAlliance && allianceCount === 0
+  const canContinue = ownedCardCount >= REQUIRED_BATTLE_CARDS  // Has enough cards to continue
+  let aloneBlockedReason: string | null = null
+  let proceedAloneWarning = 'You will enter battle with only your current fleet.'
+
+  if (needsAlliance) {
+    aloneBlockedReason = `You need ${REQUIRED_BATTLE_CARDS} cards for battle but only have ${ownedCardCount}. Form an alliance to gain more cards.`
+  } else {
+    proceedAloneWarning = 'You will enter battle without ally support. Consider forming an alliance for tactical advantage.'
+  }
 
   return {
     questId: state.activeQuest.questId,
     questTitle: QUEST_TITLES[state.activeQuest.questId] || state.activeQuest.questId,
     battleContext,
     options,
-    hasSelectedAlliance: state.activeQuest.alliances.length > 0,
+    hasSelectedAlliance: allianceCount > 0,
     selectedFactionId: state.activeQuest.alliances[0]?.faction || null,
-    canProceedAlone: true,
-    proceedAloneWarning: 'You will enter battle with only your current fleet. This is not recommended.'
+    allianceCount,
+    alliedFactionIds,
+    totalBountyShare,
+    ownedCardCount,
+    requiredCardCount: REQUIRED_BATTLE_CARDS,
+    needsAlliance,
+    canProceedAlone,
+    canContinue,
+    proceedAloneWarning,
+    aloneBlockedReason
   }
 }
 

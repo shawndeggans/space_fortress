@@ -65,7 +65,7 @@
 </script>
 
 {#if state === 'available'}
-  <button class="quest-card quest-card--available" onclick={onclick}>
+  <button class="quest-card quest-card--available" data-testid="quest-{quest.id}" onclick={onclick}>
     <header class="quest-card__header">
       <FactionBadge faction={quest.faction} showLabel size="small" />
     </header>
@@ -90,7 +90,7 @@
   </button>
 
 {:else if state === 'active'}
-  <div class="quest-card quest-card--active">
+  <div class="quest-card quest-card--active" data-testid="quest-{quest.id}">
     <header class="quest-card__header quest-card__header--active">
       <div class="header-left">
         <FactionBadge faction={quest.faction} size="small" />
@@ -118,7 +118,7 @@
   </div>
 
 {:else if state === 'locked'}
-  <div class="quest-card quest-card--locked">
+  <div class="quest-card quest-card--locked" data-testid="quest-{quest.id}">
     <div class="quest-card__locked-overlay">
       <span class="locked-title">{quest.title}</span>
     </div>
@@ -129,7 +129,7 @@
   </div>
 
 {:else if state === 'completed'}
-  <div class="quest-card quest-card--completed">
+  <div class="quest-card quest-card--completed" data-testid="quest-{quest.id}">
     <header class="quest-card__header">
       <FactionBadge faction={quest.faction} showLabel size="small" />
       <span class="quest-card__status quest-card__status--completed">✓ Completed</span>
@@ -140,7 +140,7 @@
   </div>
 
 {:else if state === 'failed'}
-  <div class="quest-card quest-card--failed">
+  <div class="quest-card quest-card--failed" data-testid="quest-{quest.id}">
     <header class="quest-card__header">
       <FactionBadge faction={quest.faction} showLabel size="small" />
       <span class="quest-card__status quest-card__status--failed">✗ Failed</span>

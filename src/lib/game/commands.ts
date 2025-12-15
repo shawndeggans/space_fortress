@@ -104,6 +104,11 @@ export interface DeclineAllAlliancesCommand {
   data: {}
 }
 
+export interface FinalizeAlliancesCommand {
+  type: 'FINALIZE_ALLIANCES'
+  data: {}
+}
+
 export interface FormSecretAllianceCommand {
   type: 'FORM_SECRET_ALLIANCE'
   data: {
@@ -160,7 +165,9 @@ export interface DeselectCardCommand {
 
 export interface CommitFleetCommand {
   type: 'COMMIT_FLEET'
-  data: {}
+  data: {
+    cardIds: string[]
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -285,6 +292,7 @@ export type GameCommand =
   | FormAllianceCommand
   | RejectAllianceTermsCommand
   | DeclineAllAlliancesCommand
+  | FinalizeAlliancesCommand
   | FormSecretAllianceCommand
   // Mediation
   | ViewPositionCommand
@@ -344,6 +352,7 @@ export function isAllianceCommand(command: GameCommand): boolean {
     'FORM_ALLIANCE',
     'REJECT_ALLIANCE_TERMS',
     'DECLINE_ALL_ALLIANCES',
+    'FINALIZE_ALLIANCES',
     'FORM_SECRET_ALLIANCE'
   ].includes(command.type)
 }
@@ -390,6 +399,10 @@ export const CommandFactory = {
     return { type: 'FORM_ALLIANCE', data: { factionId } }
   },
 
+  finalizeAlliances(): FinalizeAlliancesCommand {
+    return { type: 'FINALIZE_ALLIANCES', data: {} }
+  },
+
   formSecretAlliance(factionId: FactionId, publicFactionId?: FactionId): FormSecretAllianceCommand {
     return { type: 'FORM_SECRET_ALLIANCE', data: { factionId, publicFactionId } }
   },
@@ -402,8 +415,8 @@ export const CommandFactory = {
     return { type: 'DESELECT_CARD', data: { cardId } }
   },
 
-  commitFleet(): CommitFleetCommand {
-    return { type: 'COMMIT_FLEET', data: {} }
+  commitFleet(cardIds: string[]): CommitFleetCommand {
+    return { type: 'COMMIT_FLEET', data: { cardIds } }
   },
 
   setCardPosition(cardId: string, position: number): SetCardPositionCommand {

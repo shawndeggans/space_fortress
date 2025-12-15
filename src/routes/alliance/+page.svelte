@@ -4,8 +4,7 @@
 -->
 <script lang="ts">
   import { gameState } from '$lib/stores/gameStore'
-  import { projectAllianceOptions, projectAllianceTermsView, projectPlayerState } from '$lib/game'
-  import GameHeader from '$lib/components/GameHeader.svelte'
+  import { projectAllianceOptions, projectAllianceTermsView } from '$lib/game'
   import AllianceOption from '$lib/components/AllianceOption.svelte'
   import Modal from '$lib/components/Modal.svelte'
   import FactionBadge from '$lib/components/FactionBadge.svelte'
@@ -14,7 +13,6 @@
 
   // Derive views from game state
   let allianceOptions = $derived(projectAllianceOptions([], $gameState))
-  let playerState = $derived(projectPlayerState([], $gameState))
 
   // Modal state
   let selectedFaction = $state<FactionId | null>(null)
@@ -44,6 +42,18 @@
 
     if (result.success) {
       closeModal()
+      // Stay on alliance screen - player can form more alliances!
+      // Will navigate when they click "Continue to Card Selection"
+    }
+  }
+
+  async function continueToCardSelection() {
+    const result = await gameState.handleCommand({
+      type: 'FINALIZE_ALLIANCES',
+      data: {}
+    })
+
+    if (result.success) {
       goto('/card-pool')
     }
   }
@@ -61,22 +71,6 @@
 </script>
 
 <div class="alliance-screen">
-  {#if playerState}
-    <GameHeader
-      bounty={playerState.bounty}
-      reputations={playerState.reputations.map(f => ({
-        factionId: f.factionId,
-        value: f.value,
-        status: f.status
-      }))}
-      activeQuest={playerState.activeQuest ? {
-        title: playerState.activeQuest.title,
-        factionId: playerState.activeQuest.factionId,
-        progress: { current: playerState.activeQuest.currentDilemmaIndex, total: playerState.activeQuest.totalDilemmas }
-      } : null}
-    />
-  {/if}
-
   <main class="alliance-content">
     <header class="section-header">
       <h1>Form an Alliance</h1>
@@ -85,8 +79,33 @@
       {/if}
     </header>
 
+    <!-- Alliance Summary (shows when player has formed alliances) -->
+    {#if allianceOptions && allianceOptions.allianceCount > 0}
+      <section class="alliance-summary">
+        <h2>Your Alliances ({allianceOptions.allianceCount})</h2>
+        <div class="summary-details">
+          <div class="allied-factions">
+            {#each allianceOptions.alliedFactionIds as factionId}
+              <FactionBadge faction={factionId} size="small" showLabel />
+            {/each}
+          </div>
+          <div class="summary-stats">
+            <span class="stat">
+              <span class="stat-label">Total Bounty Share:</span>
+              <span class="stat-value">{allianceOptions.totalBountyShare}%</span>
+            </span>
+            <span class="stat">
+              <span class="stat-label">Your Cards:</span>
+              <span class="stat-value">{allianceOptions.ownedCardCount}</span>
+            </span>
+          </div>
+        </div>
+      </section>
+    {/if}
+
     <!-- Available Allies -->
     <section class="allies-section">
+      <h2>Available Factions</h2>
       <div class="allies-grid">
         {#each allianceOptions?.options || [] as option}
           <AllianceOption
@@ -97,7 +116,11 @@
               cardProfile: option.cardProfile,
               cardCount: option.cardCount,
               bountyShare: option.bountyShare
-            } : null}
+            } : (option.isAllied ? {
+              cardProfile: option.cardProfile,
+              cardCount: option.cardCount,
+              bountyShare: option.bountyShare
+            } : null)}
             reputation={{
               value: option.currentReputation,
               status: option.reputationStatus
@@ -108,14 +131,52 @@
       </div>
     </section>
 
-    <!-- Proceed Alone Option -->
-    <section class="alone-section">
-      <button class="alone-btn" onclick={proceedWithoutAllies}>
-        <span class="alone-title">Proceed Without Allies</span>
-        <span class="alone-warning">
-          {allianceOptions?.proceedAloneWarning || 'Warning: You will enter battle with only your current fleet.'}
+    <!-- Card Count Info -->
+    {#if allianceOptions?.needsAlliance}
+      <section class="card-requirement-banner">
+        <span class="requirement-icon">⚠️</span>
+        <span class="requirement-text">
+          You have <strong>{allianceOptions.ownedCardCount}</strong> cards but need <strong>{allianceOptions.requiredCardCount}</strong> for battle.
+          Form an alliance to gain more cards.
         </span>
-      </button>
+      </section>
+    {/if}
+
+    <!-- Action Buttons -->
+    <section class="action-section">
+      <!-- Continue to Card Selection (primary action when player has enough cards) -->
+      {#if allianceOptions?.canContinue && allianceOptions.allianceCount > 0}
+        <button
+          class="continue-btn"
+          data-testid="btn-continue-to-cards"
+          onclick={continueToCardSelection}
+        >
+          Continue to Card Selection
+          <span class="card-count-badge">{allianceOptions.ownedCardCount} cards</span>
+        </button>
+      {/if}
+
+      <!-- Proceed Without Allies (only shown if no alliances formed) -->
+      {#if allianceOptions?.allianceCount === 0}
+        <button
+          class="alone-btn"
+          class:alone-btn--blocked={!allianceOptions?.canProceedAlone}
+          data-testid="btn-proceed-alone"
+          disabled={!allianceOptions?.canProceedAlone}
+          onclick={proceedWithoutAllies}
+        >
+          <span class="alone-title">Proceed Without Allies</span>
+          {#if allianceOptions?.canProceedAlone}
+            <span class="alone-warning">
+              {allianceOptions?.proceedAloneWarning || 'You will enter battle with only your current fleet.'}
+            </span>
+          {:else}
+            <span class="alone-blocked">
+              {allianceOptions?.aloneBlockedReason || 'You need more cards to proceed alone.'}
+            </span>
+          {/if}
+        </button>
+      {/if}
     </section>
   </main>
 </div>
@@ -178,9 +239,9 @@
     </div>
 
     {#snippet actions()}
-      <button class="btn btn--secondary" onclick={closeModal}>Cancel</button>
+      <button class="btn btn--secondary" data-testid="btn-cancel-alliance" onclick={closeModal}>Cancel</button>
       {#if termsView.canAccept}
-        <button class="btn btn--primary" onclick={formAlliance}>Form Alliance</button>
+        <button class="btn btn--primary" data-testid="btn-form-alliance" onclick={formAlliance}>Form Alliance</button>
       {:else}
         <button class="btn btn--disabled" disabled>Cannot Accept</button>
       {/if}
@@ -232,9 +293,29 @@
     gap: var(--space-4);
   }
 
-  .alone-section {
-    padding-top: var(--space-6);
-    border-top: 1px solid var(--border-default);
+  .card-requirement-banner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    background: color-mix(in srgb, var(--warning) 15%, var(--bg-secondary));
+    border: 1px solid var(--warning);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--space-4);
+  }
+
+  .requirement-icon {
+    font-size: var(--font-size-xl);
+  }
+
+  .requirement-text {
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
+  }
+
+  .requirement-text strong {
+    color: var(--warning);
+    font-weight: 700;
   }
 
   .alone-btn {
@@ -248,8 +329,19 @@
     text-align: left;
   }
 
-  .alone-btn:hover {
+  .alone-btn:hover:not(:disabled) {
     border-color: var(--warning);
+    background: var(--bg-tertiary);
+  }
+
+  .alone-btn--blocked {
+    cursor: not-allowed;
+    opacity: 0.7;
+    background: var(--bg-tertiary);
+  }
+
+  .alone-btn--blocked:hover {
+    border-color: var(--border-default);
     background: var(--bg-tertiary);
   }
 
@@ -261,10 +353,20 @@
     margin-bottom: var(--space-2);
   }
 
+  .alone-btn--blocked .alone-title {
+    color: var(--text-muted);
+  }
+
   .alone-warning {
     display: block;
     font-size: var(--font-size-sm);
     color: var(--warning);
+  }
+
+  .alone-blocked {
+    display: block;
+    font-size: var(--font-size-sm);
+    color: var(--error);
   }
 
   /* Terms Modal Styles */
@@ -415,5 +517,98 @@
     background: var(--bg-tertiary);
     color: var(--text-dim);
     cursor: not-allowed;
+  }
+
+  /* Alliance Summary */
+  .alliance-summary {
+    padding: var(--space-4);
+    background: color-mix(in srgb, var(--success) 10%, var(--bg-secondary));
+    border: 1px solid var(--success);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--space-6);
+  }
+
+  .alliance-summary h2 {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    color: var(--success);
+    margin: 0 0 var(--space-3) 0;
+  }
+
+  .summary-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+  }
+
+  .allied-factions {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+  }
+
+  .summary-stats {
+    display: flex;
+    gap: var(--space-4);
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
+  .stat-label {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+  }
+
+  .stat-value {
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  /* Action Section */
+  .action-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding-top: var(--space-6);
+    border-top: 1px solid var(--border-default);
+  }
+
+  .continue-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3);
+    width: 100%;
+    padding: var(--space-4);
+    background: var(--accent-gradient);
+    border: none;
+    border-radius: var(--radius-lg);
+    color: white;
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+  }
+
+  .continue-btn:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+  }
+
+  .card-count-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--space-1) var(--space-2);
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
   }
 </style>

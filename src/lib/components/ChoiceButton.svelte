@@ -39,6 +39,7 @@
 <button
   class="choice-btn choice-btn--{variant}"
   class:choice-btn--disabled={disabled}
+  data-testid="choice-{choice.id}"
   onclick={disabled ? undefined : onselect}
   {disabled}
   type="button"

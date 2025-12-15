@@ -111,6 +111,7 @@ describe('Event Projections', () => {
       gameStatus: 'in_progress',
       activeQuest: {
         questId: 'quest-1',
+        factionId: 'ironveil',
         currentDilemmaIndex: 0,
         dilemmasCompleted: 0,
         alliances: [],
@@ -194,6 +195,7 @@ describe('Event Projections', () => {
       },
       activeQuest: {
         questId: 'quest-1',
+        factionId: 'ironveil',
         currentDilemmaIndex: 0,
         dilemmasCompleted: 0,
         alliances: [],
@@ -301,6 +303,7 @@ describe('Decider', () => {
       gameStatus: 'in_progress',
       activeQuest: {
         questId: 'existing-quest',
+        factionId: 'ironveil',
         currentDilemmaIndex: 0,
         dilemmasCompleted: 0,
         alliances: [],
@@ -377,6 +380,15 @@ describe('Decider', () => {
       ...getInitialState(),
       gameStatus: 'in_progress',
       currentPhase: 'alliance',
+      activeQuest: {
+        questId: 'test-quest',
+        factionId: 'ironveil',
+        currentDilemmaIndex: 0,
+        dilemmasCompleted: 0,
+        alliances: [],
+        battlesWon: 0,
+        battlesLost: 0
+      },
       reputation: {
         ...getInitialState().reputation,
         ironveil: 30  // Friendly status
@@ -390,6 +402,12 @@ describe('Decider', () => {
 
     expect(events.length).toBeGreaterThanOrEqual(1)
     expect(events[0].type).toBe('ALLIANCE_FORMED')
+    // Should emit CARD_GAINED events for alliance cards
+    expect(events.some(e => e.type === 'CARD_GAINED')).toBe(true)
+    // Should NOT trigger battle - use FINALIZE_ALLIANCES for that
+    expect(events.some(e => e.type === 'BATTLE_TRIGGERED')).toBe(false)
+    // Should stay in alliance phase (no PHASE_CHANGED event)
+    expect(events.some(e => e.type === 'PHASE_CHANGED')).toBe(false)
   })
 
   it('throws error when forming alliance with hostile faction', () => {

@@ -407,6 +407,22 @@ export function getStarterCardIds(): string[] {
 }
 
 /**
+ * Get alliance cards for a faction (2 cards per alliance)
+ */
+export function getAllianceCardsForFaction(factionId: FactionId): Card[] {
+  const factionCards = getCardsByFaction(factionId)
+  // Return first 2 cards from each faction as alliance cards
+  return factionCards.slice(0, 2)
+}
+
+/**
+ * Get alliance card IDs for a faction
+ */
+export function getAllianceCardIds(factionId: FactionId): string[] {
+  return getAllianceCardsForFaction(factionId).map(c => c.id)
+}
+
+/**
  * Get cards by IDs
  */
 export function getCardsByIds(ids: string[]): Card[] {

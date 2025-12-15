@@ -163,6 +163,7 @@ export function evolveState(state: GameState, event: GameEvent): GameState {
         ...state,
         activeQuest: {
           questId: event.data.questId,
+          factionId: event.data.factionId,
           currentDilemmaIndex: 0,
           dilemmasCompleted: 0,
           alliances: [],
@@ -434,11 +435,17 @@ export function evolveState(state: GameState, event: GameEvent): GameState {
         ...state,
         currentBattle: {
           battleId: event.data.battleId,
+          questId: event.data.questId,
           phase: 'selection',
           selectedCardIds: [],
           positions: [null, null, null, null, null],
           currentRound: 0,
-          rounds: []
+          rounds: [],
+          // Store opponent info for battle execution
+          opponentType: event.data.opponentType,
+          opponentFactionId: event.data.opponentFactionId,
+          difficulty: event.data.difficulty,
+          context: event.data.context
         }
       }
 
@@ -609,6 +616,18 @@ export function evolveState(state: GameState, event: GameEvent): GameState {
       return {
         ...state,
         currentBattle: null
+      }
+
+    case 'BOUNTY_MODIFIED':
+      return {
+        ...state,
+        bounty: event.data.newValue,
+        stats: {
+          ...state.stats,
+          totalBountyEarned: event.data.amount > 0
+            ? state.stats.totalBountyEarned + event.data.amount
+            : state.stats.totalBountyEarned
+        }
       }
 
     // ========================================================================

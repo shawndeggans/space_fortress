@@ -14,8 +14,13 @@ import type {
   GameState,
   FactionId,
   getReputationStatus,
-  canFormAlliance
+  canFormAlliance,
+  Card
 } from './types'
+import { getDilemmaById, getQuestById, getQuestFirstDilemma } from './content/quests'
+import { getCardById, getAllianceCardIds } from './content/cards'
+import { executeBattle } from './combat'
+import { generateOpponentFleet } from './opponents'
 
 // ----------------------------------------------------------------------------
 // Error Types
@@ -103,6 +108,9 @@ export function decide(command: GameCommand, state: GameState): GameEvent[] {
 
     case 'DECLINE_ALL_ALLIANCES':
       return handleDeclineAllAlliances(command, state)
+
+    case 'FINALIZE_ALLIANCES':
+      return handleFinalizeAlliances(command, state)
 
     case 'FORM_SECRET_ALLIANCE':
       return handleFormSecretAlliance(command, state)
@@ -309,15 +317,21 @@ function handleAcceptQuest(
     throw new InvalidCommandError('Already have an active quest')
   }
 
-  // TODO: Look up quest from content, validate reputation requirement
-  // For now, accept any quest
-  const ts = timestamp()
   const questId = command.data.questId
 
-  // Determine faction from quest ID (temporary logic)
-  let factionId: FactionId = 'ironveil'
-  if (questId.includes('sanctuary')) factionId = 'ashfall'
-  if (questId.includes('broker')) factionId = 'meridian'
+  // Look up quest from content
+  const quest = getQuestById(questId)
+  if (!quest) {
+    throw new InvalidCommandError(`Quest not found: ${questId}`)
+  }
+
+  // Get the first dilemma for this quest
+  const firstDilemma = getQuestFirstDilemma(questId)
+  if (!firstDilemma) {
+    throw new InvalidCommandError(`Quest has no dilemmas: ${questId}`)
+  }
+
+  const ts = timestamp()
 
   const events: GameEvent[] = [
     {
@@ -325,9 +339,9 @@ function handleAcceptQuest(
       data: {
         timestamp: ts,
         questId,
-        factionId,
-        initialBounty: 500,
-        initialCardIds: []  // Will be populated from quest content
+        factionId: quest.faction,
+        initialBounty: quest.initialBounty,
+        initialCardIds: quest.initialCards
       }
     },
     {
@@ -342,7 +356,7 @@ function handleAcceptQuest(
       type: 'DILEMMA_PRESENTED',
       data: {
         timestamp: ts,
-        dilemmaId: `${questId}_dilemma_1`,
+        dilemmaId: firstDilemma.id,
         questId
       }
     }
@@ -387,6 +401,17 @@ function handleMakeChoice(
     throw new InvalidCommandError('No active quest')
   }
 
+  // Look up the dilemma and choice from content
+  const dilemma = getDilemmaById(command.data.dilemmaId)
+  if (!dilemma) {
+    throw new InvalidCommandError(`Dilemma not found: ${command.data.dilemmaId}`)
+  }
+
+  const choice = dilemma.choices.find(c => c.id === command.data.choiceId)
+  if (!choice) {
+    throw new InvalidCommandError(`Choice not found: ${command.data.choiceId}`)
+  }
+
   const ts = timestamp()
   const events: GameEvent[] = [
     {
@@ -400,8 +425,140 @@ function handleMakeChoice(
     }
   ]
 
-  // TODO: Look up choice consequences from content and generate appropriate events
-  // For now, this is a placeholder that would be expanded with actual content
+  const consequences = choice.consequences
+
+  // Apply reputation changes
+  for (const repChange of consequences.reputationChanges) {
+    const currentRep = state.reputation[repChange.faction]
+    const newRep = Math.max(-100, Math.min(100, currentRep + repChange.delta))
+    events.push({
+      type: 'REPUTATION_CHANGED',
+      data: {
+        timestamp: ts,
+        factionId: repChange.faction,
+        delta: repChange.delta,
+        newValue: newRep,
+        source: 'choice'
+      }
+    })
+  }
+
+  // Apply cards gained
+  for (const cardId of consequences.cardsGained) {
+    const card = getCardById(cardId)
+    if (card) {
+      events.push({
+        type: 'CARD_GAINED',
+        data: {
+          timestamp: ts,
+          cardId: cardId,
+          factionId: card.faction,
+          source: 'choice'
+        }
+      })
+    }
+  }
+
+  // Apply cards lost
+  for (const cardId of consequences.cardsLost) {
+    const card = getCardById(cardId)
+    if (card) {
+      events.push({
+        type: 'CARD_LOST',
+        data: {
+          timestamp: ts,
+          cardId: cardId,
+          factionId: card.faction,
+          reason: 'choice'
+        }
+      })
+    }
+  }
+
+  // Apply bounty modifier
+  if (consequences.bountyModifier && consequences.bountyModifier !== 0) {
+    const newBounty = state.bounty + consequences.bountyModifier
+    events.push({
+      type: 'BOUNTY_MODIFIED',
+      data: {
+        timestamp: ts,
+        amount: consequences.bountyModifier,
+        newValue: Math.max(0, newBounty),
+        source: 'choice',
+        reason: `Choice: ${choice.label}`
+      }
+    })
+  }
+
+  // Set flags
+  if (consequences.flags) {
+    for (const [flagName, flagValue] of Object.entries(consequences.flags)) {
+      events.push({
+        type: 'FLAG_SET',
+        data: {
+          timestamp: ts,
+          flagName,
+          value: flagValue
+        }
+      })
+    }
+  }
+
+  // Handle phase transitions based on triggers
+  if (consequences.triggersBattle || consequences.triggersAlliance) {
+    // Both battle and alliance triggers go to alliance phase first
+    // Player must form alliance (or decline) before entering card selection
+    events.push({
+      type: 'PHASE_CHANGED',
+      data: {
+        timestamp: ts,
+        fromPhase: 'narrative',
+        toPhase: 'alliance'
+      }
+    })
+
+    // Emit ALLIANCE_PHASE_STARTED so alliance screen knows the context
+    events.push({
+      type: 'ALLIANCE_PHASE_STARTED',
+      data: {
+        timestamp: ts,
+        questId: state.activeQuest.questId,
+        battleContext: consequences.triggersBattle
+          ? 'Battle ahead - choose your allies wisely'
+          : 'Form an alliance to strengthen your position',
+        availableFactionIds: ['ironveil', 'ashfall', 'meridian', 'void_wardens', 'sundered_oath'] as FactionId[]
+      }
+    })
+  } else if (consequences.triggersMediation) {
+    events.push({
+      type: 'PHASE_CHANGED',
+      data: {
+        timestamp: ts,
+        fromPhase: 'narrative',
+        toPhase: 'mediation'
+      }
+    })
+  } else if (consequences.nextDilemmaId) {
+    // Present the next dilemma (stay in narrative phase)
+    events.push({
+      type: 'DILEMMA_PRESENTED',
+      data: {
+        timestamp: ts,
+        dilemmaId: consequences.nextDilemmaId,
+        questId: state.activeQuest.questId
+      }
+    })
+  } else {
+    // No explicit next step - default to alliance phase to allow forming alliances before battle
+    events.push({
+      type: 'PHASE_CHANGED',
+      data: {
+        timestamp: ts,
+        fromPhase: 'narrative',
+        toPhase: 'alliance'
+      }
+    })
+  }
 
   return events
 }
@@ -455,6 +612,10 @@ function handleFormAlliance(
     throw new InvalidCommandError('Not in alliance phase')
   }
 
+  if (!state.activeQuest) {
+    throw new InvalidCommandError('No active quest')
+  }
+
   const factionRep = state.reputation[command.data.factionId] ?? 0
   const status = getRepStatus(factionRep)
 
@@ -469,6 +630,9 @@ function handleFormAlliance(
   if (status === 'friendly') bountyShare = 0.25
   if (status === 'devoted') bountyShare = 0.15
 
+  // Get alliance cards for this faction (2 cards per alliance)
+  const allianceCardIds = getAllianceCardIds(command.data.factionId)
+
   const events: GameEvent[] = [
     {
       type: 'ALLIANCE_FORMED',
@@ -476,20 +640,27 @@ function handleFormAlliance(
         timestamp: ts,
         factionId: command.data.factionId,
         bountyShare,
-        cardIdsProvided: [],  // Would come from faction data
+        cardIdsProvided: allianceCardIds,
         isSecret: false
-      }
-    },
-    {
-      type: 'PHASE_CHANGED',
-      data: {
-        timestamp: ts,
-        fromPhase: 'alliance',
-        toPhase: 'card_selection'
       }
     }
   ]
 
+  // Emit CARD_GAINED events for each alliance card
+  for (const cardId of allianceCardIds) {
+    events.push({
+      type: 'CARD_GAINED',
+      data: {
+        timestamp: ts,
+        cardId,
+        factionId: command.data.factionId,
+        source: 'alliance'
+      }
+    })
+  }
+
+  // Stay in alliance phase - player can form more alliances
+  // Use FINALIZE_ALLIANCES command to transition to card selection
   return events
 }
 
@@ -516,7 +687,17 @@ function handleDeclineAllAlliances(
     throw new InvalidCommandError('No active quest')
   }
 
+  // Validate minimum card requirement
+  const MIN_BATTLE_CARDS = 5
+  if (state.ownedCards.length < MIN_BATTLE_CARDS) {
+    throw new InvalidCommandError(
+      `Cannot proceed without allies. You have ${state.ownedCards.length} cards ` +
+      `but battle requires ${MIN_BATTLE_CARDS}. Form an alliance to continue.`
+    )
+  }
+
   const ts = timestamp()
+  const battleId = generateId('battle')
 
   return [
     {
@@ -524,6 +705,65 @@ function handleDeclineAllAlliances(
       data: {
         timestamp: ts,
         questId: state.activeQuest.questId
+      }
+    },
+    {
+      type: 'BATTLE_TRIGGERED',
+      data: {
+        timestamp: ts,
+        battleId,
+        questId: state.activeQuest.questId,
+        context: 'Going it alone - prepare for battle',
+        opponentType: 'enemy_forces',
+        opponentFactionId: 'scavengers',
+        difficulty: 'medium'
+      }
+    },
+    {
+      type: 'PHASE_CHANGED',
+      data: {
+        timestamp: ts,
+        fromPhase: 'alliance',
+        toPhase: 'card_selection'
+      }
+    }
+  ]
+}
+
+function handleFinalizeAlliances(
+  command: { type: 'FINALIZE_ALLIANCES'; data: Record<string, never> },
+  state: GameState
+): GameEvent[] {
+  if (state.currentPhase !== 'alliance') {
+    throw new InvalidCommandError('Not in alliance phase')
+  }
+
+  if (!state.activeQuest) {
+    throw new InvalidCommandError('No active quest')
+  }
+
+  // Validate minimum card requirement
+  const MIN_BATTLE_CARDS = 5
+  if (state.ownedCards.length < MIN_BATTLE_CARDS) {
+    throw new InvalidCommandError(
+      `Need ${MIN_BATTLE_CARDS} cards for battle but only have ${state.ownedCards.length}. Form more alliances to continue.`
+    )
+  }
+
+  const ts = timestamp()
+  const battleId = generateId('battle')
+
+  return [
+    {
+      type: 'BATTLE_TRIGGERED',
+      data: {
+        timestamp: ts,
+        battleId,
+        questId: state.activeQuest.questId,
+        context: 'Alliances finalized - prepare for battle',
+        opponentType: 'enemy_forces',
+        opponentFactionId: 'scavengers',
+        difficulty: 'medium'
       }
     },
     {
@@ -545,7 +785,12 @@ function handleFormSecretAlliance(
     throw new InvalidCommandError('Not in alliance phase')
   }
 
+  if (!state.activeQuest) {
+    throw new InvalidCommandError('No active quest')
+  }
+
   const ts = timestamp()
+  const battleId = generateId('battle')
 
   return [
     {
@@ -556,6 +801,18 @@ function handleFormSecretAlliance(
         publicFactionId: command.data.publicFactionId,
         discoveryRisk: 0.3,  // 30% chance of discovery
         cardIdsProvided: []
+      }
+    },
+    {
+      type: 'BATTLE_TRIGGERED',
+      data: {
+        timestamp: ts,
+        battleId,
+        questId: state.activeQuest.questId,
+        context: 'Secret alliance formed - prepare for battle',
+        opponentType: 'enemy_forces',
+        opponentFactionId: 'scavengers',
+        difficulty: 'medium'
       }
     },
     {
@@ -747,7 +1004,7 @@ function handleDeselectCard(
 }
 
 function handleCommitFleet(
-  command: { type: 'COMMIT_FLEET'; data: Record<string, never> },
+  command: { type: 'COMMIT_FLEET'; data: { cardIds: string[] } },
   state: GameState
 ): GameEvent[] {
   if (state.currentPhase !== 'card_selection') {
@@ -758,8 +1015,20 @@ function handleCommitFleet(
     throw new InvalidCommandError('No active battle')
   }
 
-  if (state.currentBattle.selectedCardIds.length !== 5) {
+  const cardIds = command.data.cardIds
+  if (cardIds.length !== 5) {
     throw new InvalidCommandError('Must select exactly 5 cards')
+  }
+
+  // Validate that all cards are owned and not locked
+  for (const cardId of cardIds) {
+    const card = state.ownedCards.find(c => c.id === cardId)
+    if (!card) {
+      throw new InvalidCommandError(`Card not owned: ${cardId}`)
+    }
+    if (card.isLocked) {
+      throw new InvalidCommandError(`Card is locked: ${cardId}`)
+    }
   }
 
   const ts = timestamp()
@@ -770,7 +1039,7 @@ function handleCommitFleet(
       data: {
         timestamp: ts,
         battleId: state.currentBattle.battleId,
-        cardIds: state.currentBattle.selectedCardIds
+        cardIds
       }
     },
     {
@@ -840,25 +1109,67 @@ function handleLockOrders(
   }
 
   const ts = timestamp()
+  const events: GameEvent[] = []
 
-  return [
-    {
-      type: 'ORDERS_LOCKED',
-      data: {
-        timestamp: ts,
-        battleId: state.currentBattle.battleId,
-        positions: positions as string[]
-      }
-    },
-    {
-      type: 'PHASE_CHANGED',
-      data: {
-        timestamp: ts,
-        fromPhase: 'deployment',
-        toPhase: 'battle'
-      }
+  // First emit ORDERS_LOCKED
+  events.push({
+    type: 'ORDERS_LOCKED',
+    data: {
+      timestamp: ts,
+      battleId: state.currentBattle.battleId,
+      positions: positions as string[]
     }
-  ]
+  })
+
+  // Build player fleet from positions (order matters!)
+  const playerFleet: Card[] = (positions as string[]).map(cardId => {
+    const card = state.ownedCards.find(c => c.id === cardId)
+    if (!card) {
+      throw new InvalidCommandError(`Card not found in owned cards: ${cardId}`)
+    }
+    return {
+      id: card.id,
+      name: card.name,
+      faction: card.faction,
+      attack: card.attack,
+      armor: card.armor,
+      agility: card.agility
+    }
+  })
+
+  // Generate opponent fleet based on battle context
+  const opponentFleet = generateOpponentFleet({
+    questId: state.currentBattle.questId || state.activeQuest?.questId || 'unknown',
+    opponentType: state.currentBattle.opponentType || 'scavengers',
+    difficulty: state.currentBattle.difficulty || 'medium'
+  })
+
+  // Execute the battle and generate all battle events
+  const { events: battleEvents } = executeBattle(
+    {
+      battleId: state.currentBattle.battleId,
+      questId: state.currentBattle.questId || state.activeQuest?.questId || 'unknown',
+      context: state.currentBattle.context || 'Combat engagement',
+      timestamp: ts
+    },
+    playerFleet,
+    opponentFleet.cards
+  )
+
+  // Add all battle events
+  events.push(...battleEvents)
+
+  // Finally transition to battle phase
+  events.push({
+    type: 'PHASE_CHANGED',
+    data: {
+      timestamp: ts,
+      fromPhase: 'deployment',
+      toPhase: 'battle'
+    }
+  })
+
+  return events
 }
 
 // ----------------------------------------------------------------------------

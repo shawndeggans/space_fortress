@@ -4,19 +4,17 @@
 -->
 <script lang="ts">
   import { gameState } from '$lib/stores/gameStore'
-  import { projectQuestList, projectQuestDetail, projectPlayerState } from '$lib/game'
-  import GameHeader from '$lib/components/GameHeader.svelte'
+  import { projectQuestList, projectQuestDetail } from '$lib/game'
   import QuestCard from '$lib/components/QuestCard.svelte'
   import Modal from '$lib/components/Modal.svelte'
   import FactionBadge from '$lib/components/FactionBadge.svelte'
   import ConsequenceItem from '$lib/components/ConsequenceItem.svelte'
-  import type { QuestDisplayData, FactionId } from '$lib/components/types'
+  import type { QuestDisplayData } from '$lib/components/types'
   import type { QuestListItem, CompletedQuestItem } from '$lib/game/projections/questList'
   import { goto } from '$app/navigation'
 
   // Derive views from game state
   let questList = $derived(projectQuestList([], $gameState))
-  let playerState = $derived(projectPlayerState([], $gameState))
 
   // Modal state
   let selectedQuestId = $state<string | null>(null)
@@ -79,20 +77,6 @@
 </script>
 
 <div class="quest-hub-screen">
-  <GameHeader
-    bounty={playerState.bounty}
-    reputations={playerState.reputations.map(f => ({
-      factionId: f.factionId,
-      value: f.value,
-      status: f.status
-    }))}
-    activeQuest={playerState.activeQuest ? {
-      title: playerState.activeQuest.title,
-      factionId: playerState.activeQuest.factionId,
-      progress: { current: playerState.activeQuest.currentDilemmaIndex, total: playerState.activeQuest.totalDilemmas }
-    } : null}
-  />
-
   <main class="quest-hub-content">
     <header class="section-header">
       <h1>Quest Hub</h1>
@@ -201,8 +185,8 @@
     </div>
 
     {#snippet actions()}
-      <button class="btn btn--secondary" onclick={declineQuest}>Decline</button>
-      <button class="btn btn--primary" onclick={acceptQuest}>Accept Quest</button>
+      <button class="btn btn--secondary" data-testid="btn-decline-quest" onclick={declineQuest}>Decline</button>
+      <button class="btn btn--primary" data-testid="btn-accept-quest" onclick={acceptQuest}>Accept Quest</button>
     {/snippet}
   </Modal>
 {/if}

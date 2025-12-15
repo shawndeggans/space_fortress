@@ -449,6 +449,16 @@ export interface OutcomeAcknowledgedEvent {
   }
 }
 
+export interface BountyModifiedEvent {
+  type: 'BOUNTY_MODIFIED'
+  data: BaseEventData & {
+    amount: number
+    newValue: number
+    source: 'choice' | 'alliance' | 'quest' | 'penalty'
+    reason: string
+  }
+}
+
 // ----------------------------------------------------------------------------
 // Post-Battle Events (2)
 // ----------------------------------------------------------------------------
@@ -576,6 +586,7 @@ export type GameEvent =
   | BountyCalculatedEvent
   | BountySharedEvent
   | OutcomeAcknowledgedEvent
+  | BountyModifiedEvent
   // Post-Battle Events
   | PostBattleDilemmaTriggeredEvent
   | PostBattleChoiceMadeEvent

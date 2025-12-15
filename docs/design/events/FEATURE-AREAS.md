@@ -1,4 +1,6 @@
-# Space Fortress: Expanded Event Model Slices
+# Space Fortress: Feature Areas
+
+> **Note**: This document describes high-level **feature areas** with their event patterns and read models. For true **vertical slice architecture** documentation (implementation-focused), see [docs/design/slices/](../slices/README.md). For the complete event reference, see [EVENT-CATALOG.md](./EVENT-CATALOG.md).
 
 ## Notation
 - **Trigger**: UI action or system condition that initiates flow
@@ -8,7 +10,7 @@
 
 ---
 
-## Slice: Quest Lifecycle
+## Feature Area: Quest Lifecycle
 
 The container flow for all gameplay. A quest spans multiple dilemmas and potentially multiple battles.
 
@@ -79,7 +81,7 @@ AVAILABLE → OFFERED → ACCEPTED → IN_PROGRESS → COMPLETED | FAILED
 
 ---
 
-## Slice: Alliance Negotiation
+## Feature Area: Alliance Negotiation
 
 Occurs after accepting a quest when battle is imminent. Player must secure allies for fleet capability.
 
@@ -100,7 +102,7 @@ BATTLE_IMMINENT → ALLIANCE_OPTIONS_PRESENTED → ALLY_SELECTED → TERMS_SHOWN
 | Tap "Form Alliance" | `[FormAlliance]` | `{AllianceFormed}` | `<ActiveQuest>`, `<CardPoolView>` |
 | Tap "Reject Terms" | `[RejectAllianceTerms]` | `{AllianceRejected}` | `<AllianceOptions>` |
 | Tap "Proceed Alone" | `[DeclineAllAlliances]` | `{AlliancesDeclined}` | `<ActiveQuest>` |
-| Secret alliance (narrative choice) | `[FormSecretAlliance]` | `{SecretAllianceFormed}` | `<ActiveQuest>`, `<PlayerState>` |
+| Finalize alliances | `[FinalizeAlliances]` | `{AlliancesFinalized}`, `{BattleTriggered}` | `<CardPoolView>` |
 
 ### Events
 
@@ -111,8 +113,7 @@ BATTLE_IMMINENT → ALLIANCE_OPTIONS_PRESENTED → ALLY_SELECTED → TERMS_SHOWN
 | `{AllianceFormed}` | `factionId, bountyShare, cardsProvided[], termsAccepted` |
 | `{AllianceRejected}` | `factionId, reason?` |
 | `{AlliancesDeclined}` | `questId` |
-| `{SecretAllianceFormed}` | `factionId, publicFaction?, discoveryRisk, cardsProvided[]` |
-| `{AllianceDiscovered}` | `secretFactionId, discoveredBy, reputationPenalty` |
+| `{AlliancesFinalized}` | `questId, allianceCount` |
 
 ### Read Models
 
@@ -152,7 +153,7 @@ BATTLE_IMMINENT → ALLIANCE_OPTIONS_PRESENTED → ALLY_SELECTED → TERMS_SHOWN
 
 ---
 
-## Slice: Diplomatic Resolution
+## Feature Area: Diplomatic Resolution
 
 Alternative to combat. Mediation path that resolves quest without battle.
 
@@ -220,11 +221,11 @@ DILEMMA_CHOICE → MEDIATION_SELECTED → SUMMIT_STARTED → POSITIONS_HEARD →
 
 ---
 
-## Slice: Reputation Effects
+## Feature Area: Reputation Effects
 
 How reputation gates options and modifies costs throughout the game.
 
-### Thresholds (from design doc)
+### Thresholds
 | Range | Status | Effect |
 |-------|--------|--------|
 | 75+ | Devoted Ally | Best cards, minimal bounty share |
@@ -296,7 +297,7 @@ How reputation gates options and modifies costs throughout the game.
 
 ---
 
-## Slice: Card Acquisition
+## Feature Area: Card Acquisition
 
 How cards are gained and lost throughout the game.
 
@@ -322,7 +323,6 @@ How cards are gained and lost throughout the game.
 | Form alliance | `[FormAlliance]` | `{AllianceFormed}`, `{CardGained}` | `<CardPoolView>` |
 | Reputation unlocks tier | *(system)* | `{ReputationThresholdCrossed}`, `{CardsUnlocked}` | `<CardPoolView>` |
 | Reputation drops below tier | *(system)* | `{ReputationThresholdCrossed}`, `{CardsLocked}` | `<CardPoolView>` |
-| Betrayal discovered | *(system)* | `{AllianceDiscovered}`, `{CardLost}` | `<CardPoolView>` |
 | View card details | `[ViewCardDetails]` | — | `<CardDetailView>` |
 
 ### Events
@@ -336,7 +336,7 @@ How cards are gained and lost throughout the game.
 
 ### Read Models
 
-**CardPoolView** (updated)
+**CardPoolView**
 ```
 {
   ownedCards: [{
@@ -373,7 +373,7 @@ How cards are gained and lost throughout the game.
 
 ---
 
-## Slice: Post-Battle Dilemmas
+## Feature Area: Post-Battle Dilemmas
 
 Dilemmas that occur in the Consequence phase, after battle resolution.
 
@@ -389,7 +389,6 @@ Dilemmas that occur in the Consequence phase, after battle resolution.
 |---------|---------|----------|------------|
 | Battle ends with dilemma condition | *(system)* | `{BattleResolved}`, `{PostBattleDilemmaTriggered}` | `<PostBattleDilemmaView>` |
 | Choose post-battle option | `[MakePostBattleChoice]` | `{PostBattleChoiceMade}`, *(consequence events)* | `<ConsequenceView>` |
-| Secret alliance discovered | *(system, probability check)* | `{AllianceDiscovered}`, `{PostBattleDilemmaTriggered}` | `<PostBattleDilemmaView>` |
 
 ### Events
 
@@ -397,7 +396,6 @@ Dilemmas that occur in the Consequence phase, after battle resolution.
 |-------|---------|
 | `{PostBattleDilemmaTriggered}` | `battleId, dilemmaType, dilemmaId, context` |
 | `{PostBattleChoiceMade}` | `dilemmaId, choiceId, consequences[]` |
-| `{AllianceDiscovered}` | `secretAllyFaction, discoveredByFaction, context` |
 
 ### Dilemma Types
 
@@ -432,19 +430,6 @@ Dilemmas that occur in the Consequence phase, after battle resolution.
 }
 ```
 
-**Discovery: Alliance Exposed**
-```
-{
-  type: 'discovery'
-  context: "Krath has learned of your secret deal with the Ashfall"
-  choices: [
-    { id: 'deny', label: "Deny involvement", effects: [...], successChance: 0.2 },
-    { id: 'admit', label: "Admit the alliance", effects: [...] },
-    { id: 'deflect', label: "Blame subordinate", effects: [...] }
-  ]
-}
-```
-
 ### Read Models
 
 **PostBattleDilemmaView**
@@ -468,7 +453,7 @@ Dilemmas that occur in the Consequence phase, after battle resolution.
 
 ---
 
-## Slice: Game End Evaluation
+## Feature Area: Game End Evaluation
 
 Occurs after completing three quest arcs. Calculates final state and determines ending.
 
@@ -576,40 +561,16 @@ Occurs after completing three quest arcs. Calculates final state and determines 
 
 ---
 
-## Event Catalog: Complete
+## Related Documentation
 
-Total events across all slices: **42 events**
-
-### Quest Events (6)
-- QuestsGenerated, QuestViewed, QuestAccepted, QuestDeclined, QuestCompleted, QuestFailed
-
-### Narrative Events (3)
-- DilemmaPresented, ChoiceMade, FlagSet
-
-### Alliance Events (7)
-- AlliancePhaseStarted, AllianceTermsViewed, AllianceFormed, AllianceRejected, AlliancesDeclined, SecretAllianceFormed, AllianceDiscovered
-
-### Mediation Events (5)
-- MediationStarted, PositionViewed, MediationLeaned, MediationCollapsed, CompromiseAccepted
-
-### Reputation Events (4)
-- ReputationChanged, ReputationThresholdCrossed, CardsUnlocked, CardsLocked
-
-### Card Events (2)
-- CardGained, CardLost
-
-### Battle Events (12)
-- BattleTriggered, CardSelected, CardDeselected, FleetCommitted, CardPositioned, OrdersLocked, BattleStarted, RoundStarted, CardsRevealed, InitiativeResolved, AttackRolled, RoundResolved, BattleResolved
-
-### Post-Battle Events (2)
-- PostBattleDilemmaTriggered, PostBattleChoiceMade
-
-### Game End Events (3)
-- GameEndTriggered, EndingDetermined, NewGameStarted
+- **Complete Event Reference**: [EVENT-CATALOG.md](./EVENT-CATALOG.md) - All 51 events with full payload documentation
+- **Vertical Slice Architecture**: [docs/design/slices/](../slices/README.md) - Implementation-focused slice documentation
+- **Core Event Flow**: [CORE-LOOP-EVENT-MODEL.md](./CORE-LOOP-EVENT-MODEL.md) - Visual event flow diagrams
+- **Business Rules**: [GAME-RULES.md](../GAME-RULES.md) - Given-When-Then specifications
 
 ---
 
-## Read Model Catalog: Complete
+## Read Model Summary
 
 Total read models: **18 projections**
 
@@ -635,3 +596,7 @@ Total read models: **18 projections**
 | `<EndingView>` | Ending Screen | EndingDetermined |
 | `<ChoiceArchaeologyView>` | Ending Screen | ChoiceMade (all) |
 | `<PlayerState>` | Header (all screens) | ReputationChanged, CardGained, BountyCalculated |
+
+---
+
+*Last Updated: 2025-12-15*

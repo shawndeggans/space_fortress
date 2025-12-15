@@ -373,7 +373,9 @@ Example: Adding "Card Upgrade" feature
 ## Documentation References
 
 - `README.md` - Architecture overview and examples
-- `docs/design/events/CORE-LOOP-EVENT-MODEL.md` - Complete event catalog
-- `docs/design/events/EXPANDED-SLICES.md` - Detailed game system flows
+- `docs/design/events/CORE-LOOP-EVENT-MODEL.md` - Visual event flow diagrams
+- `docs/design/events/EVENT-CATALOG.md` - Complete event reference (51 events)
+- `docs/design/events/FEATURE-AREAS.md` - Feature area patterns and read models
+- `docs/design/slices/` - Vertical slice architecture documentation
 - `docs/design/screens/SCREENS.md` - UI wireframes and read models
 - `docs/DEVELOPMENT-PLAN.md` - Implementation roadmap
