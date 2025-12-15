@@ -19,8 +19,9 @@ export type { PlayerStateView } from './playerState'
 export { projectQuestList, projectQuestDetail } from '../../slices/accept-quest'
 export type { QuestListView, QuestDetailView } from '../../slices/accept-quest'
 
-export { projectDilemmaView } from './dilemmaView'
-export type { DilemmaViewData } from './dilemmaView'
+// Dilemma view projections - now from make-choice slice
+export { projectDilemmaView } from '../../slices/make-choice'
+export type { DilemmaViewData } from '../../slices/make-choice'
 
 export { projectCardPoolView } from './cardPool'
 export type { CardPoolView } from './cardPool'
