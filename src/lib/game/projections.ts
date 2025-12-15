@@ -475,7 +475,8 @@ export function evolveState(state: GameState, event: GameEvent): GameState {
         ...state,
         currentBattle: {
           ...state.currentBattle,
-          phase: 'deployment'
+          phase: 'deployment',
+          selectedCardIds: event.data.cardIds
         }
       }
 

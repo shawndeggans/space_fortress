@@ -17,7 +17,7 @@
   async function handleContinue() {
     const result = await gameState.handleCommand({
       type: 'ACKNOWLEDGE_OUTCOME',
-      data: { battleId: consequenceView?.battleId || 'battle-1' }
+      data: {}
     })
 
     if (result.success) {

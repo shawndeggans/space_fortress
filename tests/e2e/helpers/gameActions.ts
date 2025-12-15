@@ -71,7 +71,9 @@ export async function makeChoice(page: Page, choiceIndex = 0): Promise<void> {
 }
 
 /**
- * Form an alliance with a faction
+ * Form an alliance with a faction.
+ * Note: This does NOT navigate away - player can form multiple alliances.
+ * Call finalizeAllianceAndContinue() to proceed to card pool.
  */
 export async function formAlliance(page: Page, factionId?: string): Promise<void> {
   await waitForHydration(page)
@@ -80,17 +82,28 @@ export async function formAlliance(page: Page, factionId?: string): Promise<void
     // Click on specific faction
     const option = selectors.alliance.allianceOption(page, factionId)
     await option.getByRole('button', { name: 'View Terms' }).click()
-
-    await expect(selectors.common.modal(page)).toBeVisible({ timeout: 5000 })
-    await selectors.alliance.formAllianceButton(page).click()
   } else {
     // Try to form alliance with first available faction
     const firstOption = selectors.alliance.anyAllianceOption(page).first()
     await firstOption.getByRole('button', { name: 'View Terms' }).click()
-
-    await expect(selectors.common.modal(page)).toBeVisible({ timeout: 5000 })
-    await selectors.alliance.formAllianceButton(page).click()
   }
+
+  await expect(selectors.common.modal(page)).toBeVisible({ timeout: 5000 })
+  await selectors.alliance.formAllianceButton(page).click()
+
+  // Wait for modal to close (alliance formed, stay on alliance page)
+  await expect(selectors.common.modal(page)).not.toBeVisible({ timeout: 5000 })
+  await waitForHydration(page)
+}
+
+/**
+ * After forming alliance(s), click continue to proceed to card pool.
+ */
+export async function finalizeAllianceAndContinue(page: Page): Promise<void> {
+  await waitForHydration(page)
+
+  // Click the continue button
+  await selectors.alliance.continueToCardsButton(page).click()
 
   // Wait for navigation to card pool
   await page.waitForURL('**/card-pool', { timeout: 10000 })
@@ -98,12 +111,35 @@ export async function formAlliance(page: Page, factionId?: string): Promise<void
 }
 
 /**
- * Skip alliance and proceed alone
+ * Form an alliance and immediately continue to card pool.
+ * Convenience function for tests that just need to get past alliance phase.
+ */
+export async function formAllianceAndContinue(page: Page, factionId?: string): Promise<void> {
+  await formAlliance(page, factionId)
+  await finalizeAllianceAndContinue(page)
+}
+
+/**
+ * Skip alliance and proceed alone.
+ * Note: This only works if player has 5+ cards. With default starter cards (3)
+ * plus quest card (1) = 4 cards, this button will be DISABLED.
+ * Most tests should use formAllianceAndContinue() instead.
  */
 export async function proceedWithoutAlliance(page: Page): Promise<void> {
   await waitForHydration(page)
 
-  await selectors.alliance.proceedAloneButton(page).click()
+  const button = selectors.alliance.proceedAloneButton(page)
+  const isDisabled = await button.isDisabled()
+
+  if (isDisabled) {
+    throw new Error(
+      'Cannot proceed without alliance: button is disabled. ' +
+      'Player needs 5+ cards for battle but likely only has 4 (3 starter + 1 quest). ' +
+      'Use formAllianceAndContinue() to form an alliance and gain more cards.'
+    )
+  }
+
+  await button.click()
 
   // Wait for navigation to card pool
   await page.waitForURL('**/card-pool', { timeout: 10000 })
@@ -219,7 +255,7 @@ export async function continueFromConsequence(page: Page): Promise<string> {
 export async function playFullQuest(
   page: Page,
   options?: {
-    allyWithFaction?: string | false  // false = go alone
+    allyWithFaction?: string | false  // false = go alone (only works if 5+ cards)
     choiceIndices?: number[]          // which choices to make at each dilemma
   }
 ): Promise<void> {
@@ -239,16 +275,11 @@ export async function playFullQuest(
   // If we're at alliance screen
   if (page.url().includes('/alliance')) {
     if (options?.allyWithFaction === false) {
+      // Go alone - will throw if player doesn't have 5+ cards
       await proceedWithoutAlliance(page)
-    } else if (options?.allyWithFaction) {
-      await formAlliance(page, options.allyWithFaction)
     } else {
-      // Try to form alliance with first available, or go alone
-      try {
-        await formAlliance(page)
-      } catch {
-        await proceedWithoutAlliance(page)
-      }
+      // Form alliance (required to get enough cards for battle)
+      await formAllianceAndContinue(page, options?.allyWithFaction || undefined)
     }
   }
 

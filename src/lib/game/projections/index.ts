@@ -15,14 +15,17 @@ export { evolveState, getInitialState, rebuildState } from '../projections'
 export { projectPlayerState } from './playerState'
 export type { PlayerStateView } from './playerState'
 
-export { projectQuestList, projectQuestDetail } from './questList'
-export type { QuestListView, QuestDetailView } from './questList'
+// Quest list projections - now from accept-quest slice
+export { projectQuestList, projectQuestDetail } from '../../slices/accept-quest'
+export type { QuestListView, QuestDetailView } from '../../slices/accept-quest'
 
-export { projectDilemmaView } from './dilemmaView'
-export type { DilemmaViewData } from './dilemmaView'
+// Dilemma view projections - now from make-choice slice
+export { projectDilemmaView } from '../../slices/make-choice'
+export type { DilemmaViewData } from '../../slices/make-choice'
 
-export { projectCardPoolView } from './cardPool'
-export type { CardPoolView } from './cardPool'
+// Card pool projections - now from card-selection slice
+export { projectCardPoolView } from '../../slices/card-selection'
+export type { CardPoolView } from '../../slices/card-selection'
 
 export { projectDeploymentView } from './deploymentView'
 export type { DeploymentViewData } from './deploymentView'
@@ -33,9 +36,9 @@ export type { BattleViewData, BattleResultViewData } from './battleView'
 export { projectConsequenceView } from './consequenceView'
 export type { ConsequenceViewData } from './consequenceView'
 
-// Extended system projections
-export { projectAllianceOptions, projectAllianceTermsView } from './allianceView'
-export type { AllianceOptionsView, AllianceTermsViewData } from './allianceView'
+// Alliance projections - now from form-alliance slice
+export { projectAllianceOptions, projectAllianceTermsView } from '../../slices/form-alliance'
+export type { AllianceOptionsView, AllianceTermsViewData } from '../../slices/form-alliance'
 
 export { projectMediationView } from './mediationView'
 export type { MediationViewData } from './mediationView'

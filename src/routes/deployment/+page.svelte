@@ -74,7 +74,6 @@
     const result = await gameState.handleCommand({
       type: 'LOCK_ORDERS',
       data: {
-        battleId: deploymentView?.battleId || 'battle-1',
         positions: positions as string[]
       }
     })

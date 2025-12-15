@@ -294,7 +294,10 @@ describe('Decider', () => {
 
     expect(events.length).toBeGreaterThanOrEqual(2)
     expect(events[0].type).toBe('QUEST_ACCEPTED')
-    expect(events[1].type).toBe('PHASE_CHANGED')
+    // CARD_GAINED events come next (for initial quest cards), then PHASE_CHANGED
+    const phaseEvent = events.find(e => e.type === 'PHASE_CHANGED')
+    expect(phaseEvent).toBeDefined()
+    expect(phaseEvent!.data.toPhase).toBe('narrative')
   })
 
   it('throws error when accepting quest with active quest', () => {
