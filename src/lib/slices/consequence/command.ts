@@ -14,6 +14,7 @@
 
 import type { GameEvent } from '../../game/events'
 import type { GamePhase } from '../../game/types'
+import { getNextDilemma } from '../../game/content/quests'
 
 // ----------------------------------------------------------------------------
 // Error Class
@@ -54,6 +55,8 @@ export interface ConsequenceState {
     battleId: string
   } | null
   hasAcknowledgedOutcome: boolean
+  // Current dilemma for looking up next
+  currentDilemmaId: string | null
   // For determining next phase
   activeQuest: {
     questId: string
@@ -147,6 +150,21 @@ export function handleContinueToNextPhase(
     } else {
       // More dilemmas - go to narrative
       toPhase = 'narrative'
+
+      // Look up and emit the next dilemma
+      if (state.currentDilemmaId) {
+        const nextDilemma = getNextDilemma(state.activeQuest.questId, state.currentDilemmaId)
+        if (nextDilemma) {
+          events.push({
+            type: 'DILEMMA_PRESENTED',
+            data: {
+              timestamp: ts,
+              dilemmaId: nextDilemma.id,
+              questId: state.activeQuest.questId
+            }
+          })
+        }
+      }
     }
   } else {
     // No active quest - go to quest hub

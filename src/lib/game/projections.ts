@@ -216,9 +216,22 @@ export function evolveState(state: GameState, event: GameEvent): GameState {
     // ========================================================================
 
     case 'DILEMMA_PRESENTED':
+      // If we already have a current dilemma and this is a different one,
+      // we're advancing to the next dilemma - increment the index
+      const isAdvancingToNextDilemma =
+        state.currentDilemmaId !== null &&
+        state.currentDilemmaId !== event.data.dilemmaId &&
+        state.activeQuest !== null
+
       return {
         ...state,
-        currentDilemmaId: event.data.dilemmaId
+        currentDilemmaId: event.data.dilemmaId,
+        activeQuest: isAdvancingToNextDilemma && state.activeQuest
+          ? {
+              ...state.activeQuest,
+              currentDilemmaIndex: state.activeQuest.currentDilemmaIndex + 1
+            }
+          : state.activeQuest
       }
 
     case 'CHOICE_MADE':
