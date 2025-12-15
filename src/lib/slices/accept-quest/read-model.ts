@@ -382,6 +382,83 @@ export function projectQuestDetailFromEvents(
 }
 
 // ----------------------------------------------------------------------------
+// Legacy API Adapters (for backward compatibility with existing UI)
+// ----------------------------------------------------------------------------
+
+/**
+ * Full game state interface (imported from game module for compatibility).
+ * This allows the slice to work with the existing game store.
+ */
+interface LegacyGameState {
+  reputation: Record<FactionId, number>
+  availableQuestIds: string[]
+  activeQuest: { questId: string } | null
+  completedQuests: Array<{
+    questId: string
+    outcome: 'full' | 'partial' | 'compromised'
+    finalBounty: number
+    completedAt: string
+  }>
+}
+
+/**
+ * Convert legacy GameState to slice internal state.
+ */
+function fromLegacyState(legacyState: LegacyGameState): QuestSliceState {
+  return {
+    reputation: legacyState.reputation,
+    availableQuestIds: legacyState.availableQuestIds,
+    activeQuestId: legacyState.activeQuest?.questId ?? null,
+    completedQuests: legacyState.completedQuests,
+    failedQuests: []
+  }
+}
+
+/**
+ * Project quest list view from events OR provided state.
+ * This maintains backward compatibility with the existing UI API:
+ *   projectQuestList([], $gameState)
+ *
+ * @param events - Events to replay (ignored if providedState is given)
+ * @param providedState - Full game state from store (optional)
+ */
+export function projectQuestList(
+  events: GameEvent[],
+  providedState?: LegacyGameState
+): QuestListView {
+  if (providedState) {
+    // Use provided state directly (existing UI pattern)
+    const sliceState = fromLegacyState(providedState)
+    return buildQuestListView(sliceState)
+  }
+  // Fall back to building from events
+  return projectQuestListFromEvents(events)
+}
+
+/**
+ * Project quest detail view from events OR provided state.
+ * This maintains backward compatibility with the existing UI API:
+ *   projectQuestDetail([], questId, $gameState)
+ *
+ * @param events - Events to replay (ignored if providedState is given)
+ * @param questId - The quest to get details for
+ * @param providedState - Full game state from store (optional)
+ */
+export function projectQuestDetail(
+  events: GameEvent[],
+  questId: string,
+  providedState?: LegacyGameState
+): QuestDetailView | null {
+  if (providedState) {
+    // Use provided state directly (existing UI pattern)
+    const sliceState = fromLegacyState(providedState)
+    return buildQuestDetailView(sliceState, questId)
+  }
+  // Fall back to building from events
+  return projectQuestDetailFromEvents(events, questId)
+}
+
+// ----------------------------------------------------------------------------
 // Helpers
 // ----------------------------------------------------------------------------
 

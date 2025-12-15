@@ -15,8 +15,9 @@ export { evolveState, getInitialState, rebuildState } from '../projections'
 export { projectPlayerState } from './playerState'
 export type { PlayerStateView } from './playerState'
 
-export { projectQuestList, projectQuestDetail } from './questList'
-export type { QuestListView, QuestDetailView } from './questList'
+// Quest list projections - now from accept-quest slice
+export { projectQuestList, projectQuestDetail } from '../../slices/accept-quest'
+export type { QuestListView, QuestDetailView } from '../../slices/accept-quest'
 
 export { projectDilemmaView } from './dilemmaView'
 export type { DilemmaViewData } from './dilemmaView'

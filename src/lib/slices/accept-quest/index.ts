@@ -43,7 +43,11 @@ export {
   buildQuestListView,
   buildQuestDetailView,
 
-  // Convenience projections
+  // Convenience projections (pure event-sourced)
   projectQuestListFromEvents,
-  projectQuestDetailFromEvents
+  projectQuestDetailFromEvents,
+
+  // Legacy API adapters (for backward compatibility with existing UI)
+  projectQuestList,
+  projectQuestDetail
 } from './read-model'
