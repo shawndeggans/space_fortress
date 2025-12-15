@@ -23,8 +23,9 @@ export type { QuestListView, QuestDetailView } from '../../slices/accept-quest'
 export { projectDilemmaView } from '../../slices/make-choice'
 export type { DilemmaViewData } from '../../slices/make-choice'
 
-export { projectCardPoolView } from './cardPool'
-export type { CardPoolView } from './cardPool'
+// Card pool projections - now from card-selection slice
+export { projectCardPoolView } from '../../slices/card-selection'
+export type { CardPoolView } from '../../slices/card-selection'
 
 export { projectDeploymentView } from './deploymentView'
 export type { DeploymentViewData } from './deploymentView'
