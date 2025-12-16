@@ -13,9 +13,8 @@
 // - CARD_LOST: Card removed from player (0-many per choice)
 // - BOUNTY_MODIFIED: Bounty amount changed (0-1 per choice)
 // - FLAG_SET: Story flag set (0-many per choice)
-// - PHASE_CHANGED: Transition to next phase
-// - ALLIANCE_PHASE_STARTED: Alliance options available
-// - DILEMMA_PRESENTED: Next dilemma in sequence
+// - CHOICE_CONSEQUENCE_PRESENTED: Shows consequence screen
+// - PHASE_CHANGED: Transition to choice_consequence phase
 //
 // BUSINESS RULES:
 // - Game must be in progress
@@ -35,14 +34,13 @@ import type {
   BountyModifiedEvent,
   FlagSetEvent,
   PhaseChangedEvent,
-  AlliancePhaseStartedEvent,
-  DilemmaPresenedEvent,
+  ChoiceConsequencePresentedEvent,
   FactionId
 } from '../shared-kernel'
 import { createTimestamp } from '../shared-kernel'
 
 // Import content helpers
-import { getDilemmaById } from '../../game/content/quests'
+import { getDilemmaById, getQuestById } from '../../game/content/quests'
 import { getCardById } from '../../game/content/cards'
 
 // ----------------------------------------------------------------------------
@@ -253,67 +251,133 @@ export function handleMakeChoice(
     }
   }
 
-  // 7. Handle phase transitions based on triggers
-  if (consequences.triggersBattle || consequences.triggersAlliance) {
-    // Both battle and alliance triggers go to alliance phase first
-    const phaseChanged: PhaseChangedEvent = {
-      type: 'PHASE_CHANGED',
-      data: {
-        timestamp: ts,
-        fromPhase: 'narrative',
-        toPhase: 'alliance'
-      }
-    }
-    events.push(phaseChanged)
+  // 7. Determine what triggers next (for choice consequence screen)
+  let triggersNext: 'dilemma' | 'battle' | 'alliance' | 'mediation' | 'quest_complete' = 'dilemma'
 
-    // Emit ALLIANCE_PHASE_STARTED so alliance screen knows context
-    const allianceStarted: AlliancePhaseStartedEvent = {
-      type: 'ALLIANCE_PHASE_STARTED',
-      data: {
-        timestamp: ts,
-        questId: state.activeQuest.questId,
-        battleContext: consequences.triggersBattle
-          ? 'Battle ahead - choose your allies wisely'
-          : 'Form an alliance to strengthen your position',
-        availableFactionIds: ['ironveil', 'ashfall', 'meridian', 'void_wardens', 'sundered_oath'] as FactionId[]
-      }
-    }
-    events.push(allianceStarted)
+  if (consequences.triggersBattle) {
+    triggersNext = 'battle'
+  } else if (consequences.triggersAlliance) {
+    triggersNext = 'alliance'
   } else if (consequences.triggersMediation) {
-    const phaseChanged: PhaseChangedEvent = {
-      type: 'PHASE_CHANGED',
-      data: {
-        timestamp: ts,
-        fromPhase: 'narrative',
-        toPhase: 'mediation'
-      }
-    }
-    events.push(phaseChanged)
+    triggersNext = 'mediation'
   } else if (consequences.nextDilemmaId) {
-    // Present the next dilemma (stay in narrative phase)
-    const dilemmaPresented: DilemmaPresenedEvent = {
-      type: 'DILEMMA_PRESENTED',
-      data: {
-        timestamp: ts,
-        dilemmaId: consequences.nextDilemmaId,
-        questId: state.activeQuest.questId
-      }
-    }
-    events.push(dilemmaPresented)
+    triggersNext = 'dilemma'
   } else {
-    // No explicit next step - default to alliance phase
-    const phaseChanged: PhaseChangedEvent = {
-      type: 'PHASE_CHANGED',
-      data: {
-        timestamp: ts,
-        fromPhase: 'narrative',
-        toPhase: 'alliance'
-      }
+    // Check if this is the final dilemma
+    const quest = getQuestById(state.activeQuest.questId)
+    const isLastDilemma = quest
+      ? quest.dilemmaIds.indexOf(dilemmaId) === quest.dilemmaIds.length - 1
+      : true
+
+    if (isLastDilemma) {
+      triggersNext = 'quest_complete'
+    } else {
+      // Default to dilemma (or alliance if no next dilemma specified)
+      triggersNext = consequences.nextDilemmaId ? 'dilemma' : 'alliance'
     }
-    events.push(phaseChanged)
   }
 
+  // 8. Generate narrative aftermath text
+  const narrativeText = generateNarrativeText(choice.label, consequences, triggersNext)
+
+  // 9. Emit CHOICE_CONSEQUENCE_PRESENTED event
+  const consequencePresented: ChoiceConsequencePresentedEvent = {
+    type: 'CHOICE_CONSEQUENCE_PRESENTED',
+    data: {
+      timestamp: ts,
+      dilemmaId,
+      choiceId,
+      questId: state.activeQuest.questId,
+      choiceLabel: choice.label,
+      narrativeText,
+      triggersNext
+    }
+  }
+  events.push(consequencePresented)
+
+  // 10. Transition to choice_consequence phase
+  const phaseChanged: PhaseChangedEvent = {
+    type: 'PHASE_CHANGED',
+    data: {
+      timestamp: ts,
+      fromPhase: 'narrative',
+      toPhase: 'choice_consequence'
+    }
+  }
+  events.push(phaseChanged)
+
   return events
+}
+
+// ----------------------------------------------------------------------------
+// Narrative Text Generator
+// ----------------------------------------------------------------------------
+
+/**
+ * Generate aftermath text based on choice and consequences.
+ * Provides cinematic flavor text for the consequence screen.
+ */
+function generateNarrativeText(
+  choiceLabel: string,
+  consequences: { reputationChanges: Array<{ faction: string; delta: number }>; bountyModifier?: number },
+  triggersNext: string
+): string {
+  const templates: Record<string, string[]> = {
+    positive_rep: [
+      'Your decision strengthens old bonds and forges new alliances.',
+      'Word of your actions spreads quickly through the sector.',
+      'Your reputation precedes you now.',
+    ],
+    negative_rep: [
+      'Some doors close as others open.',
+      'Your choice will not be forgotten.',
+      'The consequences of your decision ripple through the void.',
+    ],
+    bounty_gain: [
+      'Your coffers grow heavier with credits.',
+      'A profitable outcome, though profit is not everything.',
+    ],
+    bounty_loss: [
+      'Credits flow from your account, but some things are worth more than money.',
+      'The cost is steep, but you made your choice.',
+    ],
+    battle_ahead: [
+      'Steel yourself. Conflict awaits beyond the next jump.',
+      'The path ahead leads through fire and fury.',
+    ],
+    mediation_ahead: [
+      'A delicate negotiation lies ahead. Choose your words carefully.',
+      'Diplomacy may yet prevail, if you can find common ground.',
+    ],
+    quest_complete: [
+      'Your quest nears its conclusion. The sector will remember this.',
+      'The final threads of this tale are weaving together.',
+    ],
+    default: [
+      'Your choice echoes through the void...',
+      'The consequences of your decision unfold.',
+      'What comes next remains to be seen.',
+    ]
+  }
+
+  // Determine which template category to use
+  let category = 'default'
+
+  if (triggersNext === 'battle') {
+    category = 'battle_ahead'
+  } else if (triggersNext === 'mediation') {
+    category = 'mediation_ahead'
+  } else if (triggersNext === 'quest_complete') {
+    category = 'quest_complete'
+  } else if (consequences.reputationChanges.length > 0) {
+    const netRep = consequences.reputationChanges.reduce((sum, r) => sum + r.delta, 0)
+    category = netRep >= 0 ? 'positive_rep' : 'negative_rep'
+  } else if (consequences.bountyModifier) {
+    category = consequences.bountyModifier > 0 ? 'bounty_gain' : 'bounty_loss'
+  }
+
+  const options = templates[category]
+  return options[Math.floor(Math.random() * options.length)]
 }
 
 // ----------------------------------------------------------------------------

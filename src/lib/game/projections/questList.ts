@@ -42,7 +42,7 @@ export interface CompletedQuestItem {
   title: string
   factionId: FactionId
   factionIcon: string
-  outcome: 'full' | 'partial' | 'compromised'
+  outcome: 'completed' | 'full' | 'partial' | 'compromised'
   finalBounty: number
   completedAt: string
 }

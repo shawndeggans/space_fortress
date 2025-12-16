@@ -69,6 +69,14 @@ export {
   type ChoiceMadeEvent,
   type FlagSetEvent,
 
+  // Choice consequence events
+  type ChoiceConsequencePresentedEvent,
+  type ChoiceConsequenceAcknowledgedEvent,
+
+  // Quest summary events
+  type QuestSummaryPresentedEvent,
+  type QuestSummaryAcknowledgedEvent,
+
   // Alliance events
   type AlliancePhaseStartedEvent,
   type AllianceTermsViewedEvent,

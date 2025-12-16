@@ -664,6 +664,32 @@ export function evolveState(state: GameState, event: GameEvent): GameState {
       }
 
     // ========================================================================
+    // Choice Consequence Events
+    // ========================================================================
+
+    case 'CHOICE_CONSEQUENCE_PRESENTED':
+      // Informational event for UI - actual state changes already happened via
+      // REPUTATION_CHANGED, CARD_GAINED, CARD_LOST, BOUNTY_MODIFIED events
+      return state
+
+    case 'CHOICE_CONSEQUENCE_ACKNOWLEDGED':
+      // Player acknowledged consequences, no additional state change needed
+      // Next phase transition handled by PHASE_CHANGED event
+      return state
+
+    // ========================================================================
+    // Quest Summary Events
+    // ========================================================================
+
+    case 'QUEST_SUMMARY_PRESENTED':
+      // Informational event for UI - quest is still active at this point
+      return state
+
+    case 'QUEST_SUMMARY_ACKNOWLEDGED':
+      // Player acknowledged summary - quest completion handled by QUEST_COMPLETED event
+      return state
+
+    // ========================================================================
     // Default
     // ========================================================================
 

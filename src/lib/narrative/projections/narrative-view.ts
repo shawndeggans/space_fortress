@@ -206,9 +206,9 @@ function buildViewFromNode(
     .filter(t => t.transitionType === 'choice')
     .map(t => buildChoiceFromTransition(t, currentCardCount, battleUpcoming))
 
-  // Determine dilemma index
+  // Determine dilemma index (use graph nodes count since totalDilemmas isn't tracked on ActiveQuest)
   const dilemmaIndex = state.activeQuest?.currentDilemmaIndex ?? 0
-  const totalDilemmas = state.activeQuest?.totalDilemmas ?? graph.nodes.size - 1 // -1 for ending
+  const totalDilemmas = graph.nodes.size - 1 // -1 for ending node
 
   // Post-battle check
   const isPostBattle = node.nodeId.includes('post_battle') || state.currentPhase === 'post_battle_dilemma'

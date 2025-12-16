@@ -137,13 +137,14 @@ export function handleContinueToNextPhase(
     const { currentDilemmaIndex, totalDilemmas } = state.activeQuest
 
     if (currentDilemmaIndex >= totalDilemmas - 1) {
-      // Quest complete - go to quest hub
-      toPhase = 'quest_hub'
+      // Quest complete - go to quest summary instead of quest hub
+      toPhase = 'quest_summary'
       events.push({
-        type: 'QUEST_COMPLETED',
+        type: 'QUEST_SUMMARY_PRESENTED',
         data: {
           timestamp: ts,
           questId: state.activeQuest.questId,
+          questTitle: state.activeQuest.questId, // Title would be looked up
           outcome: 'completed'
         }
       })

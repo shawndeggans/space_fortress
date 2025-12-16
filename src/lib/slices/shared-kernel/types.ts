@@ -73,6 +73,7 @@ export type GamePhase =
   | 'not_started'        // Initial state, no game in progress
   | 'quest_hub'          // Selecting or viewing available quests
   | 'narrative'          // Reading dilemma text, making choices
+  | 'choice_consequence' // Showing consequence of a narrative choice
   | 'alliance'           // Forming alliances before battle
   | 'mediation'          // Diplomatic resolution path
   | 'card_selection'     // Selecting cards for battle
@@ -80,6 +81,7 @@ export type GamePhase =
   | 'battle'             // Combat execution
   | 'consequence'        // Viewing battle results and rewards
   | 'post_battle_dilemma'// Special dilemmas that occur after battle
+  | 'quest_summary'      // Showing quest completion summary
   | 'ending'             // Game complete, viewing final results
 
 // ----------------------------------------------------------------------------

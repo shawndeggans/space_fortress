@@ -32,6 +32,14 @@ import {
   handleContinueToNextPhase as sliceHandleContinueToNextPhase,
   type ConsequenceState
 } from '../slices/consequence'
+import {
+  handleAcknowledgeChoiceConsequence as sliceHandleAcknowledgeChoiceConsequence,
+  type ChoiceConsequenceState
+} from '../slices/choice-consequence'
+import {
+  handleAcknowledgeQuestSummary as sliceHandleAcknowledgeQuestSummary,
+  type QuestSummaryState
+} from '../slices/quest-summary'
 
 // ----------------------------------------------------------------------------
 // Error Types
@@ -72,6 +80,7 @@ function toConsequenceState(state: GameState): ConsequenceState {
     currentPhase: state.currentPhase,
     currentBattle: state.currentBattle ? { battleId: state.currentBattle.battleId } : null,
     hasAcknowledgedOutcome: false, // This would be tracked in state if needed
+    currentDilemmaId: state.currentDilemmaId,
     activeQuest: activeQuestInfo
   }
 }
@@ -83,6 +92,52 @@ function getRepStatus(value: number): 'devoted' | 'friendly' | 'neutral' | 'unfr
   if (value >= -24) return 'neutral'
   if (value >= -74) return 'unfriendly'
   return 'hostile'
+}
+
+function toChoiceConsequenceState(state: GameState, events: GameEvent[] = []): ChoiceConsequenceState {
+  // Find the most recent CHOICE_CONSEQUENCE_PRESENTED event to get triggersNext
+  let choiceTriggersNext: ChoiceConsequenceState['choiceTriggersNext'] = null
+  for (let i = events.length - 1; i >= 0; i--) {
+    const event = events[i]
+    if (event.type === 'CHOICE_CONSEQUENCE_PRESENTED') {
+      choiceTriggersNext = event.data.triggersNext
+      break
+    }
+  }
+
+  let activeQuestInfo: ChoiceConsequenceState['activeQuest'] = null
+  if (state.activeQuest) {
+    const quest = getQuestById(state.activeQuest.questId)
+    activeQuestInfo = {
+      questId: state.activeQuest.questId,
+      currentDilemmaIndex: state.activeQuest.currentDilemmaIndex,
+      totalDilemmas: quest ? quest.dilemmaIds.length : 1
+    }
+  }
+
+  return {
+    currentPhase: state.currentPhase,
+    activeQuest: activeQuestInfo,
+    currentDilemmaId: state.currentDilemmaId,
+    lastChoiceId: null, // Would need to track this in state
+    choiceTriggersNext
+  }
+}
+
+function toQuestSummaryState(state: GameState): QuestSummaryState {
+  let activeQuestInfo: QuestSummaryState['activeQuest'] = null
+  if (state.activeQuest) {
+    activeQuestInfo = {
+      questId: state.activeQuest.questId,
+      factionId: state.activeQuest.factionId
+    }
+  }
+
+  return {
+    currentPhase: state.currentPhase,
+    activeQuest: activeQuestInfo,
+    bounty: state.bounty
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -201,6 +256,26 @@ export function decide(command: GameCommand, state: GameState): GameEvent[] {
 
     case 'CONTINUE_TO_NEXT_PHASE':
       return sliceHandleContinueToNextPhase(command, toConsequenceState(state))
+
+    // ========================================================================
+    // Choice Consequence (post-narrative choice feedback)
+    // ========================================================================
+
+    case 'ACKNOWLEDGE_CHOICE_CONSEQUENCE':
+      return sliceHandleAcknowledgeChoiceConsequence(
+        { type: 'ACKNOWLEDGE_CHOICE_CONSEQUENCE', data: {} },
+        toChoiceConsequenceState(state)
+      )
+
+    // ========================================================================
+    // Quest Summary (end of quest feedback)
+    // ========================================================================
+
+    case 'ACKNOWLEDGE_QUEST_SUMMARY':
+      return sliceHandleAcknowledgeQuestSummary(
+        { type: 'ACKNOWLEDGE_QUEST_SUMMARY', data: {} },
+        toQuestSummaryState(state)
+      )
 
     // ========================================================================
     // Information Commands (mostly generate view events or none)
@@ -573,63 +648,122 @@ function handleMakeChoice(
     }
   }
 
-  // Handle phase transitions based on triggers
-  if (consequences.triggersBattle || consequences.triggersAlliance) {
-    // Both battle and alliance triggers go to alliance phase first
-    // Player must form alliance (or decline) before entering card selection
-    events.push({
-      type: 'PHASE_CHANGED',
-      data: {
-        timestamp: ts,
-        fromPhase: 'narrative',
-        toPhase: 'alliance'
-      }
-    })
+  // Determine what triggers next (for choice consequence screen)
+  let triggersNext: 'dilemma' | 'battle' | 'alliance' | 'mediation' | 'quest_complete' = 'dilemma'
 
-    // Emit ALLIANCE_PHASE_STARTED so alliance screen knows the context
-    events.push({
-      type: 'ALLIANCE_PHASE_STARTED',
-      data: {
-        timestamp: ts,
-        questId: state.activeQuest.questId,
-        battleContext: consequences.triggersBattle
-          ? 'Battle ahead - choose your allies wisely'
-          : 'Form an alliance to strengthen your position',
-        availableFactionIds: ['ironveil', 'ashfall', 'meridian', 'void_wardens', 'sundered_oath'] as FactionId[]
-      }
-    })
+  if (consequences.triggersBattle) {
+    triggersNext = 'battle'
+  } else if (consequences.triggersAlliance) {
+    triggersNext = 'alliance'
   } else if (consequences.triggersMediation) {
-    events.push({
-      type: 'PHASE_CHANGED',
-      data: {
-        timestamp: ts,
-        fromPhase: 'narrative',
-        toPhase: 'mediation'
-      }
-    })
+    triggersNext = 'mediation'
   } else if (consequences.nextDilemmaId) {
-    // Present the next dilemma (stay in narrative phase)
-    events.push({
-      type: 'DILEMMA_PRESENTED',
-      data: {
-        timestamp: ts,
-        dilemmaId: consequences.nextDilemmaId,
-        questId: state.activeQuest.questId
-      }
-    })
+    triggersNext = 'dilemma'
   } else {
-    // No explicit next step - default to alliance phase to allow forming alliances before battle
-    events.push({
-      type: 'PHASE_CHANGED',
-      data: {
-        timestamp: ts,
-        fromPhase: 'narrative',
-        toPhase: 'alliance'
-      }
-    })
+    // Check if this is the final dilemma
+    const quest = getQuestById(state.activeQuest.questId)
+    const isLastDilemma = quest
+      ? quest.dilemmaIds.indexOf(command.data.dilemmaId) === quest.dilemmaIds.length - 1
+      : true
+
+    if (isLastDilemma) {
+      triggersNext = 'quest_complete'
+    } else {
+      // Default to alliance if no next dilemma specified
+      triggersNext = 'alliance'
+    }
   }
 
+  // Generate narrative aftermath text
+  const narrativeText = generateNarrativeText(consequences, triggersNext)
+
+  // Emit CHOICE_CONSEQUENCE_PRESENTED event
+  events.push({
+    type: 'CHOICE_CONSEQUENCE_PRESENTED',
+    data: {
+      timestamp: ts,
+      dilemmaId: command.data.dilemmaId,
+      choiceId: command.data.choiceId,
+      questId: state.activeQuest.questId,
+      choiceLabel: choice.label,
+      narrativeText,
+      triggersNext
+    }
+  })
+
+  // Transition to choice_consequence phase
+  events.push({
+    type: 'PHASE_CHANGED',
+    data: {
+      timestamp: ts,
+      fromPhase: 'narrative',
+      toPhase: 'choice_consequence'
+    }
+  })
+
   return events
+}
+
+// Helper to generate narrative text for consequence screen
+function generateNarrativeText(
+  consequences: { reputationChanges: Array<{ faction: FactionId; delta: number }>; bountyModifier?: number },
+  triggersNext: string
+): string {
+  const templates: Record<string, string[]> = {
+    positive_rep: [
+      'Your decision strengthens old bonds and forges new alliances.',
+      'Word of your actions spreads quickly through the sector.',
+      'Your reputation precedes you now.',
+    ],
+    negative_rep: [
+      'Some doors close as others open.',
+      'Your choice will not be forgotten.',
+      'The consequences of your decision ripple through the void.',
+    ],
+    bounty_gain: [
+      'Your coffers grow heavier with credits.',
+      'A profitable outcome, though profit is not everything.',
+    ],
+    bounty_loss: [
+      'Credits flow from your account, but some things are worth more than money.',
+      'The cost is steep, but you made your choice.',
+    ],
+    battle_ahead: [
+      'Steel yourself. Conflict awaits beyond the next jump.',
+      'The path ahead leads through fire and fury.',
+    ],
+    mediation_ahead: [
+      'A delicate negotiation lies ahead. Choose your words carefully.',
+      'Diplomacy may yet prevail, if you can find common ground.',
+    ],
+    quest_complete: [
+      'Your quest nears its conclusion. The sector will remember this.',
+      'The final threads of this tale are weaving together.',
+    ],
+    default: [
+      'Your choice echoes through the void...',
+      'The consequences of your decision unfold.',
+      'What comes next remains to be seen.',
+    ]
+  }
+
+  let category = 'default'
+
+  if (triggersNext === 'battle') {
+    category = 'battle_ahead'
+  } else if (triggersNext === 'mediation') {
+    category = 'mediation_ahead'
+  } else if (triggersNext === 'quest_complete') {
+    category = 'quest_complete'
+  } else if (consequences.reputationChanges.length > 0) {
+    const netRep = consequences.reputationChanges.reduce((sum, r) => sum + r.delta, 0)
+    category = netRep >= 0 ? 'positive_rep' : 'negative_rep'
+  } else if (consequences.bountyModifier) {
+    category = consequences.bountyModifier > 0 ? 'bounty_gain' : 'bounty_loss'
+  }
+
+  const options = templates[category]
+  return options[Math.floor(Math.random() * options.length)]
 }
 
 function handleMakePostBattleChoice(

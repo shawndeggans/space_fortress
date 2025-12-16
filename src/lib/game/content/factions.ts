@@ -271,3 +271,10 @@ export function getFactionNpcs(faction: FactionId): FactionNpc[] {
 export function getAllFactionIds(): FactionId[] {
   return Object.keys(factions) as FactionId[]
 }
+
+/**
+ * Get faction by ID
+ */
+export function getFactionById(id: FactionId): Faction | undefined {
+  return factions[id]
+}
