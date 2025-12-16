@@ -171,7 +171,7 @@ describe('Mediation Command Handlers', () => {
       const events = handleLeanTowardFaction(command, state)
 
       // Then: defaults to ashfall as away faction
-      expect(events[0].data.awayFromFactionId).toBe('ashfall')
+      expect((events[0].data as any).awayFromFactionId).toBe('ashfall')
     })
   })
 
@@ -187,12 +187,12 @@ describe('Mediation Command Handlers', () => {
       // Then: all three events emitted
       expect(events).toHaveLength(3)
       expect(events[0].type).toBe('MEDIATION_COLLAPSED')
-      expect(events[0].data.battleTriggered).toBe(true)
+      expect((events[0].data as any).battleTriggered).toBe(true)
       expect(events[1].type).toBe('BATTLE_TRIGGERED')
-      expect(events[1].data.trigger).toBe('mediation_collapse')
+      expect((events[1].data as any).context).toBe('Mediation collapsed - factions refuse to negotiate')
       expect(events[2].type).toBe('PHASE_CHANGED')
-      expect(events[2].data.fromPhase).toBe('mediation')
-      expect(events[2].data.toPhase).toBe('card_selection')
+      expect((events[2].data as any).fromPhase).toBe('mediation')
+      expect((events[2].data as any).toPhase).toBe('card_selection')
     })
 
     it('rejects if not in mediation phase', () => {
@@ -223,10 +223,10 @@ describe('Mediation Command Handlers', () => {
       // Then: both events emitted
       expect(events).toHaveLength(2)
       expect(events[0].type).toBe('COMPROMISE_ACCEPTED')
-      expect(events[0].data.bountyModifier).toBe(0.5)
+      expect((events[0].data as any).bountyModifier).toBe(0.5)
       expect(events[1].type).toBe('PHASE_CHANGED')
-      expect(events[1].data.fromPhase).toBe('mediation')
-      expect(events[1].data.toPhase).toBe('consequence')
+      expect((events[1].data as any).fromPhase).toBe('mediation')
+      expect((events[1].data as any).toPhase).toBe('consequence')
     })
 
     it('rejects if not in mediation phase', () => {
