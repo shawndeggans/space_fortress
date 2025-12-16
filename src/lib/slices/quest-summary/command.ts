@@ -47,6 +47,8 @@ export interface QuestSummaryState {
     factionId: FactionId
   } | null
   bounty: number
+  completedQuestsCount: number
+  totalQuests: number
 }
 
 // ----------------------------------------------------------------------------
@@ -105,15 +107,39 @@ export function handleAcknowledgeQuestSummary(
     }
   })
 
-  // Transition to quest hub
-  events.push({
-    type: 'PHASE_CHANGED',
-    data: {
-      timestamp: ts,
-      fromPhase: 'quest_summary',
-      toPhase: 'quest_hub'
-    }
-  })
+  // Determine next phase based on completion status
+  const questsAfterThis = state.completedQuestsCount + 1
+  const isGameComplete = questsAfterThis >= state.totalQuests
+
+  if (isGameComplete) {
+    // Game complete - emit GAME_ENDED and transition to ending
+    events.push({
+      type: 'GAME_ENDED',
+      data: {
+        timestamp: ts,
+        totalQuests: state.totalQuests,
+        finalBounty: state.bounty
+      }
+    })
+    events.push({
+      type: 'PHASE_CHANGED',
+      data: {
+        timestamp: ts,
+        fromPhase: 'quest_summary',
+        toPhase: 'ending'
+      }
+    })
+  } else {
+    // More quests available - return to quest hub
+    events.push({
+      type: 'PHASE_CHANGED',
+      data: {
+        timestamp: ts,
+        fromPhase: 'quest_summary',
+        toPhase: 'quest_hub'
+      }
+    })
+  }
 
   return events
 }

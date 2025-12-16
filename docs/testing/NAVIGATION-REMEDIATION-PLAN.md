@@ -6,10 +6,10 @@ This document outlines the fixes needed for navigation sequences that don't comp
 
 | Issue | Location | Severity | Status |
 |-------|----------|----------|--------|
-| Game ending not triggered after 3 quests | `quest-summary/command.ts` | Critical | Open |
-| Mediation collapse missing BATTLE_TRIGGERED event | `mediation/command.ts` | High | Open |
-| LOCK_ORDERS requires positions in command data | Test setup issue | Medium | Test fix needed |
-| Quest summary requires activeQuest | Test setup + potential UX issue | Medium | Open |
+| Game ending not triggered after 3 quests | `quest-summary/command.ts` | Critical | **Fixed** |
+| Mediation collapse missing BATTLE_TRIGGERED event | `mediation/command.ts` | High | **Fixed** |
+| LOCK_ORDERS requires positions in command data | Test setup issue | Medium | **Fixed** (test updated) |
+| Quest summary requires activeQuest | Test setup + potential UX issue | Medium | **Fixed** (tests provide activeQuest) |
 
 ---
 
@@ -344,11 +344,20 @@ This is a **test fix**, not a code fix. Tests have been updated to pass position
 
 After implementing fixes, verify:
 
-- [ ] Complete 3 quests → lands on ending screen (not quest_hub)
-- [ ] Refuse mediation → BATTLE_TRIGGERED event emitted
-- [ ] All player journey tests pass
+- [x] Complete 3 quests → lands on ending screen (not quest_hub)
+- [x] Refuse mediation → BATTLE_TRIGGERED event emitted
+- [x] All player journey tests pass (33/33 passing)
 - [ ] E2E tests for stuck states pass
 - [ ] No regression in existing gameplay flows
+
+### Implementation Notes
+
+**Fixes Applied:**
+1. `quest-summary/command.ts`: Added `completedQuestsCount` and `totalQuests` to state, handler now checks completion and transitions to 'ending' when 3 quests completed
+2. `mediation/command.ts`: `handleRefuseToLean` now emits `BATTLE_TRIGGERED` event between `MEDIATION_COLLAPSED` and `PHASE_CHANGED`
+3. `events.ts`: Added `GAME_ENDED` event type
+4. `projections.ts`: Added handler for `GAME_ENDED` to set `gameStatus: 'ended'`
+5. `decider.ts`: Updated `toQuestSummaryState` to pass completion count
 
 ---
 

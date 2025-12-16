@@ -147,6 +147,7 @@ export function handleRefuseToLean(
   }
 
   const ts = timestamp()
+  const battleId = `battle_mediation_collapse_${Date.now()}`
 
   return [
     {
@@ -155,6 +156,17 @@ export function handleRefuseToLean(
         timestamp: ts,
         reason: 'Player refused to lean toward either party',
         battleTriggered: true
+      }
+    },
+    {
+      type: 'BATTLE_TRIGGERED',
+      data: {
+        timestamp: ts,
+        battleId: battleId,
+        trigger: 'mediation_collapse',
+        context: 'Mediation collapsed - factions refuse to negotiate',
+        opponentType: 'hostile_factions',
+        difficulty: 'medium'
       }
     },
     {
