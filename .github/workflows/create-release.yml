@@ -1,7 +1,7 @@
 # Create Release
 #
 # Manually trigger this workflow from GitHub Actions to create a new release.
-# It will create a git tag and trigger the CI workflow which builds and publishes the release.
+# It will run tests, build, create a GitHub Release, and trigger itch.io deploy.
 #
 # Usage:
 # 1. Go to Actions -> Create Release
@@ -23,8 +23,8 @@ permissions:
   contents: write
 
 jobs:
-  create-release:
-    name: Create Release Tag
+  validate:
+    name: Validate Version
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -49,6 +49,88 @@ jobs:
           fi
           echo "Tag v${{ github.event.inputs.version }} is available"
 
+  test:
+    name: Run Tests
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Svelte sync
+        run: npx svelte-kit sync
+
+      - name: Type check
+        run: npm run check
+
+      - name: Run tests
+        run: npm test
+
+  build:
+    name: Build
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Verify build output
+        run: |
+          if [ ! -f "build/index.html" ]; then
+            echo "Error: build/index.html not found!"
+            exit 1
+          fi
+          echo "Build verified successfully"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build
+          path: build/
+          retention-days: 7
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build
+          path: build/
+
+      - name: Create release zip
+        run: |
+          cd build
+          zip -r ../space-fortress-${{ github.event.inputs.version }}.zip .
+
       - name: Create and push tag
         run: |
           git config user.name "github-actions[bot]"
@@ -56,15 +138,28 @@ jobs:
           git tag -a "v${{ github.event.inputs.version }}" -m "Release v${{ github.event.inputs.version }}"
           git push origin "v${{ github.event.inputs.version }}"
 
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.event.inputs.version }}
+          name: Space Fortress v${{ github.event.inputs.version }}
+          body: |
+            ## Space Fortress v${{ github.event.inputs.version }}
+
+            ### Play Now
+            - **itch.io:** https://shawndeggans.itch.io/space-fortress
+
+            ### Downloads
+            - **Web Build:** Download the zip below, extract, and open `index.html` in a browser
+          files: |
+            space-fortress-${{ github.event.inputs.version }}.zip
+          generate_release_notes: true
+
       - name: Summary
         run: |
-          echo "## Release Tag Created! 🏷️" >> $GITHUB_STEP_SUMMARY
+          echo "## Release Created! 🚀" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Version:** v${{ github.event.inputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Tag:** [v${{ github.event.inputs.version }}](https://github.com/${{ github.repository }}/releases/tag/v${{ github.event.inputs.version }})" >> $GITHUB_STEP_SUMMARY
+          echo "- **Release:** [v${{ github.event.inputs.version }}](https://github.com/${{ github.repository }}/releases/tag/v${{ github.event.inputs.version }})" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "The CI workflow will now:" >> $GITHUB_STEP_SUMMARY
-          echo "1. Run tests" >> $GITHUB_STEP_SUMMARY
-          echo "2. Build the project" >> $GITHUB_STEP_SUMMARY
-          echo "3. Create a GitHub Release" >> $GITHUB_STEP_SUMMARY
-          echo "4. Deploy to itch.io" >> $GITHUB_STEP_SUMMARY
+          echo "The itch.io deploy workflow will now run automatically." >> $GITHUB_STEP_SUMMARY
