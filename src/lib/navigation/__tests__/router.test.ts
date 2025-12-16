@@ -40,6 +40,7 @@ describe('Navigation Router', () => {
         'not_started',
         'quest_hub',
         'narrative',
+        'choice_consequence',
         'alliance',
         'mediation',
         'card_selection',
@@ -47,6 +48,7 @@ describe('Navigation Router', () => {
         'battle',
         'consequence',
         'post_battle_dilemma',
+        'quest_summary',
         'ending'
       ]
 
@@ -61,6 +63,7 @@ describe('Navigation Router', () => {
       expect(getRouteForPhase('not_started')).toBe('/')
       expect(getRouteForPhase('quest_hub')).toBe('/quest-hub')
       expect(getRouteForPhase('narrative')).toBe('/narrative')
+      expect(getRouteForPhase('choice_consequence')).toBe('/choice-consequence')
       expect(getRouteForPhase('alliance')).toBe('/alliance')
       expect(getRouteForPhase('mediation')).toBe('/mediation')
       expect(getRouteForPhase('card_selection')).toBe('/card-pool')
@@ -68,6 +71,7 @@ describe('Navigation Router', () => {
       expect(getRouteForPhase('battle')).toBe('/battle')
       expect(getRouteForPhase('consequence')).toBe('/consequence')
       expect(getRouteForPhase('post_battle_dilemma')).toBe('/narrative')
+      expect(getRouteForPhase('quest_summary')).toBe('/quest-summary')
       expect(getRouteForPhase('ending')).toBe('/ending')
     })
 
@@ -83,12 +87,14 @@ describe('Navigation Router', () => {
         '/',
         '/quest-hub',
         '/narrative',
+        '/choice-consequence',
         '/alliance',
         '/mediation',
         '/card-pool',
         '/deployment',
         '/battle',
         '/consequence',
+        '/quest-summary',
         '/ending'
       ]
 
@@ -102,8 +108,9 @@ describe('Navigation Router', () => {
     })
 
     it('has correct count of unique routes', () => {
-      // post_battle_dilemma reuses /narrative, so count should be 10
-      expect(VALID_ROUTES.size).toBe(10)
+      // post_battle_dilemma reuses /narrative, so count should be 12
+      // (13 phases - 1 shared route = 12 unique routes)
+      expect(VALID_ROUTES.size).toBe(12)
     })
   })
 
@@ -126,10 +133,12 @@ describe('Navigation Router', () => {
     it('returns all valid routes as array', () => {
       const routes = getAllRoutes()
       expect(Array.isArray(routes)).toBe(true)
-      expect(routes.length).toBe(10)
+      expect(routes.length).toBe(12)
       expect(routes).toContain('/')
       expect(routes).toContain('/mediation')
       expect(routes).toContain('/card-pool')
+      expect(routes).toContain('/choice-consequence')
+      expect(routes).toContain('/quest-summary')
     })
   })
 

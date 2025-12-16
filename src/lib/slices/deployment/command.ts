@@ -185,6 +185,16 @@ export function handleLockOrders(
     }
   })
 
+  // Transition to battle phase BEFORE battle events
+  events.push({
+    type: 'PHASE_CHANGED',
+    data: {
+      timestamp: ts,
+      fromPhase: 'deployment',
+      toPhase: 'battle'
+    }
+  })
+
   // Build player fleet from positions (order matters!)
   const playerFleet: Card[] = (positions as string[]).map(cardId => {
     const card = state.ownedCards.find(c => c.id === cardId)
@@ -225,13 +235,14 @@ export function handleLockOrders(
   // Add all battle events
   events.push(...battleEvents)
 
-  // Finally transition to battle phase
+  // Transition from battle to consequence phase AFTER battle resolves
+  const postBattleTs = new Date(new Date(ts).getTime() + 7000).toISOString()
   events.push({
     type: 'PHASE_CHANGED',
     data: {
-      timestamp: ts,
-      fromPhase: 'deployment',
-      toPhase: 'battle'
+      timestamp: postBattleTs,
+      fromPhase: 'battle',
+      toPhase: 'consequence'
     }
   })
 

@@ -229,9 +229,8 @@ describe('HP-1: Standard Battle Flow', () => {
       state
     )
 
-    expect(afterLock.currentPhase).toBe('battle')
-    // Battle may proceed to 'resolved' if auto-resolved, or stay at 'execution'
-    expect(['execution', 'resolved']).toContain(afterLock.currentBattle?.phase)
+    // After LOCK_ORDERS, battle resolves synchronously and transitions to consequence
+    expect(afterLock.currentPhase).toBe('consequence')
   })
 })
 
@@ -1074,6 +1073,7 @@ describe('Deployment Phase Validation', () => {
       state
     )
 
-    expect(afterLock.currentPhase).toBe('battle')
+    // After LOCK_ORDERS, battle resolves synchronously and transitions to consequence
+    expect(afterLock.currentPhase).toBe('consequence')
   })
 })

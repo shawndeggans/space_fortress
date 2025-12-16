@@ -234,12 +234,20 @@ describe('LOCK_ORDERS Command Handler', () => {
           positions: ['card_1', 'card_2', 'card_3', 'card_4', 'card_5']
         }
       })
-      // Last event should be PHASE_CHANGED
-      expect(events[events.length - 1]).toMatchObject({
+      // Second event should be PHASE_CHANGED to battle
+      expect(events[1]).toMatchObject({
         type: 'PHASE_CHANGED',
         data: {
           fromPhase: 'deployment',
           toPhase: 'battle'
+        }
+      })
+      // Last event should be PHASE_CHANGED to consequence (after battle resolves)
+      expect(events[events.length - 1]).toMatchObject({
+        type: 'PHASE_CHANGED',
+        data: {
+          fromPhase: 'battle',
+          toPhase: 'consequence'
         }
       })
     })

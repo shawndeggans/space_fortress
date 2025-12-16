@@ -56,16 +56,19 @@ describe('E2E: Complete Game Flows', () => {
         // 2. Accept a quest
         { type: 'ACCEPT_QUEST', data: { questId: 'quest_salvage_claim' } },
 
-        // 3. Make first narrative choice (triggers alliance)
+        // 3. Make first narrative choice (triggers battle via choice_consequence)
         { type: 'MAKE_CHOICE', data: {
           dilemmaId: 'dilemma_salvage_1_approach',
           choiceId: 'choice_attack_immediately'
         }},
 
-        // 4. Form alliance with friendly faction
+        // 4. Acknowledge consequence to proceed to alliance
+        { type: 'ACKNOWLEDGE_CHOICE_CONSEQUENCE', data: {} },
+
+        // 5. Form alliance with friendly faction
         { type: 'FORM_ALLIANCE', data: { factionId: 'meridian' } },
 
-        // 5. Finalize alliances and trigger battle
+        // 6. Finalize alliances and trigger battle
         { type: 'FINALIZE_ALLIANCES', data: {} }
       ]
 
@@ -95,12 +98,15 @@ describe('E2E: Complete Game Flows', () => {
         { type: 'MAKE_CHOICE', data: {
           dilemmaId: 'dilemma_salvage_1_approach',
           choiceId: 'choice_hail_first'
-        }}
+        }},
+
+        // Acknowledge consequence to proceed to next dilemma
+        { type: 'ACKNOWLEDGE_CHOICE_CONSEQUENCE', data: {} }
       ]
 
       const { state, allEvents } = executeCommands(commands, getInitialState())
 
-      // Should still be in narrative (next dilemma)
+      // Should be in narrative (next dilemma) after acknowledging consequence
       expect(state.currentPhase).toBe('narrative')
 
       // Meridian reputation should have increased
@@ -124,6 +130,7 @@ describe('E2E: Complete Game Flows', () => {
           dilemmaId: 'dilemma_salvage_1_approach',
           choiceId: 'choice_attack_immediately'
         }},
+        { type: 'ACKNOWLEDGE_CHOICE_CONSEQUENCE', data: {} },
         { type: 'FORM_ALLIANCE', data: { factionId: 'meridian' } },
         { type: 'FINALIZE_ALLIANCES', data: {} }
       ]
@@ -211,12 +218,18 @@ describe('E2E: Complete Game Flows', () => {
       expect(state.ownedCards.length).toBe(4)
       expect(state.ownedCards.some(c => c.id === 'ironveil_ironclad')).toBe(true)
 
-      // Go to alliance phase
+      // Go to choice_consequence phase
       ;({ state } = executeCommand(
         { type: 'MAKE_CHOICE', data: {
           dilemmaId: 'dilemma_salvage_1_approach',
           choiceId: 'choice_attack_immediately'
         }},
+        state
+      ))
+
+      // Acknowledge consequence to proceed to alliance phase
+      ;({ state } = executeCommand(
+        { type: 'ACKNOWLEDGE_CHOICE_CONSEQUENCE', data: {} },
         state
       ))
 
@@ -263,7 +276,8 @@ describe('E2E: Complete Game Flows', () => {
         { type: 'MAKE_CHOICE', data: {
           dilemmaId: 'dilemma_salvage_1_approach',
           choiceId: 'choice_attack_immediately'
-        }}
+        }},
+        { type: 'ACKNOWLEDGE_CHOICE_CONSEQUENCE', data: {} }
       ]
 
       ;({ state } = executeCommands(setupCommands, getInitialState()))

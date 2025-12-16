@@ -167,7 +167,7 @@ describe('Make Choice Command Handler', () => {
   })
 
   describe('Spec 2: Choice Triggers Alliance Phase', () => {
-    it('should emit PHASE_CHANGED and ALLIANCE_PHASE_STARTED when triggersBattle is true', () => {
+    it('should emit PHASE_CHANGED to choice_consequence and CHOICE_CONSEQUENCE_PRESENTED when triggersBattle is true', () => {
       // Given: Player in narrative phase
       const state = createNarrativeState()
 
@@ -175,18 +175,20 @@ describe('Make Choice Command Handler', () => {
       const command = createMakeChoiceCommand('dilemma_salvage_1_approach', 'choice_attack_immediately')
       const events = handleMakeChoice(command, state)
 
-      // Then: Phase transitions to alliance and ALLIANCE_PHASE_STARTED is emitted
+      // Then: Phase transitions to choice_consequence (intermediate screen)
       const phaseEvent = events.find(e => e.type === 'PHASE_CHANGED')
       expect(phaseEvent).toBeDefined()
-      expect((phaseEvent as any).data.toPhase).toBe('alliance')
+      expect((phaseEvent as any).data.toPhase).toBe('choice_consequence')
 
-      // Note: ALLIANCE_PHASE_STARTED may or may not be emitted depending on content
-      // The important thing is phase changes to alliance
+      // And: CHOICE_CONSEQUENCE_PRESENTED indicates battle will be triggered next
+      const consequenceEvent = events.find(e => e.type === 'CHOICE_CONSEQUENCE_PRESENTED')
+      expect(consequenceEvent).toBeDefined()
+      expect((consequenceEvent as any).data.triggersNext).toBe('battle')
     })
   })
 
   describe('Spec 3: Choice Leads to Next Dilemma', () => {
-    it('should emit DILEMMA_PRESENTED when nextDilemmaId is set', () => {
+    it('should emit CHOICE_CONSEQUENCE_PRESENTED with triggersNext=dilemma when nextDilemmaId is set', () => {
       // Given: Player in narrative phase
       const state = createNarrativeState()
 
@@ -194,10 +196,16 @@ describe('Make Choice Command Handler', () => {
       const command = createMakeChoiceCommand('dilemma_salvage_1_approach', 'choice_hail_first')
       const events = handleMakeChoice(command, state)
 
-      // Then: DILEMMA_PRESENTED event is emitted
-      const dilemmaEvent = events.find(e => e.type === 'DILEMMA_PRESENTED')
-      expect(dilemmaEvent).toBeDefined()
-      expect((dilemmaEvent as any).data.dilemmaId).toBe('dilemma_salvage_2_discovery')
+      // Then: CHOICE_CONSEQUENCE_PRESENTED event indicates dilemma is next
+      // (DILEMMA_PRESENTED is emitted after ACKNOWLEDGE_CHOICE_CONSEQUENCE)
+      const consequenceEvent = events.find(e => e.type === 'CHOICE_CONSEQUENCE_PRESENTED')
+      expect(consequenceEvent).toBeDefined()
+      expect((consequenceEvent as any).data.triggersNext).toBe('dilemma')
+
+      // And: Phase transitions to choice_consequence
+      const phaseEvent = events.find(e => e.type === 'PHASE_CHANGED')
+      expect(phaseEvent).toBeDefined()
+      expect((phaseEvent as any).data.toPhase).toBe('choice_consequence')
     })
   })
 
@@ -521,7 +529,7 @@ describe('Make Choice Integration', () => {
       ...producedEvents
     ]
 
-    // Should have recorded the choice and have next dilemma presented
+    // Should have recorded the choice
     const projection = createMakeChoiceProjection()
     projection.rebuildFrom(allEvents)
     const state = projection.getState()
@@ -529,7 +537,13 @@ describe('Make Choice Integration', () => {
     expect(state.choiceHistory).toHaveLength(1)
     expect(state.choiceHistory[0].choiceId).toBe('choice_hail_first')
 
-    // Next dilemma should be presented
-    expect(state.currentDilemmaId).toBe('dilemma_salvage_2_discovery')
+    // Current dilemma is still the one we made the choice on
+    // (next dilemma is presented after ACKNOWLEDGE_CHOICE_CONSEQUENCE)
+    expect(state.currentDilemmaId).toBe('dilemma_salvage_1_approach')
+
+    // The CHOICE_CONSEQUENCE_PRESENTED event indicates what comes next
+    const consequenceEvent = producedEvents.find(e => e.type === 'CHOICE_CONSEQUENCE_PRESENTED')
+    expect(consequenceEvent).toBeDefined()
+    expect((consequenceEvent as any).data.triggersNext).toBe('dilemma')
   })
 })

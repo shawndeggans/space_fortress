@@ -69,9 +69,17 @@ describe('Cross-Slice Integration', () => {
       expect(state.activeQuest?.questId).toBe('quest_salvage_claim')
       expect(state.ownedCards.length).toBe(4) // 3 starter + 1 quest card
 
-      // Make choice that triggers alliance phase
+      // Make choice that triggers battle (goes to choice_consequence first)
       ;({ state, events } = executeCommand(
         { type: 'MAKE_CHOICE', data: { dilemmaId: 'dilemma_salvage_1_approach', choiceId: 'choice_attack_immediately' } },
+        state
+      ))
+
+      expect(state.currentPhase).toBe('choice_consequence')
+
+      // Acknowledge consequence to proceed to alliance phase
+      ;({ state, events } = executeCommand(
+        { type: 'ACKNOWLEDGE_CHOICE_CONSEQUENCE', data: {} },
         state
       ))
 
@@ -84,7 +92,8 @@ describe('Cross-Slice Integration', () => {
       const commands: GameCommand[] = [
         { type: 'START_GAME', data: { playerId: 'player-1' } },
         { type: 'ACCEPT_QUEST', data: { questId: 'quest_salvage_claim' } },
-        { type: 'MAKE_CHOICE', data: { dilemmaId: 'dilemma_salvage_1_approach', choiceId: 'choice_attack_immediately' } }
+        { type: 'MAKE_CHOICE', data: { dilemmaId: 'dilemma_salvage_1_approach', choiceId: 'choice_attack_immediately' } },
+        { type: 'ACKNOWLEDGE_CHOICE_CONSEQUENCE', data: {} }
       ]
 
       const { state: allianceState } = executeCommands(commands, state)
@@ -104,7 +113,8 @@ describe('Cross-Slice Integration', () => {
       const setupCommands: GameCommand[] = [
         { type: 'START_GAME', data: { playerId: 'player-1' } },
         { type: 'ACCEPT_QUEST', data: { questId: 'quest_salvage_claim' } },
-        { type: 'MAKE_CHOICE', data: { dilemmaId: 'dilemma_salvage_1_approach', choiceId: 'choice_attack_immediately' } }
+        { type: 'MAKE_CHOICE', data: { dilemmaId: 'dilemma_salvage_1_approach', choiceId: 'choice_attack_immediately' } },
+        { type: 'ACKNOWLEDGE_CHOICE_CONSEQUENCE', data: {} }
       ]
 
       let { state: allianceState } = executeCommands(setupCommands, state)
@@ -138,6 +148,7 @@ describe('Cross-Slice Integration', () => {
         { type: 'START_GAME', data: { playerId: 'player-1' } },
         { type: 'ACCEPT_QUEST', data: { questId: 'quest_salvage_claim' } },
         { type: 'MAKE_CHOICE', data: { dilemmaId: 'dilemma_salvage_1_approach', choiceId: 'choice_attack_immediately' } },
+        { type: 'ACKNOWLEDGE_CHOICE_CONSEQUENCE', data: {} },
         { type: 'FORM_ALLIANCE', data: { factionId: 'meridian' } },
         { type: 'FINALIZE_ALLIANCES', data: {} }
       ]
@@ -267,7 +278,8 @@ describe('Cross-Slice Integration', () => {
       const setupCommands: GameCommand[] = [
         { type: 'START_GAME', data: { playerId: 'player-1' } },
         { type: 'ACCEPT_QUEST', data: { questId: 'quest_salvage_claim' } },
-        { type: 'MAKE_CHOICE', data: { dilemmaId: 'dilemma_salvage_1_approach', choiceId: 'choice_attack_immediately' } }
+        { type: 'MAKE_CHOICE', data: { dilemmaId: 'dilemma_salvage_1_approach', choiceId: 'choice_attack_immediately' } },
+        { type: 'ACKNOWLEDGE_CHOICE_CONSEQUENCE', data: {} }
       ]
 
       let { state: allianceState } = executeCommands(setupCommands, state)

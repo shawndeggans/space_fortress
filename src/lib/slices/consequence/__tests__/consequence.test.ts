@@ -191,7 +191,7 @@ describe('Consequence Command Handlers', () => {
       expect(events[1].data.toPhase).toBe('narrative')
     })
 
-    it('emits QUEST_COMPLETED and PHASE_CHANGED to quest_hub when quest complete', () => {
+    it('emits QUEST_SUMMARY_PRESENTED and PHASE_CHANGED to quest_summary when quest complete', () => {
       // Given: on last dilemma
       const state = createConsequenceState({
         activeQuest: {
@@ -205,12 +205,12 @@ describe('Consequence Command Handlers', () => {
       // When: continue to next phase
       const events = handleContinueToNextPhase(command, state)
 
-      // Then: QUEST_COMPLETED and PHASE_CHANGED emitted
+      // Then: QUEST_SUMMARY_PRESENTED and PHASE_CHANGED emitted
       expect(events).toHaveLength(2)
-      expect(events[0].type).toBe('QUEST_COMPLETED')
+      expect(events[0].type).toBe('QUEST_SUMMARY_PRESENTED')
       expect(events[0].data.questId).toBe('quest-1')
       expect(events[1].type).toBe('PHASE_CHANGED')
-      expect(events[1].data.toPhase).toBe('quest_hub')
+      expect(events[1].data.toPhase).toBe('quest_summary')
     })
 
     it('emits PHASE_CHANGED to quest_hub when no active quest', () => {

@@ -14,7 +14,7 @@
 import type { GameState, FactionId } from '../../game/types'
 import { getFactionById } from '../../game/content/factions'
 import { getCardById } from '../../game/content/cards'
-import { getQuestById } from '../../game/content/quests'
+import { getQuestById, getDilemmaById } from '../../game/content/quests'
 import { getReputationStatus } from '../../game/types'
 
 // ----------------------------------------------------------------------------
@@ -167,17 +167,13 @@ export function projectQuestSummaryView(state: GameState): QuestSummaryView {
   // Get choices for this quest from choice history
   const questChoices = state.choiceHistory.filter(c => c.questId === pending.questId)
   for (const choice of questChoices) {
-    // Try to get the actual choice label from quest content
+    // Try to get the actual choice label from dilemma content
     let choiceLabel = choice.choiceId
-    if (quest) {
-      for (const dilemma of quest.dilemmas) {
-        if (dilemma.id === choice.dilemmaId) {
-          const choiceContent = dilemma.choices.find(c => c.id === choice.choiceId)
-          if (choiceContent) {
-            choiceLabel = choiceContent.label
-          }
-          break
-        }
+    const dilemma = getDilemmaById(choice.dilemmaId)
+    if (dilemma) {
+      const choiceContent = dilemma.choices.find(c => c.id === choice.choiceId)
+      if (choiceContent) {
+        choiceLabel = choiceContent.label
       }
     }
 
