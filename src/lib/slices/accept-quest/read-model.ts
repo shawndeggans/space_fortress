@@ -57,7 +57,7 @@ export interface CompletedQuestItem {
   title: string
   factionId: FactionId
   factionIcon: string
-  outcome: 'full' | 'partial' | 'compromised' | 'failed'
+  outcome: 'completed' | 'full' | 'partial' | 'compromised' | 'failed'
   finalBounty: number
   completedAt: string
 }
@@ -109,7 +109,7 @@ interface QuestSliceState {
   activeQuestId: string | null
   completedQuests: Array<{
     questId: string
-    outcome: 'full' | 'partial' | 'compromised'
+    outcome: 'completed' | 'full' | 'partial' | 'compromised' | 'failed'
     finalBounty: number
     completedAt: string
   }>
@@ -395,7 +395,7 @@ interface LegacyGameState {
   activeQuest: { questId: string } | null
   completedQuests: Array<{
     questId: string
-    outcome: 'full' | 'partial' | 'compromised'
+    outcome: 'completed' | 'full' | 'partial' | 'compromised' | 'failed'
     finalBounty: number
     completedAt: string
   }>

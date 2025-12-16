@@ -104,7 +104,7 @@ export interface ActiveQuest {
 
 export interface CompletedQuest {
   questId: string
-  outcome: 'completed' | 'full' | 'partial' | 'compromised'
+  outcome: 'completed' | 'full' | 'partial' | 'compromised' | 'failed'
   finalBounty: number
   completedAt: string
 }
