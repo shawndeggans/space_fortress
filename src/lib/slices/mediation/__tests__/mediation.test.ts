@@ -176,7 +176,7 @@ describe('Mediation Command Handlers', () => {
   })
 
   describe('REFUSE_TO_LEAN', () => {
-    it('emits MEDIATION_COLLAPSED and PHASE_CHANGED events', () => {
+    it('emits MEDIATION_COLLAPSED, BATTLE_TRIGGERED, and PHASE_CHANGED events', () => {
       // Given: in mediation phase
       const state = createMediationState()
       const command = createRefuseToLeanCommand()
@@ -184,13 +184,15 @@ describe('Mediation Command Handlers', () => {
       // When: refuse to lean
       const events = handleRefuseToLean(command, state)
 
-      // Then: both events emitted
-      expect(events).toHaveLength(2)
+      // Then: all three events emitted
+      expect(events).toHaveLength(3)
       expect(events[0].type).toBe('MEDIATION_COLLAPSED')
       expect(events[0].data.battleTriggered).toBe(true)
-      expect(events[1].type).toBe('PHASE_CHANGED')
-      expect(events[1].data.fromPhase).toBe('mediation')
-      expect(events[1].data.toPhase).toBe('card_selection')
+      expect(events[1].type).toBe('BATTLE_TRIGGERED')
+      expect(events[1].data.trigger).toBe('mediation_collapse')
+      expect(events[2].type).toBe('PHASE_CHANGED')
+      expect(events[2].data.fromPhase).toBe('mediation')
+      expect(events[2].data.toPhase).toBe('card_selection')
     })
 
     it('rejects if not in mediation phase', () => {

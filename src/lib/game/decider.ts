@@ -130,7 +130,9 @@ function toQuestSummaryState(state: GameState): QuestSummaryState {
   return {
     currentPhase: state.currentPhase,
     activeQuest: activeQuestInfo,
-    bounty: state.bounty
+    bounty: state.bounty,
+    completedQuestsCount: state.completedQuests?.length ?? 0,
+    totalQuests: 3  // Game has 3 quests total
   }
 }
 

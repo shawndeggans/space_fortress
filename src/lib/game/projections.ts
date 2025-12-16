@@ -134,6 +134,12 @@ export function evolveState(state: GameState, event: GameEvent): GameState {
         }
       }
 
+    case 'GAME_ENDED':
+      return {
+        ...state,
+        gameStatus: 'ended'
+      }
+
     case 'ENDING_DETERMINED':
       return {
         ...state,

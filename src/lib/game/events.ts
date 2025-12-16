@@ -578,6 +578,14 @@ export interface NewGameStartedEvent {
   }
 }
 
+export interface GameEndedEvent {
+  type: 'GAME_ENDED'
+  data: BaseEventData & {
+    totalQuests: number
+    finalBounty: number
+  }
+}
+
 // ----------------------------------------------------------------------------
 // Phase Transition Events
 // ----------------------------------------------------------------------------
@@ -661,6 +669,7 @@ export type GameEvent =
   | GameEndTriggeredEvent
   | EndingDeterminedEvent
   | NewGameStartedEvent
+  | GameEndedEvent
   // Phase Events
   | PhaseChangedEvent
 
