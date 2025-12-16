@@ -105,7 +105,7 @@
             {#if activeQuest}
               <div class="state-item">
                 <span class="label">Dilemma Index:</span>
-                <span class="value">{activeQuest.currentDilemmaIndex} / {activeQuest.totalDilemmas - 1}</span>
+                <span class="value">{activeQuest.currentDilemmaIndex}</span>
               </div>
             {/if}
           </div>

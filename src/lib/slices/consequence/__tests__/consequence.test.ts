@@ -55,9 +55,10 @@ function createBattleResolvedEvent(
       timestamp: timestamp(),
       battleId,
       outcome,
-      playerStats: { attack: 10, armor: 5, agility: 3 },
-      enemyStats: { attack: 8, armor: 4, agility: 2 },
-      rounds: []
+      playerWins: outcome === 'victory' ? 3 : 1,
+      opponentWins: outcome === 'defeat' ? 3 : 1,
+      draws: 1,
+      roundsSummary: []
     }
   }
 }
@@ -78,7 +79,8 @@ function createQuestCompletedEvent(questId = 'quest-1'): GameEvent {
     data: {
       timestamp: timestamp(),
       questId,
-      outcome: 'completed'
+      outcome: 'completed',
+      finalBounty: 500
     }
   }
 }
@@ -111,7 +113,7 @@ describe('Consequence Command Handlers', () => {
       // Then: OUTCOME_ACKNOWLEDGED emitted
       expect(events).toHaveLength(1)
       expect(events[0].type).toBe('OUTCOME_ACKNOWLEDGED')
-      expect(events[0].data.battleId).toBe('battle-1')
+      expect((events[0].data as any).battleId).toBe('battle-1')
     })
 
     it('includes timestamp in event', () => {
@@ -161,7 +163,7 @@ describe('Consequence Command Handlers', () => {
       const events = handleAcknowledgeOutcome(command, state)
 
       // Then: correct battle ID in event
-      expect(events[0].data.battleId).toBe('epic-battle-42')
+      expect((events[0].data as any).battleId).toBe('epic-battle-42')
     })
   })
 
@@ -184,11 +186,11 @@ describe('Consequence Command Handlers', () => {
       // Then: DILEMMA_PRESENTED for next dilemma, then PHASE_CHANGED to narrative
       expect(events).toHaveLength(2)
       expect(events[0].type).toBe('DILEMMA_PRESENTED')
-      expect(events[0].data.dilemmaId).toBe('dilemma_salvage_2_discovery')
-      expect(events[0].data.questId).toBe('quest_salvage_claim')
+      expect((events[0].data as any).dilemmaId).toBe('dilemma_salvage_2_discovery')
+      expect((events[0].data as any).questId).toBe('quest_salvage_claim')
       expect(events[1].type).toBe('PHASE_CHANGED')
-      expect(events[1].data.fromPhase).toBe('consequence')
-      expect(events[1].data.toPhase).toBe('narrative')
+      expect((events[1].data as any).fromPhase).toBe('consequence')
+      expect((events[1].data as any).toPhase).toBe('narrative')
     })
 
     it('emits QUEST_SUMMARY_PRESENTED and PHASE_CHANGED to quest_summary when quest complete', () => {
@@ -208,9 +210,9 @@ describe('Consequence Command Handlers', () => {
       // Then: QUEST_SUMMARY_PRESENTED and PHASE_CHANGED emitted
       expect(events).toHaveLength(2)
       expect(events[0].type).toBe('QUEST_SUMMARY_PRESENTED')
-      expect(events[0].data.questId).toBe('quest-1')
+      expect((events[0].data as any).questId).toBe('quest-1')
       expect(events[1].type).toBe('PHASE_CHANGED')
-      expect(events[1].data.toPhase).toBe('quest_summary')
+      expect((events[1].data as any).toPhase).toBe('quest_summary')
     })
 
     it('emits PHASE_CHANGED to quest_hub when no active quest', () => {
@@ -224,7 +226,7 @@ describe('Consequence Command Handlers', () => {
       // Then: PHASE_CHANGED to quest_hub
       expect(events).toHaveLength(1)
       expect(events[0].type).toBe('PHASE_CHANGED')
-      expect(events[0].data.toPhase).toBe('quest_hub')
+      expect((events[0].data as any).toPhase).toBe('quest_hub')
     })
 
     it('rejects if not in consequence phase', () => {
@@ -255,7 +257,7 @@ describe('Consequence Command Handlers', () => {
 
       // Then: goes to narrative (more dilemmas)
       expect(events).toHaveLength(1)
-      expect(events[0].data.toPhase).toBe('narrative')
+      expect((events[0].data as any).toPhase).toBe('narrative')
     })
   })
 })

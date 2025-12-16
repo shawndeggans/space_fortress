@@ -85,7 +85,7 @@ function createRoundResolvedEvent(
   roundNumber: number,
   outcome: 'player_won' | 'opponent_won' | 'draw',
   playerCard: Card = createCard({ id: 'player-card', name: 'Player Card' }),
-  opponentCard: Card = createCard({ id: 'opponent-card', name: 'Opponent Card', faction: 'scavengers' })
+  opponentCard: Card = createCard({ id: 'opponent-card', name: 'Opponent Card', faction: 'ashfall' })
 ): GameEvent {
   return {
     type: 'ROUND_RESOLVED',
@@ -195,7 +195,7 @@ describe('Battle Resolution Read Model', () => {
     it('adds completed round from ROUND_RESOLVED', () => {
       // Given: battle with one round completed
       const playerCard = createCard({ id: 'p1', name: 'Iron Guardian', attack: 4, armor: 3, agility: 2 })
-      const opponentCard = createCard({ id: 'o1', name: 'Scavenger Raider', faction: 'scavengers', attack: 2, armor: 1, agility: 3 })
+      const opponentCard = createCard({ id: 'o1', name: 'Scavenger Raider', faction: 'ashfall', attack: 2, armor: 1, agility: 3 })
 
       const events: GameEvent[] = [
         createBattleTriggeredEvent('battle-1'),
@@ -221,7 +221,7 @@ describe('Battle Resolution Read Model', () => {
     it('calculates target numbers from armor', () => {
       // Given: cards with specific armor values
       const playerCard = createCard({ armor: 5 })
-      const opponentCard = createCard({ armor: 3, faction: 'scavengers' })
+      const opponentCard = createCard({ armor: 3, faction: 'ashfall' })
 
       const events: GameEvent[] = [
         createBattleTriggeredEvent('battle-1'),
@@ -471,7 +471,7 @@ describe('Battle Resolution Read Model', () => {
       const playerCard = createCard({ faction: 'ironveil' })
       const events: GameEvent[] = [
         createBattleTriggeredEvent('battle-1'),
-        createRoundResolvedEvent('battle-1', 1, 'player_won', playerCard, createCard({ faction: 'scavengers' }))
+        createRoundResolvedEvent('battle-1', 1, 'player_won', playerCard, createCard({ faction: 'ashfall' }))
       ]
 
       // When: projecting battle view

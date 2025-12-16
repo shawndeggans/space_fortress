@@ -64,6 +64,9 @@ export interface MediationState {
   mediationParties: [FactionId, FactionId] | null
   hasLeaned: boolean
   leanedToward: FactionId | null
+  activeQuest?: {
+    questId: string
+  } | null
 }
 
 // ----------------------------------------------------------------------------
@@ -163,9 +166,10 @@ export function handleRefuseToLean(
       data: {
         timestamp: ts,
         battleId: battleId,
-        trigger: 'mediation_collapse',
+        questId: state.activeQuest?.questId || 'mediation',
         context: 'Mediation collapsed - factions refuse to negotiate',
         opponentType: 'hostile_factions',
+        opponentFactionId: state.mediationParties?.[1] || 'ashfall',
         difficulty: 'medium'
       }
     },

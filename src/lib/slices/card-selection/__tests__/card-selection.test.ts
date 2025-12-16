@@ -406,7 +406,7 @@ describe('Card Selection Read Model', () => {
           timestamp: new Date().toISOString(),
           cardId: 'card_1',
           factionId: 'ironveil',
-          reason: 'destroyed'
+          reason: 'penalty'
         }
       }
 
@@ -426,8 +426,9 @@ describe('Card Selection Read Model', () => {
           timestamp: new Date().toISOString(),
           battleId: 'battle_001',
           questId: 'quest_001',
+          context: 'Test battle',
           opponentType: 'scavengers',
-          opponentFactionId: 'scavengers' as FactionId | 'scavengers',
+          opponentFactionId: 'scavengers',
           difficulty: 'medium'
         }
       }
@@ -451,8 +452,9 @@ describe('Card Selection Read Model', () => {
           timestamp: new Date().toISOString(),
           battleId: 'battle_001',
           questId: 'quest_001',
+          context: 'Test battle',
           opponentType: 'scavengers',
-          opponentFactionId: 'scavengers' as FactionId | 'scavengers',
+          opponentFactionId: 'scavengers',
           difficulty: 'medium'
         }
       }
@@ -484,8 +486,9 @@ describe('Card Selection Read Model', () => {
             timestamp: new Date().toISOString(),
             battleId: 'battle_001',
             questId: 'quest_001',
+            context: 'Test battle',
             opponentType: 'scavengers',
-            opponentFactionId: 'scavengers' as FactionId | 'scavengers',
+            opponentFactionId: 'scavengers',
             difficulty: 'medium'
           }
         },
@@ -525,8 +528,9 @@ describe('Card Selection Read Model', () => {
           timestamp: new Date().toISOString(),
           battleId: 'battle_001',
           questId: 'quest_001',
+          context: 'Test battle',
           opponentType: 'scavengers',
-          opponentFactionId: 'scavengers' as FactionId | 'scavengers',
+          opponentFactionId: 'scavengers',
           difficulty: 'medium'
         }
       }
@@ -537,12 +541,11 @@ describe('Card Selection Read Model', () => {
         data: {
           timestamp: new Date().toISOString(),
           battleId: 'battle_001',
-          questId: 'quest_001',
           outcome: 'victory',
-          bountyEarned: 100,
-          bountyShare: 0,
-          cardsLost: [],
-          experienceGained: 50
+          playerWins: 3,
+          opponentWins: 1,
+          draws: 1,
+          roundsSummary: []
         }
       }
 
