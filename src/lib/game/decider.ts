@@ -9,7 +9,7 @@
 // ============================================================================
 
 import type { GameCommand } from './commands'
-import type { GameEvent } from './events'
+import type { GameEvent, ChoiceConsequenceData } from './events'
 import type {
   GameState,
   FactionId
@@ -94,16 +94,10 @@ function getRepStatus(value: number): 'devoted' | 'friendly' | 'neutral' | 'unfr
   return 'hostile'
 }
 
-function toChoiceConsequenceState(state: GameState, events: GameEvent[] = []): ChoiceConsequenceState {
-  // Find the most recent CHOICE_CONSEQUENCE_PRESENTED event to get triggersNext
-  let choiceTriggersNext: ChoiceConsequenceState['choiceTriggersNext'] = null
-  for (let i = events.length - 1; i >= 0; i--) {
-    const event = events[i]
-    if (event.type === 'CHOICE_CONSEQUENCE_PRESENTED') {
-      choiceTriggersNext = event.data.triggersNext
-      break
-    }
-  }
+function toChoiceConsequenceState(state: GameState): ChoiceConsequenceState {
+  // Get triggersNext from pendingChoiceConsequence state (set by evolveState on CHOICE_CONSEQUENCE_PRESENTED)
+  const choiceTriggersNext: ChoiceConsequenceState['choiceTriggersNext'] =
+    state.pendingChoiceConsequence?.triggersNext ?? null
 
   let activeQuestInfo: ChoiceConsequenceState['activeQuest'] = null
   if (state.activeQuest) {
@@ -119,7 +113,7 @@ function toChoiceConsequenceState(state: GameState, events: GameEvent[] = []): C
     currentPhase: state.currentPhase,
     activeQuest: activeQuestInfo,
     currentDilemmaId: state.currentDilemmaId,
-    lastChoiceId: null, // Would need to track this in state
+    lastChoiceId: state.pendingChoiceConsequence?.choiceId ?? null,
     choiceTriggersNext
   }
 }
@@ -571,6 +565,15 @@ function handleMakeChoice(
     }
   }
 
+  // Build consequence data for the CHOICE_CONSEQUENCE_PRESENTED event
+  const consequenceData: ChoiceConsequenceData = {
+    reputationChanges: [],
+    cardsGained: [...consequences.cardsGained],
+    cardsLost: [...consequences.cardsLost],
+    bountyChange: null,
+    flagsSet: consequences.flags ? Object.keys(consequences.flags).filter(k => consequences.flags![k]) : []
+  }
+
   // Apply reputation changes
   for (const repChange of consequences.reputationChanges) {
     const currentRep = state.reputation[repChange.faction]
@@ -584,6 +587,12 @@ function handleMakeChoice(
         newValue: newRep,
         source: 'choice'
       }
+    })
+    // Track for consequence display
+    consequenceData.reputationChanges.push({
+      factionId: repChange.faction,
+      delta: repChange.delta,
+      newValue: newRep
     })
   }
 
@@ -621,17 +630,22 @@ function handleMakeChoice(
 
   // Apply bounty modifier
   if (consequences.bountyModifier && consequences.bountyModifier !== 0) {
-    const newBounty = state.bounty + consequences.bountyModifier
+    const newBounty = Math.max(0, state.bounty + consequences.bountyModifier)
     events.push({
       type: 'BOUNTY_MODIFIED',
       data: {
         timestamp: ts,
         amount: consequences.bountyModifier,
-        newValue: Math.max(0, newBounty),
+        newValue: newBounty,
         source: 'choice',
         reason: `Choice: ${choice.label}`
       }
     })
+    // Track for consequence display
+    consequenceData.bountyChange = {
+      amount: consequences.bountyModifier,
+      newValue: newBounty
+    }
   }
 
   // Set flags
@@ -687,7 +701,8 @@ function handleMakeChoice(
       questId: state.activeQuest.questId,
       choiceLabel: choice.label,
       narrativeText,
-      triggersNext
+      triggersNext,
+      consequences: consequenceData
     }
   })
 

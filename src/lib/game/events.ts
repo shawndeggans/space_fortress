@@ -463,6 +463,21 @@ export interface BountyModifiedEvent {
 // Choice Consequence Events (2)
 // ----------------------------------------------------------------------------
 
+export interface ChoiceConsequenceData {
+  reputationChanges: Array<{
+    factionId: FactionId
+    delta: number
+    newValue: number
+  }>
+  cardsGained: string[]
+  cardsLost: string[]
+  bountyChange: {
+    amount: number
+    newValue: number
+  } | null
+  flagsSet: string[]
+}
+
 export interface ChoiceConsequencePresentedEvent {
   type: 'CHOICE_CONSEQUENCE_PRESENTED'
   data: BaseEventData & {
@@ -472,6 +487,7 @@ export interface ChoiceConsequencePresentedEvent {
     choiceLabel: string
     narrativeText: string
     triggersNext: 'dilemma' | 'battle' | 'alliance' | 'mediation' | 'quest_complete'
+    consequences: ChoiceConsequenceData
   }
 }
 

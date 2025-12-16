@@ -460,6 +460,32 @@ export interface GameState {
 
   // Choices made (for ending evaluation)
   choiceHistory: ChoiceHistoryEntry[]
+
+  // Pending choice consequence (when in choice_consequence phase)
+  pendingChoiceConsequence: PendingChoiceConsequence | null
+}
+
+export interface PendingChoiceConsequence {
+  questId: string
+  dilemmaId: string
+  choiceId: string
+  choiceLabel: string
+  narrativeText: string
+  triggersNext: 'dilemma' | 'battle' | 'alliance' | 'mediation' | 'quest_complete'
+  consequences: {
+    reputationChanges: Array<{
+      factionId: FactionId
+      delta: number
+      newValue: number
+    }>
+    cardsGained: string[]
+    cardsLost: string[]
+    bountyChange: {
+      amount: number
+      newValue: number
+    } | null
+    flagsSet: string[]
+  }
 }
 
 export interface ChoiceHistoryEntry {

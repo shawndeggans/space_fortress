@@ -11,12 +11,14 @@ const ALL_ROUTES = [
   '/',
   '/quest-hub',
   '/narrative',
+  '/choice-consequence',
   '/alliance',
   '/mediation',
   '/card-pool',
   '/deployment',
   '/battle',
   '/consequence',
+  '/quest-summary',
   '/ending'
 ]
 
@@ -73,12 +75,14 @@ test.describe('Phase-based Navigation', () => {
       not_started: '/',
       quest_hub: '/quest-hub',
       narrative: '/narrative',
+      choice_consequence: '/choice-consequence',
       alliance: '/alliance',
       mediation: '/mediation',
       card_selection: '/card-pool',
       deployment: '/deployment',
       battle: '/battle',
       consequence: '/consequence',
+      quest_summary: '/quest-summary',
       ending: '/ending'
     }
 
@@ -90,5 +94,21 @@ test.describe('Phase-based Navigation', () => {
         `Phase ${phase} route ${route} should be accessible`
       ).toBe(200)
     }
+  })
+
+  test('choice-consequence route exists and is accessible', async ({ page }) => {
+    const response = await page.goto('/choice-consequence')
+    expect(response?.status()).toBe(200)
+
+    // Page should render content
+    await expect(page.locator('h1, h2, .consequence-screen').first()).toBeVisible()
+  })
+
+  test('quest-summary route exists and is accessible', async ({ page }) => {
+    const response = await page.goto('/quest-summary')
+    expect(response?.status()).toBe(200)
+
+    // Page should render content
+    await expect(page.locator('h1, h2, .summary-screen').first()).toBeVisible()
   })
 })

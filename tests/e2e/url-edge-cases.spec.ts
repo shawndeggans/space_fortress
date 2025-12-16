@@ -91,10 +91,30 @@ test.describe('URL Navigation Edge Cases', () => {
       // Should show fallback message
       expect(bodyText.toLowerCase()).toMatch(/mediation|return|no/i)
     })
+
+    test('1.9: /choice-consequence without choice data shows fallback', async ({ page }) => {
+      await page.goto('/choice-consequence')
+      await page.waitForTimeout(2000)
+
+      const bodyText = await page.locator('body').innerText()
+
+      // Should show fallback message
+      expect(bodyText.toLowerCase()).toMatch(/no.*choice|return|outcome/i)
+    })
+
+    test('1.10: /quest-summary without quest data shows fallback', async ({ page }) => {
+      await page.goto('/quest-summary')
+      await page.waitForTimeout(2000)
+
+      const bodyText = await page.locator('body').innerText()
+
+      // Should show fallback message
+      expect(bodyText.toLowerCase()).toMatch(/no.*quest|summary|return/i)
+    })
   })
 
   test.describe('Fallback navigation works', () => {
-    test('1.9: Clicking "Return to Quest Hub" from /battle works', async ({ page }) => {
+    test('2.1: Clicking "Return to Quest Hub" from /battle works', async ({ page }) => {
       await page.goto('/battle')
       await page.waitForTimeout(2000)
 
@@ -104,8 +124,28 @@ test.describe('URL Navigation Edge Cases', () => {
       await expect(page.getByRole('heading', { name: /quest hub/i })).toBeVisible()
     })
 
-    test('1.10: Clicking "Return to Quest Hub" from /consequence works', async ({ page }) => {
+    test('2.2: Clicking "Return to Quest Hub" from /consequence works', async ({ page }) => {
       await page.goto('/consequence')
+      await page.waitForTimeout(2000)
+
+      await page.getByRole('button', { name: /return to quest hub/i }).click()
+      await page.waitForURL('**/quest-hub')
+
+      await expect(page.getByRole('heading', { name: /quest hub/i })).toBeVisible()
+    })
+
+    test('2.3: Clicking "Return to Quest Hub" from /choice-consequence works', async ({ page }) => {
+      await page.goto('/choice-consequence')
+      await page.waitForTimeout(2000)
+
+      await page.getByRole('button', { name: /return to quest hub/i }).click()
+      await page.waitForURL('**/quest-hub')
+
+      await expect(page.getByRole('heading', { name: /quest hub/i })).toBeVisible()
+    })
+
+    test('2.4: Clicking "Return to Quest Hub" from /quest-summary works', async ({ page }) => {
+      await page.goto('/quest-summary')
       await page.waitForTimeout(2000)
 
       await page.getByRole('button', { name: /return to quest hub/i }).click()
@@ -116,7 +156,34 @@ test.describe('URL Navigation Edge Cases', () => {
   })
 
   test.describe('Browser back button edge cases', () => {
-    test('1.11: Back button after making choice in narrative', async ({ page }) => {
+    test('3.1: Back button after making choice goes to choice-consequence', async ({ page }) => {
+      // Start new game
+      await page.goto('/')
+      await page.getByRole('button', { name: /new game/i }).click()
+      await page.waitForURL('**/quest-hub')
+
+      // Accept quest
+      await page.locator('.quest-card').first().click()
+      await page.getByRole('button', { name: /accept quest/i }).click()
+      await page.waitForURL('**/narrative')
+
+      // Make a choice - should go to choice-consequence
+      const choiceBtn = page.locator('[data-testid^="choice-"]').first()
+      if (await choiceBtn.isVisible()) {
+        await choiceBtn.click()
+        await page.waitForURL('**/choice-consequence', { timeout: 5000 })
+
+        // Use browser back
+        await page.goBack()
+        await page.waitForTimeout(500)
+
+        // Check we went back to narrative
+        const url = page.url()
+        expect(url).toMatch(/narrative|quest-hub/)
+      }
+    })
+
+    test('3.2: Back button from choice-consequence after continuing', async ({ page }) => {
       // Start new game
       await page.goto('/')
       await page.getByRole('button', { name: /new game/i }).click()
@@ -131,15 +198,19 @@ test.describe('URL Navigation Edge Cases', () => {
       const choiceBtn = page.locator('[data-testid^="choice-"]').first()
       if (await choiceBtn.isVisible()) {
         await choiceBtn.click()
+        await page.waitForURL('**/choice-consequence', { timeout: 5000 })
+
+        // Continue from choice consequence
+        await page.getByTestId('btn-continue').click()
         await page.waitForTimeout(500)
 
-        // Use browser back
+        // Use browser back - should go to choice-consequence
         await page.goBack()
         await page.waitForTimeout(500)
 
-        // Check state is still valid (not corrupted)
+        // Check state is still valid
         const url = page.url()
-        expect(url).toMatch(/narrative|alliance|quest-hub|card-pool/)
+        expect(url).toMatch(/choice-consequence|narrative|alliance|quest-summary/)
       }
     })
   })

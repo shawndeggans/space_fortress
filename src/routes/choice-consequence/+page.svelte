@@ -11,8 +11,8 @@
   import { goto } from '$app/navigation'
   import { navigateToPhase } from '$lib/navigation'
 
-  // Derive view from game state events
-  let consequenceView = $derived(projectChoiceConsequenceView($gameState.events || []))
+  // Derive view from game state
+  let consequenceView = $derived(projectChoiceConsequenceView($gameState))
 
   async function handleContinue() {
     const result = await gameState.handleCommand({

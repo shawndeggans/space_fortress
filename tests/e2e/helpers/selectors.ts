@@ -76,13 +76,43 @@ export const battle = {
 }
 
 /**
- * Consequence screen selectors
+ * Consequence screen selectors (battle consequence)
  */
 export const consequence = {
   continueButton: (page: Page) => page.getByTestId('btn-continue'),
   outcomeBadge: (page: Page) => page.locator('.outcome-badge'),
   victoryBadge: (page: Page) => page.locator('.outcome-badge--victory'),
   defeatBadge: (page: Page) => page.locator('.outcome-badge--defeat'),
+}
+
+/**
+ * Choice consequence screen selectors (after narrative choice)
+ */
+export const choiceConsequence = {
+  title: (page: Page) => page.getByRole('heading', { name: /your choice echoes/i }),
+  questTitle: (page: Page) => page.locator('.quest-title'),
+  choiceLabel: (page: Page) => page.locator('.choice-label'),
+  narrativeText: (page: Page) => page.locator('.narrative-box'),
+  consequencesSection: (page: Page) => page.locator('.section'),
+  repChanges: (page: Page) => page.locator('.rep-change'),
+  cardChanges: (page: Page) => page.locator('.card-changes'),
+  bountyChange: (page: Page) => page.locator('.bounty-change'),
+  continueButton: (page: Page) => page.getByTestId('btn-continue'),
+  nextPhaseHint: (page: Page) => page.locator('.btn-hint'),
+}
+
+/**
+ * Quest summary screen selectors
+ */
+export const questSummary = {
+  title: (page: Page) => page.getByRole('heading', { name: /quest complete/i }),
+  questTitle: (page: Page) => page.locator('.quest-title'),
+  journeySection: (page: Page) => page.locator('.journey-section'),
+  standingsSection: (page: Page) => page.locator('.standings-section'),
+  reputationSummary: (page: Page) => page.locator('.rep-summary'),
+  bountySummary: (page: Page) => page.locator('.bounty-summary'),
+  cardsSummary: (page: Page) => page.locator('.cards-summary'),
+  continueButton: (page: Page) => page.getByTestId('btn-continue'),
 }
 
 /**
