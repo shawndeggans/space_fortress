@@ -107,6 +107,50 @@ export interface FlagSetEvent {
   }
 }
 
+export interface ChoiceConsequencePresentedEvent {
+  type: 'CHOICE_CONSEQUENCE_PRESENTED'
+  data: BaseEventData & {
+    dilemmaId: string
+    choiceId: string
+    questId: string
+    choiceLabel: string
+    narrativeText: string
+    triggersNext: 'dilemma' | 'battle' | 'alliance' | 'mediation' | 'quest_complete'
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Quest Summary Events (produced by: quest-summary slice)
+// ----------------------------------------------------------------------------
+
+export interface QuestSummaryPresentedEvent {
+  type: 'QUEST_SUMMARY_PRESENTED'
+  data: BaseEventData & {
+    questId: string
+    questTitle: string
+    outcome: 'completed' | 'failed' | 'abandoned'
+  }
+}
+
+export interface QuestSummaryAcknowledgedEvent {
+  type: 'QUEST_SUMMARY_ACKNOWLEDGED'
+  data: BaseEventData & {
+    questId: string
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Choice Consequence Events (produced by: choice-consequence slice)
+// ----------------------------------------------------------------------------
+
+export interface ChoiceConsequenceAcknowledgedEvent {
+  type: 'CHOICE_CONSEQUENCE_ACKNOWLEDGED'
+  data: BaseEventData & {
+    dilemmaId: string
+    choiceId: string
+  }
+}
+
 // ----------------------------------------------------------------------------
 // Alliance Events (produced by: form-alliance slice)
 // ----------------------------------------------------------------------------
@@ -592,6 +636,12 @@ export type GameEvent =
   | DilemmaPresenedEvent
   | ChoiceMadeEvent
   | FlagSetEvent
+  // Choice Consequence Events
+  | ChoiceConsequencePresentedEvent
+  | ChoiceConsequenceAcknowledgedEvent
+  // Quest Summary Events
+  | QuestSummaryPresentedEvent
+  | QuestSummaryAcknowledgedEvent
   // Alliance Events
   | AlliancePhaseStartedEvent
   | AllianceTermsViewedEvent

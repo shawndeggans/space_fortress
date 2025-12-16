@@ -104,7 +104,7 @@ export interface ActiveQuest {
 
 export interface CompletedQuest {
   questId: string
-  outcome: 'full' | 'partial' | 'compromised'
+  outcome: 'completed' | 'full' | 'partial' | 'compromised'
   finalBounty: number
   completedAt: string
 }
@@ -376,6 +376,7 @@ export type GamePhase =
   | 'not_started'
   | 'quest_hub'
   | 'narrative'
+  | 'choice_consequence'
   | 'alliance'
   | 'mediation'
   | 'card_selection'
@@ -383,6 +384,7 @@ export type GamePhase =
   | 'battle'
   | 'consequence'
   | 'post_battle_dilemma'
+  | 'quest_summary'
   | 'ending'
 
 // ----------------------------------------------------------------------------

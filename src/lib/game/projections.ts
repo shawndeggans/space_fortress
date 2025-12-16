@@ -216,9 +216,22 @@ export function evolveState(state: GameState, event: GameEvent): GameState {
     // ========================================================================
 
     case 'DILEMMA_PRESENTED':
+      // If we already have a current dilemma and this is a different one,
+      // we're advancing to the next dilemma - increment the index
+      const isAdvancingToNextDilemma =
+        state.currentDilemmaId !== null &&
+        state.currentDilemmaId !== event.data.dilemmaId &&
+        state.activeQuest !== null
+
       return {
         ...state,
-        currentDilemmaId: event.data.dilemmaId
+        currentDilemmaId: event.data.dilemmaId,
+        activeQuest: isAdvancingToNextDilemma && state.activeQuest
+          ? {
+              ...state.activeQuest,
+              currentDilemmaIndex: state.activeQuest.currentDilemmaIndex + 1
+            }
+          : state.activeQuest
       }
 
     case 'CHOICE_MADE':
@@ -649,6 +662,32 @@ export function evolveState(state: GameState, event: GameEvent): GameState {
           choicesMade: state.stats.choicesMade + 1
         }
       }
+
+    // ========================================================================
+    // Choice Consequence Events
+    // ========================================================================
+
+    case 'CHOICE_CONSEQUENCE_PRESENTED':
+      // Informational event for UI - actual state changes already happened via
+      // REPUTATION_CHANGED, CARD_GAINED, CARD_LOST, BOUNTY_MODIFIED events
+      return state
+
+    case 'CHOICE_CONSEQUENCE_ACKNOWLEDGED':
+      // Player acknowledged consequences, no additional state change needed
+      // Next phase transition handled by PHASE_CHANGED event
+      return state
+
+    // ========================================================================
+    // Quest Summary Events
+    // ========================================================================
+
+    case 'QUEST_SUMMARY_PRESENTED':
+      // Informational event for UI - quest is still active at this point
+      return state
+
+    case 'QUEST_SUMMARY_ACKNOWLEDGED':
+      // Player acknowledged summary - quest completion handled by QUEST_COMPLETED event
+      return state
 
     // ========================================================================
     // Default

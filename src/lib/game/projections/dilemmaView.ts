@@ -8,6 +8,10 @@
 // - Available choices with consequence previews
 //
 // Used by: Narrative screen, Post-Battle Dilemma screen
+//
+// NOTE: This projection can use either:
+// 1. Legacy quest/dilemma content (default, for backward compatibility)
+// 2. Narrative graph content (when USE_NARRATIVE_GRAPHS is true)
 // ============================================================================
 
 import type { GameEvent } from '../events'
@@ -19,6 +23,11 @@ import type {
 import { rebuildState } from '../projections'
 import { getReputationStatus } from '../types'
 import { getDilemmaById, getQuestById } from '../content/quests'
+import { projectNarrativeView, toLegacyDilemmaView } from '../../narrative/projections'
+import { hasGraph } from '../../narrative/content'
+
+// Feature flag: Set to true to use narrative graphs when available
+const USE_NARRATIVE_GRAPHS = true
 
 // ----------------------------------------------------------------------------
 // View Types
@@ -118,7 +127,20 @@ export function projectDilemmaView(events: GameEvent[], dilemmaId?: string, prov
   const targetDilemmaId = dilemmaId || state.currentDilemmaId
   if (!targetDilemmaId) return null
 
-  // Get dilemma content from the actual quest content
+  // Try narrative graph system first if enabled
+  if (USE_NARRATIVE_GRAPHS && state.activeQuest?.questId) {
+    const questId = state.activeQuest.questId
+    if (hasGraph(questId)) {
+      const narrativeView = projectNarrativeView(events, state)
+      if (narrativeView) {
+        // Convert to legacy format for backward compatibility
+        const legacyView = toLegacyDilemmaView(narrativeView)
+        return legacyView as DilemmaViewData
+      }
+    }
+  }
+
+  // Fall back to legacy quest/dilemma content
   const dilemmaContent = getDilemmaById(targetDilemmaId)
   if (!dilemmaContent) {
     // Return a placeholder for unknown dilemmas

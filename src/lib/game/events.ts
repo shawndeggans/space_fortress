@@ -68,7 +68,7 @@ export interface QuestCompletedEvent {
   type: 'QUEST_COMPLETED'
   data: BaseEventData & {
     questId: string
-    outcome: 'full' | 'partial' | 'compromised'
+    outcome: 'completed' | 'full' | 'partial' | 'compromised'
     finalBounty: number
   }
 }
@@ -460,6 +460,50 @@ export interface BountyModifiedEvent {
 }
 
 // ----------------------------------------------------------------------------
+// Choice Consequence Events (2)
+// ----------------------------------------------------------------------------
+
+export interface ChoiceConsequencePresentedEvent {
+  type: 'CHOICE_CONSEQUENCE_PRESENTED'
+  data: BaseEventData & {
+    dilemmaId: string
+    choiceId: string
+    questId: string
+    choiceLabel: string
+    narrativeText: string
+    triggersNext: 'dilemma' | 'battle' | 'alliance' | 'mediation' | 'quest_complete'
+  }
+}
+
+export interface ChoiceConsequenceAcknowledgedEvent {
+  type: 'CHOICE_CONSEQUENCE_ACKNOWLEDGED'
+  data: BaseEventData & {
+    dilemmaId: string
+    choiceId: string
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Quest Summary Events (2)
+// ----------------------------------------------------------------------------
+
+export interface QuestSummaryPresentedEvent {
+  type: 'QUEST_SUMMARY_PRESENTED'
+  data: BaseEventData & {
+    questId: string
+    questTitle: string
+    outcome: 'completed' | 'failed' | 'abandoned'
+  }
+}
+
+export interface QuestSummaryAcknowledgedEvent {
+  type: 'QUEST_SUMMARY_ACKNOWLEDGED'
+  data: BaseEventData & {
+    questId: string
+  }
+}
+
+// ----------------------------------------------------------------------------
 // Post-Battle Events (2)
 // ----------------------------------------------------------------------------
 
@@ -546,6 +590,12 @@ export type GameEvent =
   | DilemmaPresenedEvent
   | ChoiceMadeEvent
   | FlagSetEvent
+  // Choice Consequence Events
+  | ChoiceConsequencePresentedEvent
+  | ChoiceConsequenceAcknowledgedEvent
+  // Quest Summary Events
+  | QuestSummaryPresentedEvent
+  | QuestSummaryAcknowledgedEvent
   // Alliance Events
   | AlliancePhaseStartedEvent
   | AllianceTermsViewedEvent

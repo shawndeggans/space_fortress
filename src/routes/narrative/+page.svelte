@@ -27,22 +27,8 @@
     })
 
     if (result.success) {
-      // Navigate based on what the choice triggers
-      const choice = dilemmaView.choices.find(c => c.choiceId === choiceId)
-      if (choice?.triggersAlliance || choice?.triggersBattle) {
-        // Both alliance and battle choices go to alliance screen first
-        // Player must form alliance (or decline) before card selection
-        navigateToPhase('alliance')
-      } else if (choice?.triggersMediation) {
-        navigateToPhase('mediation')
-      } else {
-        // Stay on narrative for next dilemma or navigate based on phase
-        const newPhase = $gameState.currentPhase
-        if (newPhase === 'consequence') {
-          navigateToPhase('consequence')
-        }
-        // Otherwise stay on narrative for next dilemma
-      }
+      // Navigate to choice consequence screen to show results
+      navigateToPhase('choice_consequence')
     }
   }
 

@@ -59,7 +59,7 @@ export interface QuestTimelineView {
   factionIcon: string
   factionColor: string
   choices: ChoiceRecordView[]
-  outcome: 'full' | 'partial' | 'compromised' | 'failed' | 'in_progress'
+  outcome: 'completed' | 'full' | 'partial' | 'compromised' | 'failed' | 'in_progress'
   battlesWon: number
   battlesLost: number
 }
@@ -214,7 +214,7 @@ export function projectChoiceArchaeologyView(events: GameEvent[], providedState?
 
     // Find quest outcome
     const completed = state.completedQuests.find(q => q.questId === questId)
-    let outcome: 'full' | 'partial' | 'compromised' | 'failed' | 'in_progress' = 'in_progress'
+    let outcome: 'completed' | 'full' | 'partial' | 'compromised' | 'failed' | 'in_progress' = 'in_progress'
     if (completed) {
       outcome = completed.outcome
     }

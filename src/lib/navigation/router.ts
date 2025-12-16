@@ -26,6 +26,7 @@ export const PHASE_ROUTES: Record<GamePhase, string | null> = {
   not_started: '/',
   quest_hub: '/quest-hub',
   narrative: '/narrative',
+  choice_consequence: '/choice-consequence',
   alliance: '/alliance',
   mediation: '/mediation',
   card_selection: '/card-pool',
@@ -33,6 +34,7 @@ export const PHASE_ROUTES: Record<GamePhase, string | null> = {
   battle: '/battle',
   consequence: '/consequence',
   post_battle_dilemma: '/narrative',  // Reuses narrative screen for post-battle choices
+  quest_summary: '/quest-summary',
   ending: '/ending'
 }
 
@@ -89,6 +91,7 @@ export const ALL_GAME_PHASES: GamePhase[] = [
   'not_started',
   'quest_hub',
   'narrative',
+  'choice_consequence',
   'alliance',
   'mediation',
   'card_selection',
@@ -96,6 +99,7 @@ export const ALL_GAME_PHASES: GamePhase[] = [
   'battle',
   'consequence',
   'post_battle_dilemma',
+  'quest_summary',
   'ending'
 ]
 

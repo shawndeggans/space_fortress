@@ -35,8 +35,9 @@ function createConsequenceState(overrides: Partial<ConsequenceState> = {}): Cons
     currentPhase: 'consequence',
     currentBattle: { battleId: 'battle-1' },
     hasAcknowledgedOutcome: false,
+    currentDilemmaId: 'dilemma_salvage_1_approach',
     activeQuest: {
-      questId: 'quest-1',
+      questId: 'quest_salvage_claim',
       currentDilemmaIndex: 0,
       totalDilemmas: 3
     },
@@ -165,11 +166,12 @@ describe('Consequence Command Handlers', () => {
   })
 
   describe('CONTINUE_TO_NEXT_PHASE', () => {
-    it('emits PHASE_CHANGED to narrative when more dilemmas remain', () => {
-      // Given: quest with more dilemmas
+    it('emits DILEMMA_PRESENTED and PHASE_CHANGED to narrative when more dilemmas remain', () => {
+      // Given: quest with more dilemmas (using real quest ID so getNextDilemma works)
       const state = createConsequenceState({
+        currentDilemmaId: 'dilemma_salvage_1_approach',
         activeQuest: {
-          questId: 'quest-1',
+          questId: 'quest_salvage_claim',
           currentDilemmaIndex: 0,
           totalDilemmas: 3
         }
@@ -179,11 +181,14 @@ describe('Consequence Command Handlers', () => {
       // When: continue to next phase
       const events = handleContinueToNextPhase(command, state)
 
-      // Then: PHASE_CHANGED to narrative
-      expect(events).toHaveLength(1)
-      expect(events[0].type).toBe('PHASE_CHANGED')
-      expect(events[0].data.fromPhase).toBe('consequence')
-      expect(events[0].data.toPhase).toBe('narrative')
+      // Then: DILEMMA_PRESENTED for next dilemma, then PHASE_CHANGED to narrative
+      expect(events).toHaveLength(2)
+      expect(events[0].type).toBe('DILEMMA_PRESENTED')
+      expect(events[0].data.dilemmaId).toBe('dilemma_salvage_2_discovery')
+      expect(events[0].data.questId).toBe('quest_salvage_claim')
+      expect(events[1].type).toBe('PHASE_CHANGED')
+      expect(events[1].data.fromPhase).toBe('consequence')
+      expect(events[1].data.toPhase).toBe('narrative')
     })
 
     it('emits QUEST_COMPLETED and PHASE_CHANGED to quest_hub when quest complete', () => {

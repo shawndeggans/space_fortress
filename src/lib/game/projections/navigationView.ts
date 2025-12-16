@@ -20,6 +20,7 @@ const PHASE_MAPPING: Record<GamePhase, DisplayPhase | null> = {
   not_started: null,
   quest_hub: 'quest_hub',
   narrative: 'narrative',
+  choice_consequence: 'narrative',  // Shows consequence after choice
   alliance: 'alliance',
   mediation: 'alliance',
   card_selection: 'battle',
@@ -27,6 +28,7 @@ const PHASE_MAPPING: Record<GamePhase, DisplayPhase | null> = {
   battle: 'battle',
   consequence: 'result',
   post_battle_dilemma: 'narrative',
+  quest_summary: 'result',  // Shows summary at quest end
   ending: 'result'
 }
 

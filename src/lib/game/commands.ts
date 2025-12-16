@@ -213,6 +213,24 @@ export interface ContinueToNextPhaseCommand {
 }
 
 // ----------------------------------------------------------------------------
+// Choice Consequence Commands (post-narrative choice feedback)
+// ----------------------------------------------------------------------------
+
+export interface AcknowledgeChoiceConsequenceCommand {
+  type: 'ACKNOWLEDGE_CHOICE_CONSEQUENCE'
+  data: {}
+}
+
+// ----------------------------------------------------------------------------
+// Quest Summary Commands (end of quest feedback)
+// ----------------------------------------------------------------------------
+
+export interface AcknowledgeQuestSummaryCommand {
+  type: 'ACKNOWLEDGE_QUEST_SUMMARY'
+  data: {}
+}
+
+// ----------------------------------------------------------------------------
 // Information Commands (View-only, may generate VIEW events)
 // ----------------------------------------------------------------------------
 
@@ -313,6 +331,10 @@ export type GameCommand =
   // Consequence
   | AcknowledgeOutcomeCommand
   | ContinueToNextPhaseCommand
+  // Choice Consequence
+  | AcknowledgeChoiceConsequenceCommand
+  // Quest Summary
+  | AcknowledgeQuestSummaryCommand
   // Information
   | ViewFactionDetailsCommand
   | ViewCardDetailsCommand
@@ -435,6 +457,14 @@ export const CommandFactory = {
 
   acknowledgeOutcome(): AcknowledgeOutcomeCommand {
     return { type: 'ACKNOWLEDGE_OUTCOME', data: {} }
+  },
+
+  acknowledgeChoiceConsequence(): AcknowledgeChoiceConsequenceCommand {
+    return { type: 'ACKNOWLEDGE_CHOICE_CONSEQUENCE', data: {} }
+  },
+
+  acknowledgeQuestSummary(): AcknowledgeQuestSummaryCommand {
+    return { type: 'ACKNOWLEDGE_QUEST_SUMMARY', data: {} }
   },
 
   saveGame(saveName: string): SaveGameCommand {

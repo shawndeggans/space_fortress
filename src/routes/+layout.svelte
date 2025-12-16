@@ -5,7 +5,7 @@
   import { page } from '$app/stores'
   import { gameState, isLoading, gameError } from '$lib/stores/gameStore'
   import { projectNavigationView } from '$lib/game/projections/navigationView'
-  import { GameHeader } from '$lib/components'
+  import { GameHeader, DebugPanel } from '$lib/components'
 
   interface Props {
     children: import('svelte').Snippet
@@ -78,6 +78,8 @@
       <button onclick={() => gameError.clear()} data-testid="btn-dismiss-error">Dismiss</button>
     </div>
   {/if}
+
+  <DebugPanel />
 </div>
 
 <style>
