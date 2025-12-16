@@ -1,0 +1,70 @@
+# Create Release
+#
+# Manually trigger this workflow from GitHub Actions to create a new release.
+# It will create a git tag and trigger the CI workflow which builds and publishes the release.
+#
+# Usage:
+# 1. Go to Actions -> Create Release
+# 2. Click "Run workflow"
+# 3. Enter version (e.g., 1.0.0, 1.2.3-beta)
+# 4. Click "Run workflow"
+
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.0, 1.2.3-beta)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    name: Create Release Tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate version format
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$ ]]; then
+            echo "Error: Version must be in format X.Y.Z or X.Y.Z-suffix (e.g., 1.0.0, 1.2.3-beta)"
+            exit 1
+          fi
+          echo "Version $VERSION is valid"
+
+      - name: Check if tag exists
+        run: |
+          if git rev-parse "v${{ github.event.inputs.version }}" >/dev/null 2>&1; then
+            echo "Error: Tag v${{ github.event.inputs.version }} already exists"
+            exit 1
+          fi
+          echo "Tag v${{ github.event.inputs.version }} is available"
+
+      - name: Create and push tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${{ github.event.inputs.version }}" -m "Release v${{ github.event.inputs.version }}"
+          git push origin "v${{ github.event.inputs.version }}"
+
+      - name: Summary
+        run: |
+          echo "## Release Tag Created! 🏷️" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** v${{ github.event.inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag:** [v${{ github.event.inputs.version }}](https://github.com/${{ github.repository }}/releases/tag/v${{ github.event.inputs.version }})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The CI workflow will now:" >> $GITHUB_STEP_SUMMARY
+          echo "1. Run tests" >> $GITHUB_STEP_SUMMARY
+          echo "2. Build the project" >> $GITHUB_STEP_SUMMARY
+          echo "3. Create a GitHub Release" >> $GITHUB_STEP_SUMMARY
+          echo "4. Deploy to itch.io" >> $GITHUB_STEP_SUMMARY
