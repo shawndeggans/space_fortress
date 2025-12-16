@@ -27,6 +27,9 @@ on:
           - html5
           - html5-dev
 
+permissions:
+  contents: write
+
 env:
   ITCH_USER: shawndeggans
   ITCH_GAME: space-fortress
@@ -113,6 +116,32 @@ jobs:
         env:
           BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
 
+      - name: Create build artifact
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          cd build
+          zip -r ../space-fortress-${{ steps.deploy-info.outputs.version }}.zip .
+          cd ..
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Space Fortress v${{ steps.deploy-info.outputs.version }}
+          body: |
+            ## Space Fortress v${{ steps.deploy-info.outputs.version }}
+
+            This release has been automatically deployed to itch.io.
+
+            **Play now:** https://${{ env.ITCH_USER }}.itch.io/${{ env.ITCH_GAME }}
+
+            ### Installation
+            - **Web:** Play directly on itch.io (recommended)
+            - **Local:** Download the zip, extract, and open `index.html` in a browser
+          files: |
+            space-fortress-${{ steps.deploy-info.outputs.version }}.zip
+          generate_release_notes: true
+
       - name: Deployment summary
         run: |
           echo "## Deployment Complete! 🚀" >> $GITHUB_STEP_SUMMARY
@@ -122,3 +151,7 @@ jobs:
           echo "- **Version:** ${{ steps.deploy-info.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "View your game at: https://${{ env.ITCH_USER }}.itch.io/${{ env.ITCH_GAME }}" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ github.event_name }}" != "workflow_dispatch" ]]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "GitHub Release: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          fi
