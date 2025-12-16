@@ -89,11 +89,11 @@ test.describe('Space Fortress - Complete Game Playthrough', () => {
     await choiceButton.click()
     await waitForHydration(page)
 
-    // Game should progress (either to battle, alliance, or next narrative)
-    // Check that we're no longer on the same state
+    // Game should progress to choice-consequence screen
+    // Check that we're on choice-consequence
     await page.waitForTimeout(500)
     const url = page.url()
-    expect(url).toMatch(/narrative|alliance|card-pool|battle|consequence/)
+    expect(url).toMatch(/choice-consequence|narrative|alliance|card-pool|battle|consequence|quest-summary/)
   })
 
   test('E2E-5: Navigate through alliance phase if triggered', async ({ page }) => {
@@ -104,7 +104,7 @@ test.describe('Space Fortress - Complete Game Playthrough', () => {
 
     // Make choices until we reach alliance or battle
     let attempts = 0
-    while (attempts < 5) {
+    while (attempts < 10) {
       const url = page.url()
 
       if (url.includes('alliance')) {
@@ -127,8 +127,17 @@ test.describe('Space Fortress - Complete Game Playthrough', () => {
         break
       }
 
-      if (url.includes('card-pool') || url.includes('battle') || url.includes('consequence')) {
+      if (url.includes('card-pool') || url.includes('battle') || url.includes('consequence') || url.includes('quest-summary')) {
         break
+      }
+
+      // Handle choice-consequence screen - click continue
+      if (url.includes('choice-consequence')) {
+        const continueBtn = page.getByTestId('btn-continue')
+        if (await continueBtn.isVisible()) {
+          await continueBtn.click()
+          await waitForHydration(page)
+        }
       }
 
       // Make a choice if on narrative
@@ -207,7 +216,7 @@ test.describe('Space Fortress - Complete Game Playthrough', () => {
     await clickButton(page, 'Accept Quest')
 
     // Navigate through narrative/alliance phases
-    let maxSteps = 20
+    let maxSteps = 30
     let step = 0
 
     while (step < maxSteps) {
@@ -222,6 +231,13 @@ test.describe('Space Fortress - Complete Game Playthrough', () => {
         const choice = page.locator('.choice-button, .choice-card, [class*="choice"]').first()
         if (await choice.isVisible()) {
           await choice.click()
+          await waitForHydration(page)
+        }
+      } else if (url.includes('choice-consequence')) {
+        // New phase: click continue after seeing choice consequences
+        const continueBtn = page.getByTestId('btn-continue')
+        if (await continueBtn.isVisible()) {
+          await continueBtn.click()
           await waitForHydration(page)
         }
       } else if (url.includes('alliance')) {
@@ -299,10 +315,22 @@ test.describe('Space Fortress - Complete Game Playthrough', () => {
           await waitForHydration(page)
         }
         break // Exit loop after battle
-      } else if (url.includes('consequence')) {
-        // Reached consequence - success!
-        console.log('Reached consequence screen - game loop complete!')
-        await expect(page.locator('.outcome-badge, [class*="outcome"]')).toBeVisible()
+      } else if (url.includes('/consequence')) {
+        // Battle consequence - click continue
+        console.log('Reached battle consequence screen!')
+        const continueBtn = page.getByTestId('btn-continue')
+        if (await continueBtn.isVisible()) {
+          await continueBtn.click()
+          await waitForHydration(page)
+        }
+      } else if (url.includes('quest-summary')) {
+        // Quest summary screen - click continue to return to hub
+        console.log('Reached quest summary screen - game loop complete!')
+        const continueBtn = page.getByTestId('btn-continue')
+        if (await continueBtn.isVisible()) {
+          await continueBtn.click()
+          await waitForHydration(page)
+        }
         break
       } else if (url.includes('ending')) {
         console.log('Reached ending screen!')
@@ -315,7 +343,7 @@ test.describe('Space Fortress - Complete Game Playthrough', () => {
     // Verify we got somewhere meaningful in the game flow
     // (deployment is acceptable as card assignment in tests can be tricky with click interactions)
     const finalUrl = page.url()
-    expect(finalUrl).toMatch(/deployment|battle|consequence|ending|narrative/)
+    expect(finalUrl).toMatch(/deployment|battle|consequence|quest-summary|quest-hub|ending|narrative/)
   })
 })
 
@@ -373,11 +401,14 @@ test.describe('Navigation Tests', () => {
       '/',
       '/quest-hub',
       '/narrative',
+      '/choice-consequence',
       '/alliance',
+      '/mediation',
       '/card-pool',
       '/deployment',
       '/battle',
       '/consequence',
+      '/quest-summary',
       '/ending'
     ]
 

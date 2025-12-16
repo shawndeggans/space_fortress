@@ -21,11 +21,15 @@ Open your browser to `http://localhost:1420` to begin.
 
 1. **Quest Hub** - Accept missions from various factions
 2. **Narrative** - Face dilemmas with multiple NPC perspectives
-3. **Alliance** - Choose faction allies (or go it alone)
-4. **Card Pool** - Select 5 ships for battle from your fleet
-5. **Deployment** - Arrange your ships in combat order
-6. **Battle** - Watch automated combat unfold
-7. **Consequences** - See the results of your choices
+3. **Choice Consequence** - See the immediate effects of your decision
+4. *(Repeat steps 2-3 for each dilemma in the quest)*
+5. **Alliance** - Choose faction allies (or go it alone) if battle is required
+6. **Card Pool** - Select 5 ships for battle from your fleet
+7. **Deployment** - Arrange your ships in combat order
+8. **Battle** - Watch automated combat unfold
+9. **Battle Consequence** - See the results of combat
+10. **Quest Summary** - Review your journey and choices
+11. *(Return to Quest Hub for more quests)*
 
 ### The Factions
 
@@ -114,6 +118,7 @@ For technical documentation and contribution guidelines, see:
 | `npm run dev` | Start development server |
 | `npm run build` | Build for production |
 | `npm test` | Run unit tests |
+| `npm run test:e2e` | Run E2E tests (Playwright) |
 
 ## Tech Stack
 

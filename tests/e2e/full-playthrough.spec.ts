@@ -4,16 +4,16 @@
  * These tests verify game flows through Playwright.
  * Video recording is enabled for all tests to aid in debugging and review.
  *
- * KNOWN LIMITATION: The battle phase requires 5 cards, but players only start
- * with 3 starter cards. The choice consequence system that provides additional
- * cards through alliances has a TODO in decider.ts (line 403). Full battle
- * flow tests are marked as skipped until this is implemented.
+ * UPDATED: Now handles the choice-consequence and quest-summary phases
+ * that were added to the narrative flow.
  */
 import { test, expect } from '@playwright/test'
 import {
   startNewGame,
   acceptQuest,
   makeChoice,
+  makeChoiceAndContinue,
+  continueFromChoiceConsequence,
   formAllianceAndContinue,
   waitForHydration,
   expectScreen,
@@ -39,36 +39,83 @@ test.describe('Game Navigation', () => {
     await expect(selectors.narrative.anyChoice(page).first()).toBeVisible()
   })
 
-  test('can make a choice in narrative', async ({ page }) => {
+  test('can make a choice and see choice consequence', async ({ page }) => {
+    await startNewGame(page)
+    await acceptQuest(page)
+
+    // Make a choice - goes to choice-consequence screen
+    await makeChoice(page, 1)
+    await expectScreen(page, 'choice-consequence')
+
+    // Verify choice consequence screen has content
+    await expect(selectors.choiceConsequence.title(page)).toBeVisible()
+    await expect(selectors.choiceConsequence.continueButton(page)).toBeVisible()
+  })
+
+  test('can continue from choice consequence to next phase', async ({ page }) => {
+    await startNewGame(page)
+    await acceptQuest(page)
+
+    // Make a choice and continue
+    const nextPath = await makeChoiceAndContinue(page, 1)
+
+    // Should navigate to next phase (narrative, alliance, or quest-summary)
+    expect(nextPath).toMatch(/\/(narrative|alliance|quest-summary|mediation)/)
+  })
+
+  test('can navigate through multiple dilemmas with choice consequences', async ({ page }) => {
+    await startNewGame(page)
+    await acceptQuest(page)
+
+    // Make choice 1 and continue through choice-consequence
+    let nextPath = await makeChoiceAndContinue(page, 1)
+
+    // If still on narrative, we reached dilemma 2
+    if (nextPath.includes('/narrative')) {
+      await expect(selectors.narrative.anyChoice(page).first()).toBeVisible()
+
+      // Make another choice and continue
+      nextPath = await makeChoiceAndContinue(page, 0)
+    }
+
+    // Should be somewhere in the game flow
+    expect(nextPath).toMatch(/\/(narrative|alliance|card-pool|quest-summary|mediation)/)
+  })
+})
+
+test.describe('Choice Consequence Phase', () => {
+  test('choice consequence shows consequences of the choice', async ({ page }) => {
     await startNewGame(page)
     await acceptQuest(page)
 
     // Make a choice
-    await makeChoice(page, 1) // Choice 1 (hail first) - doesn't trigger battle
+    await makeChoice(page, 0)
+    await expectScreen(page, 'choice-consequence')
 
-    // Should navigate somewhere
-    const url = page.url()
-    expect(url).toMatch(/\/(narrative|alliance|card-pool)/)
+    // Verify the screen shows the choice consequence content
+    await expect(selectors.choiceConsequence.title(page)).toBeVisible()
+    await expect(selectors.choiceConsequence.narrativeText(page)).toBeVisible()
+    await expect(selectors.choiceConsequence.continueButton(page)).toBeVisible()
   })
 
-  test('can navigate through multiple dilemmas', async ({ page }) => {
+  test('continue button advances to next phase', async ({ page }) => {
     await startNewGame(page)
     await acceptQuest(page)
 
-    // Make choice 1 (hail first) - goes to dilemma 2
-    await makeChoice(page, 1)
+    // Make a choice
+    await makeChoice(page, 0)
+    await expectScreen(page, 'choice-consequence')
 
-    // If still on narrative, we reached dilemma 2
-    if (page.url().includes('/narrative')) {
-      await expect(selectors.narrative.anyChoice(page).first()).toBeVisible()
+    // Get the current URL
+    const beforeUrl = page.url()
+    expect(beforeUrl).toContain('choice-consequence')
 
-      // Make another choice
-      await makeChoice(page, 0)
-    }
+    // Click continue
+    await continueFromChoiceConsequence(page)
 
-    // Should be somewhere in the game flow
-    const url = page.url()
-    expect(url).toMatch(/\/(narrative|alliance|card-pool)/)
+    // Should have navigated away from choice-consequence
+    const afterUrl = page.url()
+    expect(afterUrl).not.toEqual(beforeUrl)
   })
 })
 
@@ -77,14 +124,14 @@ test.describe('Alliance Phase', () => {
     await startNewGame(page)
     await acceptQuest(page)
 
-    // Navigate to alliance (choice 2 in dilemma 2 triggers alliance)
-    await makeChoice(page, 1) // Dilemma 1: hail first
+    // Navigate through narrative with choice-consequence phases
+    let nextPath = await makeChoiceAndContinue(page, 1)
 
-    if (page.url().includes('/narrative')) {
-      await makeChoice(page, 2) // Dilemma 2: negotiate (triggers alliance)
+    if (nextPath.includes('/narrative')) {
+      nextPath = await makeChoiceAndContinue(page, 2)
     }
 
-    if (page.url().includes('/alliance')) {
+    if (nextPath.includes('/alliance')) {
       await expectScreen(page, 'alliance')
 
       // Verify alliance options are visible
@@ -96,13 +143,15 @@ test.describe('Alliance Phase', () => {
   test('proceed alone button is disabled without enough cards', async ({ page }) => {
     await startNewGame(page)
     await acceptQuest(page)
-    await makeChoice(page, 1)
 
-    if (page.url().includes('/narrative')) {
-      await makeChoice(page, 2)
+    // Navigate to alliance
+    let nextPath = await makeChoiceAndContinue(page, 1)
+
+    if (nextPath.includes('/narrative')) {
+      nextPath = await makeChoiceAndContinue(page, 2)
     }
 
-    if (page.url().includes('/alliance')) {
+    if (nextPath.includes('/alliance')) {
       await expectScreen(page, 'alliance')
 
       // Verify proceed alone button is DISABLED (player has only 4 cards, needs 5)
@@ -118,9 +167,11 @@ test.describe('Card Pool Phase', () => {
   test('can reach card pool and see cards', async ({ page }) => {
     await startNewGame(page)
     await acceptQuest(page)
-    await makeChoice(page, 0) // Choice that triggers battle directly
 
-    if (page.url().includes('/alliance')) {
+    // Make choice and continue through choice-consequence
+    let nextPath = await makeChoiceAndContinue(page, 0)
+
+    if (nextPath.includes('/alliance')) {
       // Form alliance to get enough cards for battle (3 starter + 1 quest + 2 alliance = 6)
       await formAllianceAndContinue(page)
     }
@@ -141,9 +192,11 @@ test.describe('Card Pool Phase', () => {
   test('can select cards for battle', async ({ page }) => {
     await startNewGame(page)
     await acceptQuest(page)
-    await makeChoice(page, 0)
 
-    if (page.url().includes('/alliance')) {
+    // Navigate through with choice-consequence
+    let nextPath = await makeChoiceAndContinue(page, 0)
+
+    if (nextPath.includes('/alliance')) {
       await formAllianceAndContinue(page)
     }
 
@@ -208,11 +261,11 @@ test.describe('Full Battle Flow', () => {
     await startNewGame(page)
     await acceptQuest(page)
 
-    // Make choice that triggers battle/alliance
-    await makeChoice(page, 0)
+    // Make choice that triggers battle/alliance (goes through choice-consequence)
+    let nextPath = await makeChoiceAndContinue(page, 0)
 
     // Form alliance to get enough cards (3 starter + 1 quest + 2 alliance = 6)
-    if (page.url().includes('/alliance')) {
+    if (nextPath.includes('/alliance')) {
       await formAllianceAndContinue(page)
     }
 
@@ -241,6 +294,75 @@ test.describe('Full Battle Flow', () => {
       // Should navigate to deployment
       await page.waitForURL('**/deployment', { timeout: 10000 })
       await expectScreen(page, 'deployment')
+    }
+  })
+})
+
+test.describe('Quest Summary Phase', () => {
+  test('quest summary shows after completing narrative-only quest', async ({ page }) => {
+    await startNewGame(page)
+    await acceptQuest(page)
+
+    // Navigate through narrative until quest-summary (if this quest doesn't have battle)
+    let attempts = 0
+    while (attempts < 20) {
+      const url = page.url()
+
+      if (url.includes('quest-summary')) {
+        // Found quest summary
+        await expectScreen(page, 'quest-summary')
+        await expect(selectors.questSummary.title(page)).toBeVisible()
+        await expect(selectors.questSummary.continueButton(page)).toBeVisible()
+        return
+      }
+
+      if (url.includes('alliance') || url.includes('card-pool')) {
+        // This quest has a battle, skip this test
+        console.log('Quest has battle - quest-summary comes after battle')
+        return
+      }
+
+      if (url.includes('narrative')) {
+        await makeChoice(page, 0)
+      } else if (url.includes('choice-consequence')) {
+        await continueFromChoiceConsequence(page)
+      }
+
+      attempts++
+      await page.waitForTimeout(300)
+    }
+  })
+
+  test('continue from quest summary returns to quest hub', async ({ page }) => {
+    await startNewGame(page)
+    await acceptQuest(page)
+
+    // Navigate through narrative
+    let attempts = 0
+    while (attempts < 20) {
+      const url = page.url()
+
+      if (url.includes('quest-summary')) {
+        // Click continue to return to quest hub
+        await selectors.questSummary.continueButton(page).click()
+        await page.waitForURL('**/quest-hub', { timeout: 5000 })
+        await expectScreen(page, 'quest-hub')
+        return
+      }
+
+      if (url.includes('alliance') || url.includes('card-pool')) {
+        console.log('Quest has battle - skipping quest-summary navigation test')
+        return
+      }
+
+      if (url.includes('narrative')) {
+        await makeChoice(page, 0)
+      } else if (url.includes('choice-consequence')) {
+        await continueFromChoiceConsequence(page)
+      }
+
+      attempts++
+      await page.waitForTimeout(300)
     }
   })
 })

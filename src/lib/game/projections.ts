@@ -73,7 +73,13 @@ export function getInitialState(): GameState {
     stats: getInitialStats(),
 
     // Choice history
-    choiceHistory: []
+    choiceHistory: [],
+
+    // Pending choice consequence
+    pendingChoiceConsequence: null,
+
+    // Pending quest summary
+    pendingQuestSummary: null
   }
 }
 
@@ -668,26 +674,48 @@ export function evolveState(state: GameState, event: GameEvent): GameState {
     // ========================================================================
 
     case 'CHOICE_CONSEQUENCE_PRESENTED':
-      // Informational event for UI - actual state changes already happened via
-      // REPUTATION_CHANGED, CARD_GAINED, CARD_LOST, BOUNTY_MODIFIED events
-      return state
+      // Store the consequence data for the UI to display
+      return {
+        ...state,
+        pendingChoiceConsequence: {
+          questId: event.data.questId,
+          dilemmaId: event.data.dilemmaId,
+          choiceId: event.data.choiceId,
+          choiceLabel: event.data.choiceLabel,
+          narrativeText: event.data.narrativeText,
+          triggersNext: event.data.triggersNext,
+          consequences: event.data.consequences
+        }
+      }
 
     case 'CHOICE_CONSEQUENCE_ACKNOWLEDGED':
-      // Player acknowledged consequences, no additional state change needed
-      // Next phase transition handled by PHASE_CHANGED event
-      return state
+      // Clear the pending consequence
+      return {
+        ...state,
+        pendingChoiceConsequence: null
+      }
 
     // ========================================================================
     // Quest Summary Events
     // ========================================================================
 
     case 'QUEST_SUMMARY_PRESENTED':
-      // Informational event for UI - quest is still active at this point
-      return state
+      // Store the quest summary data for the UI to display
+      return {
+        ...state,
+        pendingQuestSummary: {
+          questId: event.data.questId,
+          questTitle: event.data.questTitle,
+          outcome: event.data.outcome
+        }
+      }
 
     case 'QUEST_SUMMARY_ACKNOWLEDGED':
-      // Player acknowledged summary - quest completion handled by QUEST_COMPLETED event
-      return state
+      // Clear the pending quest summary
+      return {
+        ...state,
+        pendingQuestSummary: null
+      }
 
     // ========================================================================
     // Default

@@ -70,6 +70,7 @@ export {
   type FlagSetEvent,
 
   // Choice consequence events
+  type ChoiceConsequenceData,
   type ChoiceConsequencePresentedEvent,
   type ChoiceConsequenceAcknowledgedEvent,
 

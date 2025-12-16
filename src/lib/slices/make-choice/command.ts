@@ -35,6 +35,7 @@ import type {
   FlagSetEvent,
   PhaseChangedEvent,
   ChoiceConsequencePresentedEvent,
+  ChoiceConsequenceData,
   FactionId
 } from '../shared-kernel'
 import { createTimestamp } from '../shared-kernel'
@@ -169,6 +170,15 @@ export function handleMakeChoice(
     }
   }
 
+  // Track consequence data for display
+  const consequenceData: ChoiceConsequenceData = {
+    reputationChanges: [],
+    cardsGained: [],
+    cardsLost: [],
+    bountyChange: null,
+    flagsSet: []
+  }
+
   // 2. Apply reputation changes
   for (const repChange of consequences.reputationChanges) {
     const currentRep = state.reputation[repChange.faction]
@@ -184,6 +194,13 @@ export function handleMakeChoice(
       }
     }
     events.push(repChanged)
+
+    // Track for consequence display
+    consequenceData.reputationChanges.push({
+      factionId: repChange.faction,
+      delta: repChange.delta,
+      newValue: newRep
+    })
   }
 
   // 3. Apply cards gained
@@ -200,6 +217,9 @@ export function handleMakeChoice(
         }
       }
       events.push(cardGained)
+
+      // Track for consequence display
+      consequenceData.cardsGained.push(cardId)
     }
   }
 
@@ -217,6 +237,9 @@ export function handleMakeChoice(
         }
       }
       events.push(cardLost)
+
+      // Track for consequence display
+      consequenceData.cardsLost.push(cardId)
     }
   }
 
@@ -234,6 +257,12 @@ export function handleMakeChoice(
       }
     }
     events.push(bountyModified)
+
+    // Track for consequence display
+    consequenceData.bountyChange = {
+      amount: consequences.bountyModifier,
+      newValue: newBounty
+    }
   }
 
   // 6. Set flags
@@ -248,6 +277,11 @@ export function handleMakeChoice(
         }
       }
       events.push(flagSet)
+
+      // Track for consequence display (only true flags)
+      if (flagValue) {
+        consequenceData.flagsSet.push(flagName)
+      }
     }
   }
 
@@ -290,7 +324,8 @@ export function handleMakeChoice(
       questId: state.activeQuest.questId,
       choiceLabel: choice.label,
       narrativeText,
-      triggersNext
+      triggersNext,
+      consequences: consequenceData
     }
   }
   events.push(consequencePresented)

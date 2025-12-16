@@ -55,6 +55,7 @@ export async function acceptQuest(page: Page, questId?: string): Promise<void> {
 
 /**
  * Make a choice on the narrative screen
+ * After making a choice, navigates to choice-consequence screen
  */
 export async function makeChoice(page: Page, choiceIndex = 0): Promise<void> {
   await waitForHydration(page)
@@ -65,9 +66,50 @@ export async function makeChoice(page: Page, choiceIndex = 0): Promise<void> {
   // Click the choice
   await selectors.narrative.nthChoice(page, choiceIndex).click()
 
-  // Wait for navigation (could go to alliance, card-pool, or stay on narrative)
+  // Wait for navigation to choice-consequence screen
+  await page.waitForURL('**/choice-consequence', { timeout: 10000 })
+  await waitForHydration(page)
+}
+
+/**
+ * Continue from choice consequence screen.
+ * Returns the next screen path (could be narrative, alliance, quest-summary, etc.)
+ */
+export async function continueFromChoiceConsequence(page: Page): Promise<string> {
+  await waitForHydration(page)
+
+  // Click continue button
+  await selectors.choiceConsequence.continueButton(page).click()
+
+  // Wait for navigation (could go to narrative, alliance, mediation, or quest-summary)
   await page.waitForTimeout(500)
   await waitForHydration(page)
+
+  // Return the new URL path
+  return new URL(page.url()).pathname
+}
+
+/**
+ * Continue from quest summary screen back to quest hub.
+ */
+export async function continueFromQuestSummary(page: Page): Promise<void> {
+  await waitForHydration(page)
+
+  // Click continue button
+  await selectors.questSummary.continueButton(page).click()
+
+  // Wait for navigation to quest hub
+  await page.waitForURL('**/quest-hub', { timeout: 10000 })
+  await waitForHydration(page)
+}
+
+/**
+ * Make a choice and continue through the choice consequence screen.
+ * Convenience function that combines makeChoice + continueFromChoiceConsequence.
+ */
+export async function makeChoiceAndContinue(page: Page, choiceIndex = 0): Promise<string> {
+  await makeChoice(page, choiceIndex)
+  return await continueFromChoiceConsequence(page)
 }
 
 /**
@@ -234,14 +276,16 @@ export async function completeBattle(page: Page): Promise<void> {
 }
 
 /**
- * Continue from consequence screen
+ * Continue from battle consequence screen.
+ * Note: This is for BATTLE consequences, not choice consequences.
+ * After battle consequence, may go to quest-summary, narrative, quest-hub, or ending.
  */
 export async function continueFromConsequence(page: Page): Promise<string> {
   await waitForHydration(page)
 
   await selectors.consequence.continueButton(page).click()
 
-  // Wait for navigation (could go to narrative, quest-hub, or ending)
+  // Wait for navigation (could go to quest-summary, narrative, quest-hub, or ending)
   await page.waitForTimeout(500)
   await waitForHydration(page)
 
@@ -250,7 +294,8 @@ export async function continueFromConsequence(page: Page): Promise<string> {
 }
 
 /**
- * Play through a complete quest (narrative -> alliance -> battle -> consequence)
+ * Play through a complete quest:
+ * narrative -> choice-consequence -> [repeat dilemmas] -> alliance -> battle -> consequence -> quest-summary
  */
 export async function playFullQuest(
   page: Page,
@@ -261,14 +306,20 @@ export async function playFullQuest(
 ): Promise<void> {
   const choiceIndices = options?.choiceIndices || [0]
 
-  // Keep making choices until we leave narrative phase
+  // Keep making choices until we leave the narrative/choice-consequence loop
   let choiceCount = 0
-  while (page.url().includes('/narrative')) {
-    const index = choiceIndices[choiceCount] ?? 0
-    await makeChoice(page, index)
-    choiceCount++
+  while (page.url().includes('/narrative') || page.url().includes('/choice-consequence')) {
+    if (page.url().includes('/narrative')) {
+      const index = choiceIndices[choiceCount] ?? 0
+      await makeChoice(page, index)
+      choiceCount++
+    }
 
-    // Check where we ended up
+    if (page.url().includes('/choice-consequence')) {
+      await continueFromChoiceConsequence(page)
+    }
+
+    // Brief pause to let navigation settle
     await page.waitForTimeout(300)
   }
 
@@ -298,9 +349,14 @@ export async function playFullQuest(
     await completeBattle(page)
   }
 
-  // If we're at consequence
+  // If we're at battle consequence
   if (page.url().includes('/consequence')) {
     await continueFromConsequence(page)
+  }
+
+  // If we're at quest summary
+  if (page.url().includes('/quest-summary')) {
+    await continueFromQuestSummary(page)
   }
 }
 
@@ -375,7 +431,10 @@ export function getCurrentPhase(page: Page): string {
  * Verify we're on the expected screen
  */
 export async function expectScreen(page: Page, screen: string): Promise<void> {
-  const validScreens = ['quest-hub', 'narrative', 'alliance', 'card-pool', 'deployment', 'battle', 'consequence', 'ending']
+  const validScreens = [
+    'quest-hub', 'narrative', 'choice-consequence', 'alliance', 'mediation',
+    'card-pool', 'deployment', 'battle', 'consequence', 'quest-summary', 'ending'
+  ]
   if (!validScreens.includes(screen)) {
     throw new Error(`Invalid screen: ${screen}. Valid screens are: ${validScreens.join(', ')}`)
   }

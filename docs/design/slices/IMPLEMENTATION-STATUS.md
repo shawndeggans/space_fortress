@@ -25,8 +25,10 @@ This document tracks the migration from layered architecture to vertical slice a
 | 6 | [Battle Resolution](./SLICE-06-BATTLE-RESOLUTION.md) | ✅ | `src/lib/slices/battle-resolution/` | ✅ 25 tests |
 | 7 | [Mediation](./SLICE-07-MEDIATION.md) | ✅ | `src/lib/slices/mediation/` | ✅ 21 tests |
 | 8 | [Consequence](./SLICE-08-CONSEQUENCE.md) | ✅ | `src/lib/slices/consequence/` | ✅ 26 tests |
+| 9 | Choice Consequence | ✅ | `src/lib/slices/choice-consequence/` | - |
+| 10 | Quest Summary | ✅ | `src/lib/slices/quest-summary/` | - |
 
-**Progress: 9 of 9 components migrated (Shared Kernel + 8 slices) ✅ COMPLETE**
+**Progress: 11 of 11 components migrated (Shared Kernel + 10 slices) ✅ COMPLETE**
 
 ---
 
@@ -112,23 +114,67 @@ All command handlers have been migrated to vertical slices. The `decider.ts` now
 | Card loss safety | ✅ Fixed | `handleMakeChoice()` validates card loss |
 | Quest structure audit | ✅ Verified | All paths require alliance (5+ cards) before battle |
 
+### Narrative Flow Issues (In Progress)
+
+| Issue | Status | Notes |
+|-------|--------|-------|
+| Choice consequence navigation | 🔄 Partial | Works for first quest, may lock up on subsequent quests |
+| Quest summary → quest hub | ✅ Fixed | `pendingQuestSummary` state now properly cleared |
+| Choice consequence after quest 2 | 🔄 Bug | Shows "No choice outcome" on second playthrough |
+
 ### Test Coverage
 
 - **Integration tests**: `src/lib/game/__tests__/integration.test.ts` - 8 tests covering cross-slice flows
-- **E2E tests**: `src/lib/game/__tests__/e2e.test.ts` - 8 tests covering complete game journeys
-- **Total**: 361 tests across 18 test files
+- **E2E tests**: `tests/e2e/` - 64 Playwright tests covering complete game journeys
+- **Unit tests**: 420+ tests across slice test files
+
+---
+
+## Recent Changes (2025-12-16)
+
+### New Narrative Phases
+
+Added two new phases to improve narrative feedback:
+
+1. **Choice Consequence** (`choice_consequence`)
+   - Shows after each narrative choice
+   - Displays reputation changes, cards gained/lost, bounty changes
+   - Provides cinematic pause between choice and next phase
+
+2. **Quest Summary** (`quest_summary`)
+   - Shows after quest completion (before returning to quest hub)
+   - Displays journey choices, final standings, battle record
+   - Properly clears `activeQuest` when acknowledged
+
+### New Events
+
+| Event | Purpose |
+|-------|---------|
+| `CHOICE_CONSEQUENCE_PRESENTED` | Triggers choice consequence screen |
+| `CHOICE_CONSEQUENCE_ACKNOWLEDGED` | Player continues from choice consequence |
+| `QUEST_SUMMARY_PRESENTED` | Triggers quest summary screen |
+| `QUEST_SUMMARY_ACKNOWLEDGED` | Player returns to quest hub |
+| `QUEST_COMPLETED` | Clears active quest, adds to completed quests |
+
+### New State Fields
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `pendingChoiceConsequence` | `PendingChoiceConsequence \| null` | Data for choice consequence screen |
+| `pendingQuestSummary` | `PendingQuestSummary \| null` | Data for quest summary screen |
 
 ---
 
 ## Status
 
-✅ **All migration work complete.**
+✅ **Vertical slice migration complete.**
+🔄 **Narrative flow improvements in progress.**
 
-- All 8 slices migrated to vertical slice architecture
+- All 10 slices migrated to vertical slice architecture
 - All critical invariants implemented and verified
-- Integration and E2E test coverage added
-- 361 tests passing across 18 test files
+- E2E tests updated for new narrative flow (64 tests passing)
+- Known bug: Choice consequence may not display on second quest playthrough
 
 ---
 
-*Last Updated: 2025-12-15*
+*Last Updated: 2025-12-16*

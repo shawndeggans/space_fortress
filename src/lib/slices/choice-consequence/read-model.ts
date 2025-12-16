@@ -2,17 +2,18 @@
 // CHOICE-CONSEQUENCE SLICE - Read Model
 // ============================================================================
 //
-// Projects the choice consequence view from events, showing:
+// Projects the choice consequence view from GameState, showing:
 // - What choice was made
 // - All consequences (reputation, cards, bounty, flags)
 // - What's coming next
 //
 // ============================================================================
 
-import type { GameEvent, FactionId } from '../shared-kernel'
+import type { FactionId } from '../shared-kernel'
+import type { GameState } from '../../game/types'
 import { getFactionById } from '../../game/content/factions'
 import { getCardById } from '../../game/content/cards'
-import { getDilemmaById, getQuestById } from '../../game/content/quests'
+import { getQuestById } from '../../game/content/quests'
 import { getReputationStatus } from '../../game/types'
 
 // ----------------------------------------------------------------------------
@@ -99,117 +100,89 @@ export function getInitialChoiceConsequenceView(): ChoiceConsequenceView {
 // Projection
 // ----------------------------------------------------------------------------
 
-export function projectChoiceConsequenceView(events: GameEvent[]): ChoiceConsequenceView {
+/**
+ * Project choice consequence view from GameState.
+ * Uses the pendingChoiceConsequence field populated by evolveState.
+ */
+export function projectChoiceConsequenceView(state: GameState): ChoiceConsequenceView {
   const view = getInitialChoiceConsequenceView()
 
-  // Find the most recent CHOICE_CONSEQUENCE_PRESENTED event
-  let consequenceEventIndex = -1
-  for (let i = events.length - 1; i >= 0; i--) {
-    if (events[i].type === 'CHOICE_CONSEQUENCE_PRESENTED') {
-      consequenceEventIndex = i
-      break
-    }
-  }
-
-  if (consequenceEventIndex === -1) {
-    return view
-  }
-
-  const consequenceEvent = events[consequenceEventIndex]
-  if (consequenceEvent.type !== 'CHOICE_CONSEQUENCE_PRESENTED') {
+  // Check if there's a pending consequence to display
+  const pending = state.pendingChoiceConsequence
+  if (!pending) {
     return view
   }
 
   // Get quest info
-  const quest = getQuestById(consequenceEvent.data.questId)
-  view.questId = consequenceEvent.data.questId
-  view.questTitle = quest?.title || consequenceEvent.data.questId
-  view.dilemmaId = consequenceEvent.data.dilemmaId
-  view.choiceId = consequenceEvent.data.choiceId
-  view.choiceLabel = consequenceEvent.data.choiceLabel
-  view.narrativeText = consequenceEvent.data.narrativeText
-  view.triggersNext = consequenceEvent.data.triggersNext
+  const quest = getQuestById(pending.questId)
+  view.questId = pending.questId
+  view.questTitle = quest?.title || pending.questId
+  view.dilemmaId = pending.dilemmaId
+  view.choiceId = pending.choiceId
+  view.choiceLabel = pending.choiceLabel
+  view.narrativeText = pending.narrativeText
+  view.triggersNext = pending.triggersNext
 
-  // Find the CHOICE_MADE event that preceded this
-  let choiceMadeIndex = -1
-  for (let i = consequenceEventIndex - 1; i >= 0; i--) {
-    if (events[i].type === 'CHOICE_MADE') {
-      choiceMadeIndex = i
-      break
+  // Process reputation changes
+  for (const repChange of pending.consequences.reputationChanges) {
+    const faction = getFactionById(repChange.factionId)
+    view.reputationChanges.push({
+      factionId: repChange.factionId,
+      factionName: faction?.name || repChange.factionId,
+      factionIcon: faction?.icon || '⬡',
+      delta: repChange.delta,
+      newValue: repChange.newValue,
+      status: getReputationStatus(repChange.newValue),
+      isPositive: repChange.delta > 0
+    })
+  }
+
+  // Process cards gained
+  for (const cardId of pending.consequences.cardsGained) {
+    const card = getCardById(cardId)
+    if (card) {
+      const faction = getFactionById(card.faction)
+      view.cardsGained.push({
+        cardId: card.id,
+        cardName: card.name,
+        factionId: card.faction,
+        factionName: faction?.name || card.faction,
+        attack: card.attack,
+        armor: card.armor,
+        agility: card.agility
+      })
     }
   }
 
-  // Collect all consequence events between CHOICE_MADE and CHOICE_CONSEQUENCE_PRESENTED
-  if (choiceMadeIndex >= 0) {
-    for (let i = choiceMadeIndex + 1; i < consequenceEventIndex; i++) {
-      const event = events[i]
-
-      switch (event.type) {
-        case 'REPUTATION_CHANGED': {
-          const faction = getFactionById(event.data.factionId)
-          view.reputationChanges.push({
-            factionId: event.data.factionId,
-            factionName: faction?.name || event.data.factionId,
-            factionIcon: faction?.icon || '⬡',
-            delta: event.data.delta,
-            newValue: event.data.newValue,
-            status: getReputationStatus(event.data.newValue),
-            isPositive: event.data.delta > 0
-          })
-          break
-        }
-
-        case 'CARD_GAINED': {
-          const card = getCardById(event.data.cardId)
-          if (card) {
-            const faction = getFactionById(card.faction)
-            view.cardsGained.push({
-              cardId: card.id,
-              cardName: card.name,
-              factionId: card.faction,
-              factionName: faction?.name || card.faction,
-              attack: card.attack,
-              armor: card.armor,
-              agility: card.agility
-            })
-          }
-          break
-        }
-
-        case 'CARD_LOST': {
-          const card = getCardById(event.data.cardId)
-          if (card) {
-            const faction = getFactionById(card.faction)
-            view.cardsLost.push({
-              cardId: card.id,
-              cardName: card.name,
-              factionId: card.faction,
-              factionName: faction?.name || card.faction,
-              attack: card.attack,
-              armor: card.armor,
-              agility: card.agility
-            })
-          }
-          break
-        }
-
-        case 'BOUNTY_MODIFIED': {
-          view.bountyChange = {
-            amount: event.data.amount,
-            newTotal: event.data.newValue,
-            isPositive: event.data.amount > 0,
-            reason: event.data.reason || ''
-          }
-          break
-        }
-
-        case 'FLAG_SET': {
-          view.flagsSet.push(event.data.flagName)
-          break
-        }
-      }
+  // Process cards lost
+  for (const cardId of pending.consequences.cardsLost) {
+    const card = getCardById(cardId)
+    if (card) {
+      const faction = getFactionById(card.faction)
+      view.cardsLost.push({
+        cardId: card.id,
+        cardName: card.name,
+        factionId: card.faction,
+        factionName: faction?.name || card.faction,
+        attack: card.attack,
+        armor: card.armor,
+        agility: card.agility
+      })
     }
   }
+
+  // Process bounty change
+  if (pending.consequences.bountyChange) {
+    view.bountyChange = {
+      amount: pending.consequences.bountyChange.amount,
+      newTotal: pending.consequences.bountyChange.newValue,
+      isPositive: pending.consequences.bountyChange.amount > 0,
+      reason: 'choice'
+    }
+  }
+
+  // Process flags
+  view.flagsSet = [...pending.consequences.flagsSet]
 
   // Generate next phase hint based on triggers
   switch (view.triggersNext) {
