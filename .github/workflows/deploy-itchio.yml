@@ -1,43 +1,78 @@
 # Deploy Space Fortress to itch.io
 #
-# This workflow builds and deploys the game to itch.io using Butler.
-# - Tagged releases (v*) automatically deploy to the html5 channel
+# This workflow deploys the game to itch.io using Butler.
+# - Triggers automatically when a GitHub Release is published
 # - Manual trigger allows deploying to html5 or html5-dev channel
 #
 # Required secrets:
 #   BUTLER_API_KEY - itch.io API key from https://itch.io/user/settings/api-keys
 #
 # After first deployment, manually enable "This file will be played in the browser"
-# in your itch.io project's Edit Game → Uploads section.
+# in your itch.io project's Edit Game -> Uploads section.
 
 name: Deploy to itch.io
 
 on:
-  push:
-    tags:
-      - 'v*'
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       channel:
         description: 'itch.io channel to deploy to'
         required: true
-        default: 'html5'
+        default: 'html5-dev'
         type: choice
         options:
           - html5
           - html5-dev
-
-permissions:
-  contents: write
 
 env:
   ITCH_USER: shawndeggans
   ITCH_GAME: space-fortress
 
 jobs:
-  test:
-    name: Run Tests
+  deploy-release:
+    name: Deploy Release to itch.io
     runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    steps:
+      - name: Get release info
+        id: release
+        run: |
+          echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Download release asset
+        run: |
+          curl -L -o build.zip "https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.tag }}/space-fortress-${{ steps.release.outputs.version }}.zip"
+          mkdir -p build
+          unzip build.zip -d build
+
+      - name: Setup Butler
+        uses: jdno/setup-butler@v1
+
+      - name: Push to itch.io
+        run: |
+          echo "Deploying release ${{ steps.release.outputs.version }} to ${{ env.ITCH_USER }}/${{ env.ITCH_GAME }}:html5"
+          butler push build ${{ env.ITCH_USER }}/${{ env.ITCH_GAME }}:html5 \
+            --userversion ${{ steps.release.outputs.version }}
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+
+      - name: Deployment summary
+        run: |
+          echo "## Deployment Complete! 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Game:** ${{ env.ITCH_USER }}/${{ env.ITCH_GAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Channel:** html5" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** ${{ steps.release.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Play now:** https://${{ env.ITCH_USER }}.itch.io/${{ env.ITCH_GAME }}" >> $GITHUB_STEP_SUMMARY
+
+  deploy-manual:
+    name: Deploy Manual Build to itch.io
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -50,29 +85,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Run type check
-        run: npm run check
 
       - name: Run tests
         run: npm test
-
-  build-and-deploy:
-    name: Build and Deploy
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build project
         run: npm run build
@@ -81,77 +96,33 @@ jobs:
         run: |
           if [ ! -f "build/index.html" ]; then
             echo "Error: build/index.html not found!"
-            echo "Contents of build directory:"
-            ls -la build/ || echo "build/ directory does not exist"
             exit 1
           fi
-          echo "Build output verified successfully"
-          echo "Build contents:"
-          ls -la build/
 
       - name: Setup Butler
         uses: jdno/setup-butler@v1
 
-      - name: Determine version and channel
-        id: deploy-info
+      - name: Get version info
+        id: version
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            # Manual trigger - use input channel
-            SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-            echo "channel=${{ github.event.inputs.channel }}" >> $GITHUB_OUTPUT
-            echo "version=manual-${{ github.run_number }}-$SHORT_SHA" >> $GITHUB_OUTPUT
-          else
-            # Tagged release - extract version, deploy to main channel
-            VERSION="${GITHUB_REF#refs/tags/v}"
-            echo "channel=html5" >> $GITHUB_OUTPUT
-            echo "version=$VERSION" >> $GITHUB_OUTPUT
-          fi
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          echo "version=dev-${{ github.run_number }}-$SHORT_SHA" >> $GITHUB_OUTPUT
 
       - name: Push to itch.io
         run: |
-          echo "Deploying to ${{ env.ITCH_USER }}/${{ env.ITCH_GAME }}:${{ steps.deploy-info.outputs.channel }}"
-          echo "Version: ${{ steps.deploy-info.outputs.version }}"
-          butler push build ${{ env.ITCH_USER }}/${{ env.ITCH_GAME }}:${{ steps.deploy-info.outputs.channel }} \
-            --userversion ${{ steps.deploy-info.outputs.version }}
+          echo "Deploying to ${{ env.ITCH_USER }}/${{ env.ITCH_GAME }}:${{ github.event.inputs.channel }}"
+          echo "Version: ${{ steps.version.outputs.version }}"
+          butler push build ${{ env.ITCH_USER }}/${{ env.ITCH_GAME }}:${{ github.event.inputs.channel }} \
+            --userversion ${{ steps.version.outputs.version }}
         env:
           BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
 
-      - name: Create build artifact
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          cd build
-          zip -r ../space-fortress-${{ steps.deploy-info.outputs.version }}.zip .
-          cd ..
-
-      - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          name: Space Fortress v${{ steps.deploy-info.outputs.version }}
-          body: |
-            ## Space Fortress v${{ steps.deploy-info.outputs.version }}
-
-            This release has been automatically deployed to itch.io.
-
-            **Play now:** https://${{ env.ITCH_USER }}.itch.io/${{ env.ITCH_GAME }}
-
-            ### Installation
-            - **Web:** Play directly on itch.io (recommended)
-            - **Local:** Download the zip, extract, and open `index.html` in a browser
-          files: |
-            space-fortress-${{ steps.deploy-info.outputs.version }}.zip
-          generate_release_notes: true
-
       - name: Deployment summary
         run: |
-          echo "## Deployment Complete! 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "## Manual Deployment Complete! 🚀" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Game:** ${{ env.ITCH_USER }}/${{ env.ITCH_GAME }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Channel:** ${{ steps.deploy-info.outputs.channel }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Version:** ${{ steps.deploy-info.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Channel:** ${{ github.event.inputs.channel }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "View your game at: https://${{ env.ITCH_USER }}.itch.io/${{ env.ITCH_GAME }}" >> $GITHUB_STEP_SUMMARY
-          if [[ "${{ github.event_name }}" != "workflow_dispatch" ]]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "GitHub Release: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "**Play now:** https://${{ env.ITCH_USER }}.itch.io/${{ env.ITCH_GAME }}" >> $GITHUB_STEP_SUMMARY
