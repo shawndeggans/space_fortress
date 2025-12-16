@@ -1,0 +1,130 @@
+# Deploy Space Fortress to itch.io
+#
+# This workflow builds and deploys the game to itch.io using Butler.
+# - Tagged releases (v*) deploy to the main html5 channel
+# - Main branch commits deploy to the html5-dev channel for testing
+#
+# Required secrets:
+#   BUTLER_API_KEY - itch.io API key from https://itch.io/user/settings/api-keys
+#
+# After first deployment, manually enable "This file will be played in the browser"
+# in your itch.io project's Edit Game → Uploads section.
+
+name: Deploy to itch.io
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: 'itch.io channel to deploy to'
+        required: true
+        default: 'html5-dev'
+        type: choice
+        options:
+          - html5
+          - html5-dev
+
+env:
+  ITCH_USER: shawndeggans
+  ITCH_GAME: space-fortress
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run type check
+        run: npm run check
+
+      - name: Run tests
+        run: npm test
+
+  build-and-deploy:
+    name: Build and Deploy
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Verify build output
+        run: |
+          if [ ! -f "build/index.html" ]; then
+            echo "Error: build/index.html not found!"
+            echo "Contents of build directory:"
+            ls -la build/ || echo "build/ directory does not exist"
+            exit 1
+          fi
+          echo "Build output verified successfully"
+          echo "Build contents:"
+          ls -la build/
+
+      - name: Setup Butler
+        uses: jdno/setup-butler@v1
+
+      - name: Determine version and channel
+        id: deploy-info
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            # Manual trigger - use input channel
+            echo "channel=${{ github.event.inputs.channel }}" >> $GITHUB_OUTPUT
+            echo "version=manual-${{ github.run_number }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            # Tagged release - extract version, deploy to main channel
+            VERSION="${GITHUB_REF#refs/tags/v}"
+            echo "channel=html5" >> $GITHUB_OUTPUT
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+          else
+            # Main branch push - deploy to dev channel
+            SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+            echo "channel=html5-dev" >> $GITHUB_OUTPUT
+            echo "version=dev-${{ github.run_number }}-$SHORT_SHA" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Push to itch.io
+        run: |
+          echo "Deploying to ${{ env.ITCH_USER }}/${{ env.ITCH_GAME }}:${{ steps.deploy-info.outputs.channel }}"
+          echo "Version: ${{ steps.deploy-info.outputs.version }}"
+          butler push build ${{ env.ITCH_USER }}/${{ env.ITCH_GAME }}:${{ steps.deploy-info.outputs.channel }} \
+            --userversion ${{ steps.deploy-info.outputs.version }}
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+
+      - name: Deployment summary
+        run: |
+          echo "## Deployment Complete! 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Game:** ${{ env.ITCH_USER }}/${{ env.ITCH_GAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Channel:** ${{ steps.deploy-info.outputs.channel }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** ${{ steps.deploy-info.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "View your game at: https://${{ env.ITCH_USER }}.itch.io/${{ env.ITCH_GAME }}" >> $GITHUB_STEP_SUMMARY
