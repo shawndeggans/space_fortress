@@ -1,8 +1,8 @@
 # Deploy Space Fortress to itch.io
 #
 # This workflow builds and deploys the game to itch.io using Butler.
-# - Tagged releases (v*) deploy to the main html5 channel
-# - Main branch commits deploy to the html5-dev channel for testing
+# - Tagged releases (v*) automatically deploy to the html5 channel
+# - Manual trigger allows deploying to html5 or html5-dev channel
 #
 # Required secrets:
 #   BUTLER_API_KEY - itch.io API key from https://itch.io/user/settings/api-keys
@@ -16,14 +16,12 @@ on:
   push:
     tags:
       - 'v*'
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       channel:
         description: 'itch.io channel to deploy to'
         required: true
-        default: 'html5-dev'
+        default: 'html5'
         type: choice
         options:
           - html5
@@ -96,18 +94,14 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             # Manual trigger - use input channel
+            SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
             echo "channel=${{ github.event.inputs.channel }}" >> $GITHUB_OUTPUT
-            echo "version=manual-${{ github.run_number }}" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "version=manual-${{ github.run_number }}-$SHORT_SHA" >> $GITHUB_OUTPUT
+          else
             # Tagged release - extract version, deploy to main channel
             VERSION="${GITHUB_REF#refs/tags/v}"
             echo "channel=html5" >> $GITHUB_OUTPUT
             echo "version=$VERSION" >> $GITHUB_OUTPUT
-          else
-            # Main branch push - deploy to dev channel
-            SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-            echo "channel=html5-dev" >> $GITHUB_OUTPUT
-            echo "version=dev-${{ github.run_number }}-$SHORT_SHA" >> $GITHUB_OUTPUT
           fi
 
       - name: Push to itch.io
