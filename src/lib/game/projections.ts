@@ -76,7 +76,10 @@ export function getInitialState(): GameState {
     choiceHistory: [],
 
     // Pending choice consequence
-    pendingChoiceConsequence: null
+    pendingChoiceConsequence: null,
+
+    // Pending quest summary
+    pendingQuestSummary: null
   }
 }
 
@@ -697,12 +700,22 @@ export function evolveState(state: GameState, event: GameEvent): GameState {
     // ========================================================================
 
     case 'QUEST_SUMMARY_PRESENTED':
-      // Informational event for UI - quest is still active at this point
-      return state
+      // Store the quest summary data for the UI to display
+      return {
+        ...state,
+        pendingQuestSummary: {
+          questId: event.data.questId,
+          questTitle: event.data.questTitle,
+          outcome: event.data.outcome
+        }
+      }
 
     case 'QUEST_SUMMARY_ACKNOWLEDGED':
-      // Player acknowledged summary - quest completion handled by QUEST_COMPLETED event
-      return state
+      // Clear the pending quest summary
+      return {
+        ...state,
+        pendingQuestSummary: null
+      }
 
     // ========================================================================
     // Default

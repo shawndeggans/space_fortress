@@ -463,6 +463,9 @@ export interface GameState {
 
   // Pending choice consequence (when in choice_consequence phase)
   pendingChoiceConsequence: PendingChoiceConsequence | null
+
+  // Pending quest summary (when in quest_summary phase)
+  pendingQuestSummary: PendingQuestSummary | null
 }
 
 export interface PendingChoiceConsequence {
@@ -486,6 +489,12 @@ export interface PendingChoiceConsequence {
     } | null
     flagsSet: string[]
   }
+}
+
+export interface PendingQuestSummary {
+  questId: string
+  questTitle: string
+  outcome: 'completed' | 'failed' | 'abandoned'
 }
 
 export interface ChoiceHistoryEntry {

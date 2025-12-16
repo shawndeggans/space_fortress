@@ -9,8 +9,8 @@
   import FactionBadge from '$lib/components/FactionBadge.svelte'
   import { goto } from '$app/navigation'
 
-  // Derive view from game state events
-  let summaryView = $derived(projectQuestSummaryView($gameState.events || []))
+  // Derive view from game state
+  let summaryView = $derived(projectQuestSummaryView($gameState))
 
   async function handleContinue() {
     const result = await gameState.handleCommand({
