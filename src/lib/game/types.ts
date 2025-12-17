@@ -152,6 +152,8 @@ export interface ChoiceConsequences {
   nextDilemmaId?: string
   flags?: Record<string, boolean>
   risk?: ChoiceRisk
+  /** Choice-specific narrative text shown on the consequence screen */
+  narrativeText?: string
 }
 
 export interface ReputationChange {

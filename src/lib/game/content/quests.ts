@@ -93,7 +93,8 @@ are wrong for scavengers. Those are refugee vessels - probably Ashfall."`,
             difficulty: 'easy'
           },
           nextDilemmaId: 'dilemma_salvage_2_discovery',
-          flags: { 'salvage_attacked_first': true }
+          flags: { 'salvage_attacked_first': true },
+          narrativeText: 'Your weapons fire first, questions later. The smaller vessels scatter like startled birds, but not before your targeting systems log their signatures. Director Chen nods approvingly over the comm. "Efficient. The Syndicate appreciates decisiveness." Behind you, Chief Engineer Kai stares at the sensor readings with troubled eyes. Those weren\'t scavenger ships.'
         }
       },
       {
@@ -107,7 +108,8 @@ are wrong for scavengers. Those are refugee vessels - probably Ashfall."`,
           cardsGained: [],
           cardsLost: [],
           nextDilemmaId: 'dilemma_salvage_2_discovery',
-          flags: { 'salvage_hailed_first': true }
+          flags: { 'salvage_hailed_first': true },
+          narrativeText: 'Static crackles, then a voice — weary, wary, but willing to talk. "You\'re not like the others they send." The speaker identifies herself as Jax "Redhawk" Mora, and her story changes everything. These aren\'t scavengers. They\'re survivors, waiting for rescue that never came. Director Chen\'s jaw tightens. "Irrelevant. Proceed to the wreck."'
         }
       },
       {
@@ -121,7 +123,8 @@ are wrong for scavengers. Those are refugee vessels - probably Ashfall."`,
           cardsGained: [],
           cardsLost: [],
           nextDilemmaId: 'dilemma_salvage_2_discovery',
-          flags: { 'salvage_waited': true }
+          flags: { 'salvage_waited': true },
+          narrativeText: 'Patience reveals truth. Your sensors paint a clearer picture: refugee vessels, not raiders. Families huddled in failing life support, burning their last fuel to stay warm. Director Chen\'s voice cuts through your observations. "Time is money, Captain. Every minute you waste costs the Syndicate." But some costs can\'t be measured in credits.'
         }
       }
     ]
@@ -176,7 +179,8 @@ decide fast. Maybe there's a way to satisfy everyone here."`,
           cardsLost: [],
           bountyModifier: 200,
           nextDilemmaId: 'dilemma_salvage_3_confrontation',
-          flags: { 'salvage_sided_ironveil': true }
+          flags: { 'salvage_sided_ironveil': true },
+          narrativeText: 'The law is clear, even if your conscience isn\'t. Director Chen\'s salvage teams begin cataloging the cryopods like inventory — which, legally, they now are. Redhawk\'s voice over the comm is raw with fury: "You\'re no better than the corporations that left us to die." The Syndicate transfers a bonus to your account. The credits feel heavier than they should.'
         }
       },
       {
@@ -193,7 +197,8 @@ decide fast. Maybe there's a way to satisfy everyone here."`,
           cardsLost: [],
           bountyModifier: -200,
           nextDilemmaId: 'dilemma_salvage_3_confrontation',
-          flags: { 'salvage_sided_ashfall': true }
+          flags: { 'salvage_sided_ashfall': true },
+          narrativeText: 'You override Director Chen\'s security protocols yourself. The Ashfall ships dock with desperate efficiency, their crews working to stabilize failing cryopods. Redhawk finds you on the observation deck. "I won\'t forget this," she says, pressing a salvaged ship\'s key into your hand. "Neither will the Syndicate," Chen warns over the comm. "You\'ve made powerful enemies today."'
         }
       },
       {
@@ -209,7 +214,8 @@ decide fast. Maybe there's a way to satisfy everyone here."`,
           cardsGained: [],
           cardsLost: [],
           triggersAlliance: true,
-          flags: { 'salvage_negotiated': true }
+          flags: { 'salvage_negotiated': true },
+          narrativeText: 'Neither side is happy, which might mean you\'ve found the right answer. The Ashfall take their people; the Syndicate keeps the cargo. Director Chen calls it "suboptimal but acceptable." Redhawk says nothing, but her nod carries weight. Torres claps you on the shoulder. "Diplomat and privateer. That\'s a rare combination out here."'
         }
       }
     ]
@@ -267,7 +273,8 @@ stand down first."`,
             context: 'Defending the Syndicate claim',
             difficulty: 'medium'
           },
-          flags: { 'salvage_final_ironveil': true }
+          flags: { 'salvage_final_ironveil': true },
+          narrativeText: 'Kira Voss smiles as your ships fall into formation with the Syndicate fleet. "A contract is sacred," she says. "Remember that, and you\'ll go far with us." Elder Nomi\'s last transmission cuts through the tactical chatter: "I hoped you would be different." Then the Ashfall ships power weapons, and there\'s no more time for regrets.'
         }
       },
       {
@@ -288,7 +295,8 @@ stand down first."`,
             context: 'Defending the refugees',
             difficulty: 'medium'
           },
-          flags: { 'salvage_final_ashfall': true, 'broke_ironveil_contract': true }
+          flags: { 'salvage_final_ashfall': true, 'broke_ironveil_contract': true },
+          narrativeText: 'Your weapons lock onto Syndicate targets, and for a moment, the void goes silent. Then Director Chen\'s voice, cold as vacuum: "You\'ve just ended your career in this sector." But Elder Nomi is crying, reaching toward your ship on the viewscreen. "My daughter... thank you." Redhawk sends you coordinates to an Ashfall safe haven. "You\'re one of us now, whether you wanted to be or not."'
         }
       },
       {
@@ -304,7 +312,8 @@ stand down first."`,
           cardsGained: ['void_beacon_keeper'],
           cardsLost: [],
           bountyModifier: -150,
-          flags: { 'salvage_final_neutral': true }
+          flags: { 'salvage_final_neutral': true },
+          narrativeText: 'Captain Thresh\'s ships form up around yours as you pull away from the standoff. Behind you, Syndicate and Ashfall vessels circle each other like wounded predators. "Sometimes the wisest choice is no choice at all," Thresh says. "The Wardens remember those who keep the peace." The battle you leave behind will haunt this sector for years. But it won\'t be your battle.'
         }
       }
     ]
@@ -391,7 +400,8 @@ is my trade, after all."`,
           cardsGained: [],
           cardsLost: [],
           nextDilemmaId: 'dilemma_sanctuary_2_blockade',
-          flags: { 'sanctuary_stealth_route': true }
+          flags: { 'sanctuary_stealth_route': true },
+          narrativeText: 'Redhawk takes point, and you follow her through asteroid shadows and sensor blind spots. The convoy moves like ghosts through the dark, engines throttled to whisper-mode. "Thirty years I\'ve run these routes," she says quietly. "Lost count of how many lives we\'ve saved. Lost count of how many we couldn\'t." The Warden patrol passes overhead, oblivious.'
         }
       },
       {
@@ -407,7 +417,8 @@ is my trade, after all."`,
           cardsLost: [],
           bountyModifier: -100,  // Broker's fee
           nextDilemmaId: 'dilemma_sanctuary_2_blockade',
-          flags: { 'sanctuary_diplomatic_route': true }
+          flags: { 'sanctuary_diplomatic_route': true },
+          narrativeText: 'Soren Vale drives a hard bargain, but the transit codes are genuine. Your convoy joins the Meridian trade fleet, hiding in plain sight among cargo haulers and merchant vessels. Redhawk glares at you through the viewscreen. "Paying for what should be free passage." But the refugees don\'t care about pride — they care about survival.'
         }
       },
       {
@@ -422,7 +433,8 @@ is my trade, after all."`,
           cardsGained: [],
           cardsLost: [],
           triggersMediation: true,
-          flags: { 'sanctuary_direct_route': true }
+          flags: { 'sanctuary_direct_route': true },
+          narrativeText: 'Your hail cuts through the void, announcing your presence and intentions to every Warden ship in range. Redhawk curses loudly over the comm. "Are you trying to get us killed?" But Captain Thresh\'s response is measured, curious. "Unusual to see honesty out here. State your case, Captain. We\'re listening." Sometimes the direct path is the hardest — and the only one worth taking.'
         }
       }
     ]
@@ -480,7 +492,8 @@ something still."`,
             difficulty: 'medium'
           },
           nextDilemmaId: 'dilemma_sanctuary_3_destination',
-          flags: { 'sanctuary_ran_blockade': true }
+          flags: { 'sanctuary_ran_blockade': true },
+          narrativeText: 'Engines flare to maximum burn. The refugee ships surge forward, their pilots pushing failing systems beyond every safety margin. Warden targeting locks paint your hull with crimson light. "All ships, evasive pattern delta!" Redhawk\'s voice is ice-cold calm. "We\'ve done this before. We do it again." Behind you, the blockade erupts in weapons fire.'
         }
       },
       {
@@ -495,7 +508,8 @@ something still."`,
           cardsGained: [],
           cardsLost: [],
           nextDilemmaId: 'dilemma_sanctuary_3_destination',
-          flags: { 'sanctuary_nomi_negotiated': true }
+          flags: { 'sanctuary_nomi_negotiated': true },
+          narrativeText: 'Elder Nomi\'s voice trembles as she speaks a name — a name Captain Thresh hasn\'t heard in thirty years. The tactical channel goes silent. When Thresh responds, his voice has changed. "Nomi? I thought... we all thought you were dead." Old bonds, forged in wars no one remembers, reach across the void. The blockade parts like a curtain.'
         }
       },
       {
@@ -512,7 +526,8 @@ something still."`,
           cardsLost: [],
           bountyModifier: -150,
           nextDilemmaId: 'dilemma_sanctuary_3_destination',
-          flags: { 'sanctuary_bribed_wardens': true }
+          flags: { 'sanctuary_bribed_wardens': true },
+          narrativeText: 'The Wardens accept your "administrative fee" with professional detachment. Medical supplies, food rations, water purifiers — cargo that could have saved lives on Sanctuary Station. Redhawk won\'t look at you. "Those supplies were meant for children," she says flatly. Captain Thresh signals the blockade to open. "Passage granted. Move through quickly."'
         }
       }
     ]
@@ -565,7 +580,8 @@ evidence of certain irregularities that might change their math."`,
           cardsGained: ['ashfall_desperado'],
           cardsLost: [],
           bountyModifier: -300,
-          flags: { 'sanctuary_paid_fees': true }
+          flags: { 'sanctuary_paid_fees': true },
+          narrativeText: 'Credits transfer from your account — credits you earned, credits you needed. But the refugees\' faces as they step onto stable ground for the first time in months... that\'s worth more than money. Redhawk presses something into your hand: a pilot\'s wings, worn smooth by decades of desperate flights. "You\'ve earned these," she says. "One of us now."'
         }
       },
       {
@@ -585,7 +601,8 @@ evidence of certain irregularities that might change their math."`,
             probability: 0.3,
             consequence: 'Forced to flee the station'
           },
-          flags: { 'sanctuary_threatened': true }
+          flags: { 'sanctuary_threatened': true },
+          narrativeText: 'Your hand rests on your sidearm. The administrator\'s eyes follow the movement. "You\'re not the first to threaten me," they say, voice steady. "You won\'t be the last." But the docking clamps release, and refugee ships begin their final approach. Redhawk watches from the doorway. "There are easier ways to make friends," she observes. "But not always faster ones."'
         }
       },
       {
@@ -601,7 +618,8 @@ evidence of certain irregularities that might change their math."`,
           cardsGained: ['sundered_ghost_ship'],
           cardsLost: [],
           bountyModifier: -50,  // Ghost's fee
-          flags: { 'sanctuary_blackmailed': true, 'owes_ghost_favor': true }
+          flags: { 'sanctuary_blackmailed': true, 'owes_ghost_favor': true },
+          narrativeText: 'The administrator\'s face goes pale as you recite Ghost\'s evidence — embezzlement, smuggling, falsified manifests. "Where did you..." they whisper. "It doesn\'t matter where. It matters what happens next." The refugees dock without paying a single credit. Ghost materializes at your elbow, grinning. "Pleasure doing business. Remember — you owe me now."'
         }
       },
       {
@@ -617,7 +635,8 @@ evidence of certain irregularities that might change their math."`,
           cardsGained: [],
           cardsLost: ['ashfall_redhawk'],
           bountyModifier: 0,
-          flags: { 'sanctuary_abandoned_refugees': true }
+          flags: { 'sanctuary_abandoned_refugees': true },
+          narrativeText: 'Your engines warm up. The refugees watch from their ships, understanding dawning in their eyes. Redhawk\'s voice comes over the comm one final time: "I believed in you." Then silence. Torres won\'t meet your eyes as you plot a course away from Sanctuary Station. The bounty hits your account, complete and intact. It\'s never felt so worthless.'
         }
       }
     ]
@@ -703,7 +722,8 @@ might find the Accord remembers such things."`,
           cardsGained: [],
           cardsLost: [],
           nextDilemmaId: 'dilemma_broker_2_revelation',
-          flags: { 'broker_allied_wardens': true, 'secret_alliance_active': true }
+          flags: { 'broker_allied_wardens': true, 'secret_alliance_active': true },
+          narrativeText: 'Captain Thresh\'s handshake is firm, his eyes searching yours for doubt. "The Sundered are after something in that debris field — something that should stay buried. Help me ensure it does." A data chip passes between you, encrypted with Warden protocols. "We\'ll be watching," Thresh says. "Don\'t disappoint us." The weight of secrets settles on your shoulders.'
         }
       },
       {
@@ -718,7 +738,8 @@ might find the Accord remembers such things."`,
           cardsLost: [],
           bountyModifier: 200,  // Cut of salvage
           nextDilemmaId: 'dilemma_broker_2_revelation',
-          flags: { 'broker_allied_sundered': true, 'secret_alliance_active': true }
+          flags: { 'broker_allied_sundered': true, 'secret_alliance_active': true },
+          narrativeText: 'Razor\'s grin is sharp as a blade. "Smart choice. The Wardens sit on their precious protocols while the real treasures rust in the void." Credits transfer to an anonymous account — your advance on future salvage. "Twenty percent of everything we find," Razor confirms. "Just keep the talks going long enough for us to locate the prize."'
         }
       },
       {
@@ -734,7 +755,8 @@ might find the Accord remembers such things."`,
           cardsGained: [],
           cardsLost: [],
           nextDilemmaId: 'dilemma_broker_2_revelation',
-          flags: { 'broker_stayed_neutral': true }
+          flags: { 'broker_stayed_neutral': true },
+          narrativeText: 'You decline both offers with diplomatic precision. Thresh\'s eyes narrow; Razor\'s smile turns cold. "Neutrality is a luxury," Soren Vale observes over your private channel, "but one the Accord values highly. You\'ve just made the hardest choice of all — being no one\'s friend to be everyone\'s mediator." The negotiations begin with you standing alone between giants.'
         }
       },
       {
@@ -758,7 +780,8 @@ might find the Accord remembers such things."`,
             description: 'High risk of exposure',
             probability: 0.5,
             consequence: 'Both factions become hostile'
-          }
+          },
+          narrativeText: 'Two secret handshakes. Two encrypted data chips. Two sets of promises you can\'t possibly keep. The credits from both sides sit in separate accounts, burning holes through your conscience. Soren Vale\'s message arrives minutes later: "Dangerous game you\'re playing, Captain. The Accord admires ambition — but we\'ve seen double agents before. They rarely end well."'
         }
       }
     ]
@@ -813,7 +836,8 @@ is taking what you can sell."`,
           cardsGained: ['void_warden_prime'],
           cardsLost: [],
           nextDilemmaId: 'dilemma_broker_3_choice',
-          flags: { 'broker_chose_containment': true }
+          flags: { 'broker_chose_containment': true },
+          narrativeText: 'Keeper Ash\'s relief is palpable. "You understand," she says. "Some knowledge is too dangerous to exist." The Wardens provide you with access to their classified archives — records of what pre-Collapse technology did to the sectors that recovered it. The images haunt your dreams. Ghost watches from the shadows, their expression unreadable. "Burning treasure. How noble. How wasteful."'
         }
       },
       {
@@ -830,7 +854,8 @@ is taking what you can sell."`,
           cardsLost: [],
           bountyModifier: 400,
           nextDilemmaId: 'dilemma_broker_3_choice',
-          flags: { 'broker_chose_profit': true }
+          flags: { 'broker_chose_profit': true },
+          narrativeText: 'Ghost pulls up coordinates on the holodisplay, their excitement barely contained. "Pre-Collapse weapons systems, power sources that make fusion look primitive. We\'re talking about technology that could reshape the entire sector." The potential credits scroll across your screen — numbers that would set you up for life. "The Wardens fear progress," Ghost says. "We embrace it."'
         }
       },
       {
@@ -846,7 +871,8 @@ is taking what you can sell."`,
           cardsGained: ['meridian_broker'],
           cardsLost: [],
           nextDilemmaId: 'dilemma_broker_3_choice',
-          flags: { 'broker_revealed_truth': true }
+          flags: { 'broker_revealed_truth': true },
+          narrativeText: 'Your broadcast reaches every ship in the system simultaneously. The truth spills out: the Oathkeeper, the shared history, the dangerous cargo. For a long moment, silence. Then chaos erupts on every frequency. Both factions accuse you of bias. Both demand explanations. Soren Vale sends a single message: "Brave choice. The Accord appreciates those who value truth over profit. Let\'s see if the others do."'
         }
       },
       {
@@ -862,7 +888,8 @@ is taking what you can sell."`,
           cardsLost: [],
           bountyModifier: 300,
           nextDilemmaId: 'dilemma_broker_3_choice',
-          flags: { 'broker_sold_secrets': true }
+          flags: { 'broker_sold_secrets': true },
+          narrativeText: 'Information is the most valuable currency in the sector, and you hold the mother lode. Ghost arranges the auction — anonymous bidders, encrypted channels, untraceable payments. When the credits clear, you\'re significantly richer. Soren Vale\'s assessment is clinical: "A broker\'s instinct. The Accord approves of those who understand the true value of knowledge."'
         }
       }
     ]
@@ -919,7 +946,8 @@ though perhaps satisfies none."`,
             difficulty: 'hard'
           },
           nextDilemmaId: 'dilemma_broker_4_resolution',
-          flags: { 'broker_battle_wardens': true }
+          flags: { 'broker_battle_wardens': true },
+          narrativeText: 'Captain Thresh nods grimly as your ships take formation with the Warden fleet. "The old codes bind us," he says. "Protect what must be protected. Destroy what must be destroyed." Across the void, Sundered vessels power weapons. Razor\'s voice cuts through the static: "Traitor. We\'ll remember this." Then there\'s no more time for words.'
         }
       },
       {
@@ -939,7 +967,8 @@ though perhaps satisfies none."`,
             difficulty: 'hard'
           },
           nextDilemmaId: 'dilemma_broker_4_resolution',
-          flags: { 'broker_battle_sundered': true }
+          flags: { 'broker_battle_sundered': true },
+          narrativeText: 'Razor claps you on the shoulder as your ships merge with the Sundered fleet. "Now we\'re talking! The Wardens have hoarded power for too long. Time to redistribute it." The Oathkeeper\'s wreck looms ahead, ancient and terrible. Captain Thresh\'s voice is heavy with disappointment: "I thought you understood. Some things are worth more than profit."'
         }
       },
       {
@@ -955,7 +984,8 @@ though perhaps satisfies none."`,
           cardsGained: ['meridian_negotiator'],
           cardsLost: [],
           nextDilemmaId: 'dilemma_broker_4_resolution',
-          flags: { 'broker_forced_compromise': true }
+          flags: { 'broker_forced_compromise': true },
+          narrativeText: 'Your ship positions itself directly between the two fleets, broadcasting on all frequencies. "No one fires until we\'ve talked." The silence stretches for an eternity. Then Magistrate Yun speaks: "Joint study. Accord oversight. Shared access, shared responsibility." Neither side is happy. But neither side shoots. Sometimes that\'s the best you can hope for.'
         }
       }
     ]
@@ -1005,7 +1035,8 @@ Perhaps not. Recording complete."`,
           cardsGained: [],
           cardsLost: [],
           bountyModifier: 200,
-          flags: { 'broker_clean_exit': true }
+          flags: { 'broker_clean_exit': true },
+          narrativeText: 'The credits clear as your ship breaks orbit. Behind you, the Graveyard holds its secrets — kept or sold, destroyed or preserved. It doesn\'t matter anymore. Torres plots a course to the next port, the next job, the next crisis that needs a steady hand. "Professional to the end," Soren Vale transmits. "The Accord will call on you again."'
         }
       },
       {
@@ -1019,7 +1050,8 @@ Perhaps not. Recording complete."`,
           ],
           cardsGained: [],
           cardsLost: [],
-          flags: { 'broker_joined_victor': true }
+          flags: { 'broker_joined_victor': true },
+          narrativeText: 'In the aftermath, you choose a side — the winning side. Your new allies accept your pledge with satisfaction; the defeated look on with bitter understanding. "Pragmatic," ARIA observes from your ship\'s systems. "Historical precedent suggests such alliances rarely survive the next crisis. But perhaps you will be different." The sector shifts around you, and you shift with it.'
         }
       },
       {
@@ -1034,7 +1066,8 @@ Perhaps not. Recording complete."`,
           cardsGained: ['sundered_exile'],
           cardsLost: [],
           bountyModifier: -100,  // Cost of running
-          flags: { 'broker_disappeared': true }
+          flags: { 'broker_disappeared': true },
+          narrativeText: 'Too many eyes, too many questions, too many debts. You point your ship toward the outer reaches, where names are suggestions and pasts are optional. Ghost\'s final transmission reaches you hours later: "Smart move. The Oathkeeper\'s shadow is long. Find me when you resurface — assuming you do." The void swallows your signal, and you become just another ghost.'
         }
       }
     ]

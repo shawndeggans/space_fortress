@@ -690,8 +690,8 @@ function handleMakeChoice(
     }
   }
 
-  // Generate narrative aftermath text
-  const narrativeText = generateNarrativeText(consequences, triggersNext)
+  // Use choice-specific narrative if available, otherwise generate from templates
+  const narrativeText = consequences.narrativeText || generateNarrativeText(consequences, triggersNext)
 
   // Emit CHOICE_CONSEQUENCE_PRESENTED event
   events.push({
