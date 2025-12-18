@@ -10,29 +10,38 @@
   import FactionBadge from '$lib/components/FactionBadge.svelte'
   import type { FactionId } from '$lib/components/types'
   import { goto } from '$app/navigation'
+  import { navigateToPhase } from '$lib/navigation'
 
   // Derive views from game state
   let consequenceView = $derived(projectConsequenceView([], undefined, $gameState))
 
   async function handleContinue() {
-    const result = await gameState.handleCommand({
+    // First acknowledge the outcome
+    const ackResult = await gameState.handleCommand({
       type: 'ACKNOWLEDGE_OUTCOME',
       data: {}
     })
 
-    if (result.success) {
-      // Navigate based on what comes next
-      if (consequenceView?.hasNextDilemma) {
-        goto('/narrative')
-      } else if (consequenceView?.questComplete) {
-        // Check if game is ending
-        if ($gameState.completedQuests.length >= 3) {
-          goto('/ending')
-        } else {
-          goto('/quest-hub')
-        }
+    if (!ackResult.success) {
+      console.error('Failed to acknowledge outcome')
+      return
+    }
+
+    // Then continue to next phase - this triggers proper phase transitions
+    const continueResult = await gameState.handleCommand({
+      type: 'CONTINUE_TO_NEXT_PHASE',
+      data: {}
+    })
+
+    if (continueResult.success) {
+      // Navigate based on the updated phase from state
+      const nextPhase = $gameState.currentPhase
+
+      // Check if game is ending
+      if ($gameState.completedQuests.length >= 3 && nextPhase === 'quest_summary') {
+        goto('/ending')
       } else {
-        goto('/narrative')
+        navigateToPhase(nextPhase)
       }
     }
   }
