@@ -406,6 +406,7 @@ export interface GameStats {
   betrayals: number
   totalBountyEarned: number
   totalBountyShared: number
+  totalBountyLost: number  // Bounty lost to penalties, choices, etc.
   cardsAcquired: number
   cardsLost: number
   playTimeSeconds: number
@@ -450,6 +451,10 @@ export interface GameState {
 
   // Current mediation (when in mediation phase)
   currentMediationId: string | null
+  // Mediation state tracking
+  mediationParties: [FactionId, FactionId] | null
+  hasLeaned: boolean
+  leanedToward: FactionId | null
 
   // Economy
   bounty: number

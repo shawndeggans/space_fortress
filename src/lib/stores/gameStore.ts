@@ -1,4 +1,5 @@
 import { writable, get } from 'svelte/store'
+import { Mutex } from 'async-mutex'
 import type { GameState, SaveGamePreview } from '../game/types'
 import type { GameCommand } from '../game/commands'
 import type { GameEvent } from '../game/events'
@@ -13,7 +14,20 @@ const errorStore = writable<string | null>(null)
 const isLoadingStore = writable<boolean>(true)
 
 let eventStore: BrowserEventStore | null = null
-let currentPlayerId = 'player-1'
+// Store raw player ID without prefix - prefix is added only when constructing stream IDs
+let currentPlayerId = '1'
+
+// Mutex to serialize command execution
+// Prevents race conditions when rapid commands are issued
+const commandMutex = new Mutex()
+
+/**
+ * Construct stream ID from raw player ID
+ * Single source of truth for stream ID format
+ */
+function getStreamId(playerId: string): string {
+  return `player-${playerId}`
+}
 
 async function ensureEventStore(): Promise<BrowserEventStore> {
   if (!eventStore) {
@@ -42,36 +56,39 @@ export const gameState = {
   },
 
   async handleCommand(command: GameCommand) {
-    try {
-      errorStore.set(null)
-      const store = await ensureEventStore()
-      const currentState = get(gameStateStore)
+    // Serialize command execution to prevent race conditions
+    return commandMutex.runExclusive(async () => {
+      try {
+        errorStore.set(null)
+        const store = await ensureEventStore()
+        const currentState = get(gameStateStore)
 
-      debugLog(`Executing command: ${command.type}`, command.data)
+        debugLog(`Executing command: ${command.type}`, command.data)
 
-      // Generate events from command
-      const events = decide(command, currentState)
+        // Generate events from command
+        const events = decide(command, currentState)
 
-      // Log events in debug mode
-      events.forEach(e => debugEvent(e.type, e.data))
+        // Log events in debug mode
+        events.forEach(e => debugEvent(e.type, e.data))
 
-      // Persist events
-      await store.appendEvents(`player-${currentPlayerId}`, events)
+        // Persist events
+        await store.appendEvents(getStreamId(currentPlayerId), events)
 
-      // Update projection
-      const newState = events.reduce(evolveState, currentState)
-      gameStateStore.set(newState)
+        // Update projection
+        const newState = events.reduce(evolveState, currentState)
+        gameStateStore.set(newState)
 
-      return { success: true }
-    } catch (error) {
-      const message = error instanceof InvalidCommandError
-        ? error.message
-        : `Command failed: ${error}`
+        return { success: true }
+      } catch (error) {
+        const message = error instanceof InvalidCommandError
+          ? error.message
+          : `Command failed: ${error}`
 
-      debugError(message, `Command: ${command.type}`, error as Error)
-      errorStore.set(message)
-      return { success: false, error }
-    }
+        debugError(message, `Command: ${command.type}`, error as Error)
+        errorStore.set(message)
+        return { success: false, error }
+      }
+    })
   },
 
   async saveGame(saveName: string) {
@@ -123,14 +140,14 @@ export const gameState = {
     try {
       errorStore.set(null)
       debugLog('Starting new game...')
-      const store = await ensureEventStore()
+      await ensureEventStore()
 
-      // Generate a new player ID
-      currentPlayerId = `player-${Date.now()}`
+      // Generate a new raw player ID (without prefix)
+      currentPlayerId = `${Date.now()}`
 
       // Reset state
       gameStateStore.set(getInitialState())
-      debugLog(`New game started, player ID: ${currentPlayerId}`)
+      debugLog(`New game started, player ID: ${currentPlayerId}, stream: ${getStreamId(currentPlayerId)}`)
 
       return { success: true }
     } catch (error) {
@@ -175,7 +192,7 @@ export const gameState = {
   async getAllEvents(): Promise<GameEvent[]> {
     try {
       const store = await ensureEventStore()
-      return await store.getEvents(`player-${currentPlayerId}`)
+      return await store.getEvents(getStreamId(currentPlayerId))
     } catch (error) {
       console.error('Failed to get events:', error)
       return []

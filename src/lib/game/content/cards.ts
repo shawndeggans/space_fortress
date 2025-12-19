@@ -265,6 +265,15 @@ const starterCards: Card[] = [
     armor: 3,
     agility: 4,
     flavorText: 'See everything. Be seen by nothing.'
+  },
+  {
+    id: 'starter_corvette',
+    name: 'Corvette',
+    faction: 'meridian',
+    attack: 3,
+    armor: 3,
+    agility: 3,
+    flavorText: 'Small but reliable. A captain\'s first command.'
   }
 ]
 

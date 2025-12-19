@@ -374,7 +374,11 @@ describe('Card Selection Read Model', () => {
           timestamp: new Date().toISOString(),
           cardId: 'card_new',
           factionId: 'ironveil',
-          source: 'quest'
+          source: 'quest',
+          name: 'New Card',
+          attack: 4,
+          armor: 3,
+          agility: 3
         }
       }
 
@@ -395,7 +399,11 @@ describe('Card Selection Read Model', () => {
           timestamp: new Date().toISOString(),
           cardId: 'card_1',
           factionId: 'ironveil',
-          source: 'quest'
+          source: 'quest',
+          name: 'Card 1',
+          attack: 4,
+          armor: 3,
+          agility: 3
         }
       }
       const stateWithCard = reducer(initialState, gainEvent)

@@ -46,6 +46,23 @@ export const VALID_ROUTES = new Set(
   Object.values(PHASE_ROUTES).filter((r): r is string => r !== null)
 )
 
+/**
+ * Reverse mapping: route to phases that use that route.
+ * Multiple phases can map to the same route (e.g., narrative and post_battle_dilemma).
+ */
+export const ROUTE_PHASES: Record<string, GamePhase[]> = (() => {
+  const mapping: Record<string, GamePhase[]> = {}
+  for (const [phase, route] of Object.entries(PHASE_ROUTES)) {
+    if (route) {
+      if (!mapping[route]) {
+        mapping[route] = []
+      }
+      mapping[route].push(phase as GamePhase)
+    }
+  }
+  return mapping
+})()
+
 // ----------------------------------------------------------------------------
 // Navigation Functions
 // ----------------------------------------------------------------------------
@@ -77,6 +94,27 @@ export async function navigateToPhase(phase: GamePhase): Promise<boolean> {
  */
 export function isValidRoute(route: string): boolean {
   return VALID_ROUTES.has(route)
+}
+
+/**
+ * Check if a route is valid for the current game phase.
+ * Used by navigation guards to prevent accessing pages in wrong state.
+ */
+export function isRouteValidForPhase(route: string, currentPhase: GamePhase): boolean {
+  const validPhases = ROUTE_PHASES[route]
+  if (!validPhases) {
+    // Route doesn't exist - allow main menu always
+    return route === '/'
+  }
+  return validPhases.includes(currentPhase)
+}
+
+/**
+ * Get the expected phases for a given route.
+ * Returns empty array if route is not mapped.
+ */
+export function getPhasesForRoute(route: string): GamePhase[] {
+  return ROUTE_PHASES[route] ?? []
 }
 
 // ----------------------------------------------------------------------------

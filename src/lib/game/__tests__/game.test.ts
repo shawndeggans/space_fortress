@@ -96,12 +96,18 @@ describe('Event Projections', () => {
         timestamp: '2024-01-01T00:00:00Z',
         cardId: 'ironveil_cruiser',
         factionId: 'ironveil',
-        source: 'quest'
+        source: 'quest',
+        name: 'Ironveil Cruiser',
+        attack: 4,
+        armor: 5,
+        agility: 2
       }
     }
     const newState = evolveState(state, event)
     expect(newState.ownedCards).toHaveLength(1)
     expect(newState.ownedCards[0].id).toBe('ironveil_cruiser')
+    expect(newState.ownedCards[0].name).toBe('Ironveil Cruiser')
+    expect(newState.ownedCards[0].attack).toBe(4)
     expect(newState.stats.cardsAcquired).toBe(1)
   })
 
