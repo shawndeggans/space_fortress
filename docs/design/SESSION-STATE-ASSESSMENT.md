@@ -2,7 +2,7 @@
 
 **Date:** 2025-12-19
 **Purpose:** Self-assessment of event sourcing patterns ahead of complex development phase
-**Status:** Assessment complete, research needed
+**Status:** Research complete, ready for implementation
 
 ---
 
@@ -248,147 +248,630 @@ These bugs have been **fixed** but reveal patterns to avoid:
 
 ---
 
-## Research Topics Needed
+## Research Findings & Implementation Patterns
 
-The following patterns need clarification from Event Modeling best practices:
+Research based on DDD/CQRS literature (Greg Young, Jérémie Chassaing, Udi Dahan) and practical TypeScript implementations.
+
+---
 
 ### 1. Session Identity Management
 
-**Question:** How should we manage player identity in event-sourced systems?
+**Principle:** Identity belongs exclusively in the stream ID. Never store it redundantly.
 
-**Current Problem:**
-- Player ID exists as module variable AND in state
-- Stream ID construction duplicates prefix
-- No single source of truth
+**Current Bug:** Our `player-player-1` prefix duplication violates this principle.
 
-**What We Need:**
-- Pattern for managing player/session identity
-- How identity relates to event stream IDs
-- How to handle identity across page reloads
+**Pattern:**
+```typescript
+// ❌ Our current bug: prefix applied twice
+const playerId = "player-1";
+const streamId = `player-${playerId}`; // "player-player-1"
+
+// ✅ Correct: raw ID, prefix applied once at stream construction
+type PlayerId = string & { readonly _brand: 'PlayerId' };
+
+function createPlayerId(raw: string): PlayerId {
+  if (raw.startsWith('player-')) {
+    throw new Error('ID should not include prefix');
+  }
+  return raw as PlayerId;
+}
+
+function getStreamId(playerId: PlayerId): string {
+  return `player-${playerId}`;
+}
+
+function extractIdFromStream(streamId: string): PlayerId {
+  return streamId.split('-').slice(1).join('-') as PlayerId;
+}
+```
+
+**For browser reload persistence:**
+```typescript
+interface PersistedSession {
+  streamId: string;
+  version: number;
+}
+
+// On page load: read streamId → load events → fold to state → derive identity
+const { streamId } = JSON.parse(sessionStorage.getItem('session')!);
+const playerId = extractIdFromStream(streamId); // Identity derived, not stored
+```
+
+**Key Insight:** Identity flows **stream → state**, never the reverse. Remove module-level identity variables—they're redundant and cause synchronization bugs.
 
 ---
 
 ### 2. State Hydration Pattern
 
-**Question:** What's the correct pattern for loading game state from events?
+**Principle:** Hydration is atomic with a lock preventing command execution until complete.
 
-**Current Problem:**
-- Initialize state with `getInitialState()`
-- Then replay events with `events.reduce(evolveState, initialState)`
-- But also set module variables separately
-- Race conditions during initialization
+**Pattern:**
+```typescript
+class GameSession<T> {
+  private _state: T | null = null;
+  private _hydrationLock: Promise<void> | null = null;
+  private _version = -1;
 
-**What We Need:**
-- Atomic initialization pattern
-- How to sync identity with event streams
-- How to verify state matches event history
+  async hydrate(streamId: string, eventStore: EventStore): Promise<T> {
+    // Reentrant lock—return existing promise if already hydrating
+    if (this._hydrationLock) {
+      await this._hydrationLock;
+      return this._state!;
+    }
+
+    let releaseLock: () => void;
+    this._hydrationLock = new Promise(r => { releaseLock = r; });
+
+    try {
+      // 1. Load all events atomically
+      const events = await eventStore.readStream(streamId);
+
+      // 2. Single fold operation
+      const state = events.reduce(this.evolve, this.initialState);
+
+      // 3. Validate completeness
+      if (!this.isValidState(state)) {
+        throw new Error('Hydration produced invalid state');
+      }
+
+      // 4. Atomic assignment
+      this._state = state;
+      this._version = events.length;
+
+      return this._state;
+    } finally {
+      releaseLock!();
+      this._hydrationLock = null;
+    }
+  }
+
+  async execute(command: Command): Promise<void> {
+    if (!this._state) {
+      throw new Error('Cannot execute: aggregate not hydrated');
+    }
+    // Command execution proceeds only after hydration complete
+  }
+}
+```
+
+**Key Insight:** State reconstruction is simply `events.reduce(evolve, initialState)`—a single pure fold operation. Any setup that breaks this into separate steps introduces race conditions.
 
 ---
 
 ### 3. Command Execution Serialization
 
-**Question:** How should commands be serialized to prevent race conditions?
+**Principle:** Use a mutex to wrap the entire decide/evolve/persist cycle.
 
-**Current Problem:**
-- Commands execute asynchronously without queuing
-- Two rapid commands could read same state
-- No transaction boundary around command → events → state update
+**Pattern using async-mutex:**
+```typescript
+import { Mutex } from 'async-mutex';
 
-**What We Need:**
-- Command queue or mutex pattern
-- Transaction boundaries for event sourcing
-- How to handle concurrent UI interactions
+class CommandHandler<S, C, E> {
+  private mutex = new Mutex();
+
+  async execute(command: C): Promise<E[]> {
+    return this.mutex.runExclusive(async () => {
+      // Transaction boundary: entire cycle is atomic
+      const events = await this.eventStore.readStream(this.streamId);
+      const state = events.reduce(this.evolve, this.initialState);
+      const newEvents = this.decide(command, state);
+      await this.eventStore.append(this.streamId, newEvents);
+      return newEvents;
+    });
+  }
+}
+```
+
+**Alternative: Command Queue** (better for rapid inputs like combat):
+```typescript
+class CommandQueue<C> {
+  private queue: Array<{ command: C; resolve: Function; reject: Function }> = [];
+  private processing = false;
+
+  async enqueue(command: C): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.queue.push({ command, resolve, reject });
+      this.processNext();
+    });
+  }
+
+  private async processNext(): Promise<void> {
+    if (this.processing || this.queue.length === 0) return;
+    this.processing = true;
+
+    while (this.queue.length > 0) {
+      const { command, resolve, reject } = this.queue.shift()!;
+      try {
+        await this.executeAtomically(command);
+        resolve();
+      } catch (e) {
+        reject(e);
+      }
+    }
+    this.processing = false;
+  }
+}
+```
+
+**Key Insight:** Transaction boundary wraps: **read state → decide → persist → evolve**. Nothing outside this boundary should modify shared state.
 
 ---
 
 ### 4. Optimistic Updates vs Persistence
 
-**Question:** Should UI update before or after persistence succeeds?
+**Principle:** For single-player browser games, update UI before persistence with rollback capability.
 
-**Current Problem:**
-- We update UI immediately after generating events
-- Persistence happens async in background
-- If persistence fails, UI shows state that's not saved
+**Pattern:**
+```typescript
+interface GameStore {
+  confirmed: GameState;   // Last successfully persisted state
+  optimistic: GameState;  // Current UI state (includes pending)
+  pending: PendingEvent[];
+}
 
-**What We Need:**
-- Pattern for optimistic UI updates with event sourcing
-- Rollback strategy if persistence fails
-- How to show pending vs confirmed state
+function createOptimisticStore() {
+  const { subscribe, update } = writable<GameStore>({
+    confirmed: initialState,
+    optimistic: initialState,
+    pending: []
+  });
+
+  return {
+    subscribe,
+
+    async dispatch(command: Command): Promise<void> {
+      const current = get({ subscribe });
+      const events = decide(command, current.optimistic);
+      const pendingId = crypto.randomUUID();
+
+      // 1. Immediate UI update
+      update(s => ({
+        ...s,
+        optimistic: events.reduce(evolve, s.optimistic),
+        pending: [...s.pending, { id: pendingId, events }]
+      }));
+
+      try {
+        // 2. Persist asynchronously
+        await persistToIndexedDB(events);
+
+        // 3. Move to confirmed
+        update(s => ({
+          confirmed: events.reduce(evolve, s.confirmed),
+          optimistic: s.optimistic,
+          pending: s.pending.filter(p => p.id !== pendingId)
+        }));
+      } catch (error) {
+        // 4. Rollback on failure
+        update(s => {
+          const remaining = s.pending.filter(p => p.id !== pendingId);
+          const newOptimistic = remaining.reduce(
+            (state, p) => p.events.reduce(evolve, state),
+            s.confirmed
+          );
+          return { ...s, optimistic: newOptimistic, pending: remaining };
+        });
+      }
+    }
+  };
+}
+```
+
+**For rapid actions (combat), batch updates:**
+```typescript
+class BatchedPersistence {
+  private pending: DomainEvent[] = [];
+  private timeout: number | null = null;
+  private readonly BATCH_DELAY = 100;
+
+  queue(event: DomainEvent): void {
+    this.pending.push(event);
+    if (!this.timeout) {
+      this.timeout = setTimeout(() => this.flush(), this.BATCH_DELAY);
+    }
+  }
+}
+```
 
 ---
 
 ### 5. Content Lookup in Projections
 
-**Question:** Should projections look up content data, or should events contain all needed data?
+**Principle:** For fixed card definitions (our case), use **fat events** containing all data.
 
-**Current Problem:**
-- CARD_GAINED event contains only `cardId`
-- Projection creates placeholder card with wrong stats
-- Should projection call `getCardById()` or should event include stats?
+**Our Choice: Fat Events**
+```typescript
+// Fat event: self-contained, works offline, simpler projections
+interface CardGainedEvent {
+  type: 'CARD_GAINED';
+  data: {
+    cardId: string;
+    // Include card stats at time of acquisition
+    name: string;
+    attack: number;
+    armor: number;
+    agility: number;
+    factionId: FactionId;
+    source: CardSource;
+  };
+}
+```
 
-**What We Need:**
-- Pattern for content/reference data in events
-- Trade-offs: event size vs projection complexity
-- How to handle content changes after events stored
+**Alternative (if we add balance patches later): Thin events with projection lookup**
+```typescript
+// Projection looks up current definition
+function projectInventory(events: Event[], cardRegistry: CardRegistry): Inventory {
+  return events.reduce((inv, event) => {
+    if (event.type === 'CARD_GAINED') {
+      const card = cardRegistry.get(event.data.cardId);
+      if (!card) throw new Error(`Unknown card: ${event.data.cardId}`);
+      return { ...inv, cards: [...inv.cards, card] };
+    }
+    return inv;
+  }, { cards: [] });
+}
+```
+
+**Hybrid approach for future-proofing:**
+```typescript
+interface CardGainedEvent {
+  type: 'CARD_GAINED';
+  version: 2;
+  data: {
+    cardId: string;  // Always included (immutable ID)
+    snapshotStats: { attack: number; armor: number; agility: number }; // Point-in-time
+  };
+}
+```
+
+**Key Insight:** Immutable IDs are always safe to include redundantly. For single-player games with fixed content, fat events are simpler.
 
 ---
 
 ### 6. Snapshot Strategy
 
-**Question:** When and how should we snapshot state?
+**Principle:** Snapshot every 50-100 events with schema version for invalidation.
 
-**Current Problem:**
-- Snapshot infrastructure exists but unused
-- Every load replays all events
-- No guidance on snapshot frequency
+**Pattern:**
+```typescript
+class SnapshotManager {
+  private readonly SNAPSHOT_THRESHOLD = 50;
+  private readonly SCHEMA_VERSION = 1;
 
-**What We Need:**
-- When to create snapshots (every N events? after each session?)
-- How to verify snapshot matches event replay
-- How to handle snapshots when event schema changes
+  async loadState(streamId: string): Promise<GameState> {
+    const db = await this.getDb();
+
+    // Try snapshot first
+    const snapshot = await db.get('snapshots', streamId);
+
+    // Validate snapshot schema version
+    if (snapshot?.schemaVersion !== this.SCHEMA_VERSION) {
+      // Invalidate outdated snapshot
+      await db.delete('snapshots', streamId);
+      return this.replayFromScratch(streamId);
+    }
+
+    const startVersion = snapshot?.version ?? 0;
+    const events = await this.getEventsFrom(streamId, startVersion);
+
+    let state = snapshot?.state ?? initialState;
+    state = events.reduce(evolve, state);
+
+    // Create new snapshot if threshold exceeded
+    if (events.length > this.SNAPSHOT_THRESHOLD) {
+      await this.saveSnapshot(streamId, state, startVersion + events.length);
+    }
+
+    return state;
+  }
+
+  private async saveSnapshot(
+    streamId: string,
+    state: GameState,
+    version: number
+  ): Promise<void> {
+    await this.db.put('snapshots', {
+      id: streamId,
+      state,
+      version,
+      schemaVersion: this.SCHEMA_VERSION,
+      timestamp: Date.now()
+    });
+  }
+}
+```
+
+**Verification for development:**
+```typescript
+async function verifySnapshot(streamId: string): Promise<boolean> {
+  const snapshotState = await loadWithSnapshot(streamId);
+  const replayState = await replayAllEvents(streamId);
+  return deepEqual(snapshotState, replayState);
+}
+```
+
+**Key Insight:** Increment `SCHEMA_VERSION` when state shape changes. Clear snapshots on version mismatch.
 
 ---
 
 ### 7. Navigation with Event-Sourced State
 
-**Question:** How should navigation integrate with game phase from events?
+**Principle:** Game state is single source of truth; URL follows state, not reverse.
 
-**Current Problem:**
-- URL can diverge from game phase
-- No guards prevent invalid navigation
-- Browser history doesn't match game state
+**Pattern:**
+```typescript
+// Derive canonical URL from event-sourced state
+function phaseToUrl(state: GameState): string {
+  switch (state.currentPhase) {
+    case 'not_started': return '/';
+    case 'quest_hub': return '/quest-hub';
+    case 'narrative': return '/narrative';
+    case 'battle': return `/battle`;
+    // ... etc
+  }
+}
 
-**What We Need:**
-- Pattern for URL ↔ phase synchronization
-- Navigation guards for event-sourced state
-- How to handle browser back/forward buttons
+// Derived store syncs URL automatically
+export const canonicalUrl = derived(gameState, $s => phaseToUrl($s));
+```
+
+**SvelteKit navigation guards:**
+```svelte
+<!-- routes/+layout.svelte -->
+<script lang="ts">
+  import { beforeNavigate, goto } from '$app/navigation';
+  import { gameState } from '$lib/stores';
+  import { get } from 'svelte/store';
+
+  beforeNavigate((navigation) => {
+    const state = get(gameState);
+    const target = navigation.to?.url.pathname;
+
+    // Guard: cannot enter /battle without active battle
+    if (target?.startsWith('/battle') && state.currentPhase !== 'battle') {
+      navigation.cancel();
+      goto(phaseToUrl(state));
+      return;
+    }
+
+    // Guard: cannot leave battle manually
+    if (state.currentPhase === 'battle' && !target?.startsWith('/battle')) {
+      navigation.cancel();
+      return;
+    }
+  });
+
+  // Sync URL when state changes
+  $effect(() => {
+    const expected = phaseToUrl($gameState);
+    if ($page.url.pathname !== expected) {
+      goto(expected, { replaceState: true });
+    }
+  });
+</script>
+```
+
+**Handle browser back/forward:**
+```typescript
+beforeNavigate((nav) => {
+  if (nav.type === 'popstate') {
+    const state = get(gameState);
+    if (state.currentPhase === 'battle') {
+      nav.cancel(); // Cannot navigate away during battle
+    }
+  }
+});
+```
 
 ---
 
 ### 8. Slice State Adapters
 
-**Question:** How should main state map to slice-specific state?
+**Principle:** Use discriminated unions with the `phase` field as discriminant. Eliminate all `as unknown as` casts.
 
-**Current Problem:**
-- Using `as unknown as SliceState` bypasses type safety
-- No validation that main state has required fields
-- Silent failures if fields missing
+**Pattern:**
+```typescript
+interface MenuState {
+  currentPhase: 'not_started';
+  playerId: string | null;
+}
 
-**What We Need:**
-- Pattern for state adapter functions
-- Type-safe extraction of slice state from main state
-- Validation at state boundaries
+interface BattleState {
+  currentPhase: 'battle';
+  playerId: string;
+  currentBattle: {
+    battleId: string;
+    playerFleet: OwnedCard[];
+    opponentFleet: Card[];
+    phase: BattlePhase;
+  };
+}
+
+interface NarrativeState {
+  currentPhase: 'narrative';
+  playerId: string;
+  activeQuest: ActiveQuest;
+  currentDilemma: Dilemma;
+}
+
+type GameState = MenuState | BattleState | NarrativeState | /* ... */;
+```
+
+**Type-safe extraction with result types:**
+```typescript
+type AdapterResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: string };
+
+function extractBattleState(state: GameState): AdapterResult<BattleState['currentBattle']> {
+  if (state.currentPhase !== 'battle') {
+    return { ok: false, error: `Expected battle phase, got ${state.currentPhase}` };
+  }
+  // TypeScript narrows to BattleState here—no cast needed
+  return { ok: true, data: state.currentBattle };
+}
+
+// Usage forces handling both cases
+const result = extractBattleState(gameState);
+if (result.ok) {
+  renderBattle(result.data);
+} else {
+  redirectToMap();
+}
+```
+
+**Derived Svelte stores for slices:**
+```typescript
+export const battleState = derived(gameState, ($s) =>
+  $s.currentPhase === 'battle' ? $s.currentBattle : null
+);
+
+export const narrativeState = derived(gameState, ($s) =>
+  $s.currentPhase === 'narrative' ? { quest: $s.activeQuest, dilemma: $s.currentDilemma } : null
+);
+```
+
+**Runtime validation with Zod:**
+```typescript
+const GameStateSchema = z.discriminatedUnion('currentPhase', [
+  z.object({ currentPhase: z.literal('not_started'), playerId: z.string().nullable() }),
+  z.object({ currentPhase: z.literal('battle'), playerId: z.string(), currentBattle: BattleSchema }),
+  z.object({ currentPhase: z.literal('narrative'), playerId: z.string(), activeQuest: QuestSchema })
+]);
+
+function loadFromStorage(): GameState | null {
+  const raw = localStorage.getItem('state');
+  const result = GameStateSchema.safeParse(JSON.parse(raw ?? '{}'));
+  return result.success ? result.data : null;
+}
+```
+
+---
+
+## Implementation Priority (Updated)
+
+Based on research, here are the most impactful fixes in order:
+
+### Priority 1: Critical Path Fixes
+
+| Order | Issue | Pattern | Effort |
+|-------|-------|---------|--------|
+| 1 | Remove module-level identity | Derive identity from stream ID exclusively | Medium |
+| 2 | Add command mutex | Wrap decide/evolve/persist cycle | Small |
+| 3 | Use discriminated unions | Eliminate all `as unknown as` casts | Large |
+| 4 | Fix CARD_GAINED to use fat events | Include card stats in event data | Small |
+
+### Priority 2: Robustness Fixes
+
+| Order | Issue | Pattern | Effort |
+|-------|-------|---------|--------|
+| 5 | Activate snapshots | Threshold at 50 events, schema versioning | Medium |
+| 6 | Add navigation guards | beforeNavigate + URL sync | Medium |
+| 7 | Add optimistic updates with rollback | confirmed/optimistic state separation | Medium |
+
+### Priority 3: Code Quality
+
+| Order | Issue | Pattern | Effort |
+|-------|-------|---------|--------|
+| 8 | Add try-catch to JSON parsing | Graceful degradation for corrupted data | Small |
+| 9 | Fix bounty statistics tracking | Consistent metric handling | Small |
+| 10 | Add pending state validation | Guards before clearing modal state | Small |
 
 ---
 
 ## Recommended Immediate Fixes
 
-**Before adding new features, fix these:**
+**Before adding new features, implement these patterns:**
 
-1. **Fix player ID prefix duplication** - Single source of truth for identity
-2. **Fix card stat lookup** - Add `getCardById()` call in CARD_GAINED handler
-3. **Add command queue** - Serialize command execution
-4. **Add try-catch to JSON parsing** - Graceful handling of corrupted data
+### Fix 1: Remove Module-Level Identity (Priority 1)
+```typescript
+// Remove this from gameStore.ts
+let currentPlayerId = 'player-1'  // ❌ DELETE
+
+// Replace with stream ID as single source of truth
+// Identity derived from stream, never stored separately
+```
+
+### Fix 2: Add Command Mutex (Priority 1)
+```bash
+npm install async-mutex
+```
+```typescript
+// Add to gameStore.ts
+import { Mutex } from 'async-mutex';
+
+const commandMutex = new Mutex();
+
+async handleCommand(command: GameCommand) {
+  return commandMutex.runExclusive(async () => {
+    // Existing logic now serialized
+  });
+}
+```
+
+### Fix 3: Fat Events for CARD_GAINED (Priority 1)
+```typescript
+// In decider.ts, when generating CARD_GAINED
+const card = getCardById(cardId);
+events.push({
+  type: 'CARD_GAINED',
+  data: {
+    cardId,
+    name: card.name,
+    attack: card.attack,
+    armor: card.armor,
+    agility: card.agility,
+    factionId: card.factionId,
+    source: 'quest'
+  }
+});
+
+// In projections.ts, use event data directly (no placeholder)
+case 'CARD_GAINED':
+  const newCard: OwnedCard = {
+    id: event.data.cardId,
+    name: event.data.name,      // From event
+    attack: event.data.attack,  // From event
+    armor: event.data.armor,    // From event
+    agility: event.data.agility // From event
+  };
+```
+
+### Fix 4: Add try-catch to Event Store (Priority 3)
+```typescript
+// In BrowserEventStore.ts getEvents()
+return result[0].values.map((row) => {
+  try {
+    return {
+      type: row[0] as GameEvent['type'],
+      data: JSON.parse(row[1] as string)
+    };
+  } catch (e) {
+    console.error('Corrupted event:', row);
+    return null;
+  }
+}).filter(Boolean) as GameEvent[];
+```
 
 ---
 
@@ -409,10 +892,15 @@ The following patterns need clarification from Event Modeling best practices:
 
 ## Next Steps
 
-1. **Research:** Get answers to the 8 research topics above
-2. **Prioritize:** Determine which patterns to fix before adding features
+1. ~~**Research:** Get answers to the 8 research topics above~~ ✅ Complete
+2. ~~**Prioritize:** Determine which patterns to fix before adding features~~ ✅ See Implementation Priority above
 3. **Implement:** Apply patterns systematically across codebase
+   - Start with Priority 1 fixes (identity, mutex, fat events)
+   - Add tests as each pattern is implemented
 4. **Test:** Add tests for state consistency edge cases
+   - Command serialization tests (rapid commands)
+   - Hydration consistency tests (reload scenarios)
+   - Snapshot verification tests
 
 ---
 
