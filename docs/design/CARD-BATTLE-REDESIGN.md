@@ -112,9 +112,78 @@ Each round has clear phases with decision points.
 ```
 
 **Alternating Turns:**
-1. Player Turn
-2. Opponent Turn
+1. First player's turn (determined at battle start)
+2. Second player's turn
 3. Repeat until victory condition
+
+#### Turn Order Determination
+
+Going first is an advantage (deploy threats, control tempo), so we balance with compensation:
+
+**Who Goes First?**
+- Compare total Agility of starting hands (sum of all 4 cards)
+- Higher agility fleet strikes first (thematic: faster ships get initiative)
+- Ties broken randomly
+
+**Second Player Compensation: "Salvage Protocol"**
+The player who goes second receives:
+- **+1 Starting Energy** (4 instead of 3 on turn 1)
+- **"Emergency Reserves"** - A one-time-use ability that grants +2 energy on any turn (use it or lose it by turn 3)
+
+This mirrors Hearthstone's "The Coin" while fitting our theme. The second player can either:
+- Deploy a more expensive ship on turn 1 (aggressive catch-up)
+- Save Emergency Reserves for a power turn later
+
+```typescript
+interface InitiativeState {
+  firstPlayer: 'player' | 'opponent'
+  reason: 'agility' | 'tiebreaker'
+  playerAgility: number
+  opponentAgility: number
+  secondPlayerBonus: {
+    extraStartingEnergy: number  // +1
+    emergencyReserves: {
+      available: boolean
+      expiresOnTurn: number      // Turn 3
+      energyGrant: number        // +2
+    }
+  }
+}
+```
+
+#### Card Visibility Rules
+
+**Hidden Information (Fog of War):**
+- Opponent's hand is hidden (you see card backs and count only)
+- Opponent's deck is hidden (you see remaining count only)
+- Your own hand, deck, and discard are fully visible to you
+
+**Revealed Information:**
+- All ships on the battlefield are visible with full stats and abilities
+- Flagships and their current hull are always visible
+- Energy totals for both players are visible
+- Discard piles can be inspected (know what's been played)
+
+**Reveal Mechanics:**
+- Cards are revealed when deployed (enter battlefield)
+- Some abilities may "scout" (peek at opponent's hand)
+- Some abilities may "reveal" (force opponent to show a card)
+
+```
+┌─────────────────────────────────────────────────────┐
+│  ENEMY HAND: [?][?][?]  (3 cards)   DECK: 5 cards  │
+│                                                     │
+│  ... battlefield (fully visible) ...                │
+│                                                     │
+│  YOUR HAND: [Creditor][Phoenix][Bulwark]  DECK: 4  │
+└─────────────────────────────────────────────────────┘
+```
+
+**Strategic Implications:**
+- You must remember/track what opponent has played
+- Bluffing is possible (they don't know your hand)
+- Scouting abilities become valuable
+- Counting cards matters (if they've played 5 Ashfall cards, no more Ashfall coming)
 
 ### 3. Victory Conditions
 
