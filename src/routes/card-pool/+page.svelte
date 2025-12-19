@@ -61,7 +61,7 @@
       name: card.name,
       faction: card.factionId,
       attack: card.attack,
-      armor: card.armor,
+      defense: card.defense,
       agility: card.agility,
       flavorText: card.flavorText
     }

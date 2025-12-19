@@ -25,7 +25,7 @@ export interface DeploymentCardView {
   factionIcon: string
   factionColor: string
   attack: number
-  armor: number
+  defense: number
   agility: number
 }
 
@@ -115,7 +115,7 @@ export function projectDeploymentView(events: GameEvent[], battleId?: string, pr
         factionIcon: FACTION_ICONS[card.faction],
         factionColor: FACTION_COLORS[card.faction],
         attack: card.attack,
-        armor: card.armor,
+        defense: card.defense,
         agility: card.agility
       })
     }
@@ -184,7 +184,7 @@ export function projectDeploymentView(events: GameEvent[], battleId?: string, pr
 function selectTacticsTip(cards: DeploymentCardView[]): string {
   // Analyze fleet composition
   const totalAgility = cards.reduce((sum, c) => sum + c.agility, 0)
-  const totalArmor = cards.reduce((sum, c) => sum + c.armor, 0)
+  const totalArmor = cards.reduce((sum, c) => sum + c.defense, 0)
   const totalAttack = cards.reduce((sum, c) => sum + c.attack, 0)
 
   const avgAgility = totalAgility / cards.length

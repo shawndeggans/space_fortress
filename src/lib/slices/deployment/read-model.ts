@@ -27,7 +27,7 @@ export interface DeploymentCardView {
   factionIcon: string
   factionColor: string
   attack: number
-  armor: number
+  defense: number
   agility: number
 }
 
@@ -119,11 +119,14 @@ export function createDeploymentProjection() {
             ...state.ownedCards,
             {
               id: event.data.cardId,
-              name: event.data.cardId,
+              name: event.data.name ?? event.data.cardId,
               faction: event.data.factionId,
-              attack: 0,
-              armor: 0,
-              agility: 0,
+              attack: event.data.attack ?? 0,
+              defense: event.data.defense ?? 0,
+              hull: event.data.hull ?? 5,
+              agility: event.data.agility ?? 0,
+              energyCost: event.data.energyCost ?? 2,
+              abilities: [],
               source: event.data.source as OwnedCard['source'],
               acquiredAt: event.data.timestamp,
               isLocked: false
@@ -229,7 +232,7 @@ export function buildDeploymentView(
         factionIcon: FACTION_ICONS[card.faction],
         factionColor: FACTION_COLORS[card.faction],
         attack: card.attack,
-        armor: card.armor,
+        defense: card.defense,
         agility: card.agility
       })
     }
@@ -328,7 +331,7 @@ export function projectDeploymentView(
         factionIcon: FACTION_ICONS[card.faction],
         factionColor: FACTION_COLORS[card.faction],
         attack: card.attack,
-        armor: card.armor,
+        defense: card.defense,
         agility: card.agility
       })
     }
@@ -402,17 +405,17 @@ function selectTacticsTip(cards: DeploymentCardView[]): string {
 
   // Analyze fleet composition
   const totalAgility = cards.reduce((sum, c) => sum + c.agility, 0)
-  const totalArmor = cards.reduce((sum, c) => sum + c.armor, 0)
+  const totalDefense = cards.reduce((sum, c) => sum + c.defense, 0)
   const totalAttack = cards.reduce((sum, c) => sum + c.attack, 0)
 
   const avgAgility = totalAgility / cards.length
-  const avgArmor = totalArmor / cards.length
+  const avgDefense = totalDefense / cards.length
   const avgAttack = totalAttack / cards.length
 
   // Select tip based on composition
   if (avgAgility > 3.5) {
     return TACTICS_TIPS[4]  // Interceptor tip
-  } else if (avgArmor > 4.5) {
+  } else if (avgDefense > 4.5) {
     return TACTICS_TIPS[0]  // Tank tip
   } else if (avgAttack > 4) {
     return TACTICS_TIPS[2]  // Glass cannon tip

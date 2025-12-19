@@ -34,7 +34,7 @@ export interface BattleCardView {
   factionId: FactionId | 'scavengers' | 'pirates'
   factionIcon: string
   attack: number
-  armor: number
+  defense: number
   agility: number
 }
 
@@ -174,8 +174,8 @@ export function createBattleProjection() {
         // Get initiative from previously tracked INITIATIVE_RESOLVED event
         const initiative = state.currentBattle.roundInitiatives.get(event.data.roundNumber) || 'simultaneous'
         // Calculate target numbers (10 + armor)
-        const playerTargetNumber = 10 + event.data.opponentCard.armor
-        const opponentTargetNumber = 10 + event.data.playerCard.armor
+        const playerTargetNumber = 10 + event.data.opponentCard.defense
+        const opponentTargetNumber = 10 + event.data.playerCard.defense
         const roundResult: RoundResultView = {
           roundNumber: event.data.roundNumber,
           playerCard: cardToView(event.data.playerCard),
@@ -187,7 +187,7 @@ export function createBattleProjection() {
             roll: event.data.playerRoll.base,
             modifier: event.data.playerRoll.modifier,
             total: event.data.playerRoll.total,
-            targetArmor: event.data.opponentCard.armor,
+            targetArmor: event.data.opponentCard.defense,
             targetNumber: playerTargetNumber,
             isHit: event.data.playerRoll.hit
           },
@@ -197,7 +197,7 @@ export function createBattleProjection() {
             roll: event.data.opponentRoll.base,
             modifier: event.data.opponentRoll.modifier,
             total: event.data.opponentRoll.total,
-            targetArmor: event.data.playerCard.armor,
+            targetArmor: event.data.playerCard.defense,
             targetNumber: opponentTargetNumber,
             isHit: event.data.opponentRoll.hit
           },
@@ -305,7 +305,7 @@ function cardToView(card: Card): BattleCardView {
     factionId,
     factionIcon: FACTION_ICONS[factionId] || '○',
     attack: card.attack,
-    armor: card.armor,
+    defense: card.defense,
     agility: card.agility
   }
 }

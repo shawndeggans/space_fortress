@@ -232,8 +232,8 @@ export function resolveRound(
   // 2. Resolve attacks
   // Even though initiative determines narrative order, both attacks happen
   // (unless we implement "first-strike kill" variant later)
-  const playerRoll = resolveAttack(playerCard.attack, opponentCard.armor)
-  const opponentRoll = resolveAttack(opponentCard.attack, playerCard.armor)
+  const playerRoll = resolveAttack(playerCard.attack, opponentCard.defense)
+  const opponentRoll = resolveAttack(opponentCard.attack, playerCard.defense)
 
   // 3. Determine round outcome
   const outcome = determineRoundOutcome(playerRoll.hit, opponentRoll.hit)
@@ -264,12 +264,12 @@ export function resolveRoundWithRolls(
   const playerRoll = resolveAttackWithRoll(
     playerRollValue,
     playerCard.attack,
-    opponentCard.armor
+    opponentCard.defense
   )
   const opponentRoll = resolveAttackWithRoll(
     opponentRollValue,
     opponentCard.attack,
-    playerCard.armor
+    playerCard.defense
   )
 
   const outcome = determineRoundOutcome(playerRoll.hit, opponentRoll.hit)
@@ -486,7 +486,7 @@ export function generateBattleEvents(
         roll: round.playerRoll.base,
         modifier: round.playerRoll.modifier,
         total: round.playerRoll.total,
-        targetArmor: round.opponentCard.armor,
+        targetArmor: round.opponentCard.defense,
         targetNumber: round.playerRoll.target,
         hit: round.playerRoll.hit
       }
@@ -503,7 +503,7 @@ export function generateBattleEvents(
         roll: round.opponentRoll.base,
         modifier: round.opponentRoll.modifier,
         total: round.opponentRoll.total,
-        targetArmor: round.playerCard.armor,
+        targetArmor: round.playerCard.defense,
         targetNumber: round.opponentRoll.target,
         hit: round.opponentRoll.hit
       }

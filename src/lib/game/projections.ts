@@ -21,7 +21,8 @@ import type {
   GameStats,
   CardBattleHistory
 } from './types'
-// Note: getCardById no longer needed - CARD_GAINED events now include full card data (fat events)
+// getCardById is used to look up abilities (which are not stored in events)
+import { getCardById } from './content/cards'
 
 // ----------------------------------------------------------------------------
 // Initial State
@@ -437,13 +438,18 @@ export function evolveState(state: GameState, event: GameEvent): GameState {
 
     case 'CARD_GAINED':
       // Use fat event data directly - no content lookup needed
+      // Get abilities from card definition (not stored in event)
+      const cardDef = getCardById(event.data.cardId)
       const newCard: OwnedCard = {
         id: event.data.cardId,
         name: event.data.name,
         faction: event.data.factionId,
         attack: event.data.attack,
-        armor: event.data.armor,
+        defense: event.data.defense,
+        hull: event.data.hull,
         agility: event.data.agility,
+        energyCost: event.data.energyCost,
+        abilities: cardDef?.abilities ?? [],
         source: event.data.source,
         acquiredAt: event.data.timestamp,
         isLocked: false
@@ -592,14 +598,14 @@ export function evolveState(state: GameState, event: GameEvent): GameState {
           base: event.data.playerRoll.base,
           modifier: event.data.playerRoll.modifier,
           total: event.data.playerRoll.total,
-          target: 10 + event.data.opponentCard.armor,
+          target: 10 + event.data.opponentCard.defense,
           hit: event.data.playerRoll.hit
         },
         opponentRoll: {
           base: event.data.opponentRoll.base,
           modifier: event.data.opponentRoll.modifier,
           total: event.data.opponentRoll.total,
-          target: 10 + event.data.playerCard.armor,
+          target: 10 + event.data.playerCard.defense,
           hit: event.data.opponentRoll.hit
         },
         outcome: event.data.outcome

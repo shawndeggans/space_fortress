@@ -36,7 +36,7 @@ export interface CardChangeView {
   factionId: FactionId
   factionName: string
   attack: number
-  armor: number
+  defense: number
   agility: number
 }
 
@@ -148,7 +148,7 @@ export function projectChoiceConsequenceView(state: GameState): ChoiceConsequenc
         factionId: card.faction,
         factionName: faction?.name || card.faction,
         attack: card.attack,
-        armor: card.armor,
+        defense: card.defense,
         agility: card.agility
       })
     }
@@ -165,7 +165,7 @@ export function projectChoiceConsequenceView(state: GameState): ChoiceConsequenc
         factionId: card.faction,
         factionName: faction?.name || card.faction,
         attack: card.attack,
-        armor: card.armor,
+        defense: card.defense,
         agility: card.agility
       })
     }

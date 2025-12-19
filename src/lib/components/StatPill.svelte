@@ -18,13 +18,13 @@
 
   const icons: Record<StatType, string> = {
     attack: '⚔',
-    armor: '🛡',
+    defense: '🛡',
     agility: '⚡'
   }
 
   const labels: Record<StatType, string> = {
     attack: 'Attack',
-    armor: 'Armor',
+    defense: 'Defense',
     agility: 'Agility'
   }
 </script>
@@ -66,7 +66,7 @@
     color: var(--stat-attack);
   }
 
-  .stat-pill--armor {
+  .stat-pill--defense {
     background: var(--stat-armor-bg);
     color: var(--stat-armor);
   }

@@ -99,8 +99,10 @@ describe('Event Projections', () => {
         source: 'quest',
         name: 'Ironveil Cruiser',
         attack: 4,
-        armor: 5,
-        agility: 2
+        defense: 5,
+        hull: 6,
+        agility: 2,
+        energyCost: 3
       }
     }
     const newState = evolveState(state, event)
@@ -337,8 +339,11 @@ describe('Decider', () => {
         name: 'Test Card',
         faction: 'ironveil',
         attack: 3,
-        armor: 3,
+        defense: 3,
+        hull: 5,
         agility: 3,
+        energyCost: 2,
+        abilities: [],
         source: 'starter',
         acquiredAt: '2024-01-01',
         isLocked: false

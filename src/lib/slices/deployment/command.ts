@@ -206,8 +206,11 @@ export function handleLockOrders(
       name: card.name,
       faction: card.faction,
       attack: card.attack,
-      armor: card.armor,
-      agility: card.agility
+      defense: card.defense,
+      hull: card.hull,
+      agility: card.agility,
+      energyCost: card.energyCost,
+      abilities: card.abilities
     }
   })
 

@@ -276,8 +276,11 @@ export interface CardGainedEvent {
     // This ensures projections don't need to look up card definitions
     name: string
     attack: number
-    armor: number
+    defense: number    // Damage reduction (was 'armor')
+    hull: number       // Hit points
     agility: number
+    energyCost: number // Cost to deploy
+    // Note: abilities are not stored in event - looked up from card definition
   }
 }
 
@@ -774,12 +777,14 @@ export const EventFactory = {
     source: CardGainedEvent['data']['source'],
     name: string,
     attack: number,
-    armor: number,
-    agility: number
+    defense: number,
+    hull: number,
+    agility: number,
+    energyCost: number
   ): CardGainedEvent {
     return {
       type: 'CARD_GAINED',
-      data: { timestamp: createTimestamp(), cardId, factionId, source, name, attack, armor, agility }
+      data: { timestamp: createTimestamp(), cardId, factionId, source, name, attack, defense, hull, agility, energyCost }
     }
   },
 

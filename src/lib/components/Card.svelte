@@ -79,7 +79,7 @@
 
     <div class="card__stats">
       <StatPill type="attack" value={card.attack} />
-      <StatPill type="armor" value={card.armor} />
+      <StatPill type="defense" value={card.defense} />
       <StatPill type="agility" value={card.agility} />
     </div>
 
@@ -92,7 +92,7 @@
 
     <div class="card__stats-compact">
       <StatPill type="attack" value={card.attack} size="small" />
-      <StatPill type="armor" value={card.armor} size="small" />
+      <StatPill type="defense" value={card.defense} size="small" />
       <StatPill type="agility" value={card.agility} size="small" />
     </div>
 
@@ -101,7 +101,7 @@
     <div class="card__mini-content">
       <FactionBadge faction={card.faction as ExtendedFactionId} size="small" />
       <span class="card__name-mini">{truncateName(card.name, 14)}</span>
-      <span class="card__stats-mini">{card.attack}/{card.armor}/{card.agility}</span>
+      <span class="card__stats-mini">{card.attack}/{card.defense}/{card.agility}</span>
     </div>
   {/if}
 

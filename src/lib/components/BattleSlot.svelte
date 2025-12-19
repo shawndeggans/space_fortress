@@ -86,7 +86,7 @@
 
       <div class="battle-slot__stats">
         <StatPill type="attack" value={card.attack} size="small" />
-        <StatPill type="armor" value={card.armor} size="small" />
+        <StatPill type="defense" value={card.defense} size="small" />
         <StatPill type="agility" value={card.agility} size="small" />
       </div>
 

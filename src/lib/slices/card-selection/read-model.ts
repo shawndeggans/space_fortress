@@ -27,7 +27,7 @@ export interface CardViewData {
   factionIcon: string
   factionColor: string
   attack: number
-  armor: number
+  defense: number
   agility: number
   flavorText?: string
   source: 'starter' | 'quest' | 'alliance' | 'choice' | 'unlock'
@@ -138,11 +138,14 @@ export function createCardSelectionProjection() {
             ...state.ownedCards,
             {
               id: event.data.cardId,
-              name: event.data.cardId, // Would be resolved from card content
+              name: event.data.name ?? event.data.cardId,
               faction: event.data.factionId,
-              attack: 0,
-              armor: 0,
-              agility: 0,
+              attack: event.data.attack ?? 0,
+              defense: event.data.defense ?? 0,
+              hull: event.data.hull ?? 5,
+              agility: event.data.agility ?? 0,
+              energyCost: event.data.energyCost ?? 2,
+              abilities: [],
               source: event.data.source as OwnedCard['source'],
               acquiredAt: event.data.timestamp,
               isLocked: false
@@ -235,7 +238,7 @@ export function buildCardPoolView(
       factionIcon: FACTION_ICONS[card.faction],
       factionColor: FACTION_COLORS[card.faction],
       attack: card.attack,
-      armor: card.armor,
+      defense: card.defense,
       agility: card.agility,
       flavorText: card.flavorText,
       source: card.source,
@@ -354,7 +357,7 @@ export function projectCardPoolView(
       factionIcon: FACTION_ICONS[card.faction],
       factionColor: FACTION_COLORS[card.faction],
       attack: card.attack,
-      armor: card.armor,
+      defense: card.defense,
       agility: card.agility,
       flavorText: card.flavorText,
       source: card.source,

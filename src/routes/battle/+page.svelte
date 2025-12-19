@@ -21,13 +21,13 @@
     goto('/consequence')
   }
 
-  function toCardDisplayData(card: { id: string; name: string; factionId: string; attack: number; armor: number; agility: number }): CardDisplayData {
+  function toCardDisplayData(card: { id: string; name: string; factionId: string; attack: number; defense: number; agility: number }): CardDisplayData {
     return {
       id: card.id,
       name: card.name,
       faction: card.factionId as CardDisplayData['faction'],
       attack: card.attack,
-      armor: card.armor,
+      defense: card.defense,
       agility: card.agility
     }
   }

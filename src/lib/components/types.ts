@@ -8,7 +8,7 @@ import type { FactionId, ReputationStatus, Card as GameCard } from '$lib/game/ty
 export type { FactionId, ReputationStatus, GameCard }
 
 // Stat types
-export type StatType = 'attack' | 'armor' | 'agility'
+export type StatType = 'attack' | 'defense' | 'agility'
 
 // Card states
 export type CardState = 'default' | 'selected' | 'committed' | 'revealed' | 'destroyed' | 'locked'
@@ -33,7 +33,7 @@ export interface CardDisplayData {
   name: string
   faction: FactionId | 'scavengers' | 'pirates'
   attack: number
-  armor: number
+  defense: number
   agility: number
   flavorText?: string
 }

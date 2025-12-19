@@ -394,8 +394,10 @@ function handleStartGame(
           source: 'starter',
           name: card.name,
           attack: card.attack,
-          armor: card.armor,
-          agility: card.agility
+          defense: card.defense,
+          hull: card.hull,
+          agility: card.agility,
+          energyCost: card.energyCost
         }
       })
     }
@@ -503,8 +505,10 @@ function handleAcceptQuest(
           source: 'quest',
           name: card.name,
           attack: card.attack,
-          armor: card.armor,
-          agility: card.agility
+          defense: card.defense,
+          hull: card.hull,
+          agility: card.agility,
+          energyCost: card.energyCost
         }
       })
     }
@@ -657,8 +661,10 @@ function handleMakeChoice(
           source: 'choice',
           name: card.name,
           attack: card.attack,
-          armor: card.armor,
-          agility: card.agility
+          defense: card.defense,
+          hull: card.hull,
+          agility: card.agility,
+          energyCost: card.energyCost
         }
       })
     }
@@ -929,8 +935,10 @@ function handleFormAlliance(
           source: 'alliance',
           name: card.name,
           attack: card.attack,
-          armor: card.armor,
-          agility: card.agility
+          defense: card.defense,
+          hull: card.hull,
+          agility: card.agility,
+          energyCost: card.energyCost
         }
       })
     }

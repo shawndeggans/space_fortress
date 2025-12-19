@@ -312,7 +312,7 @@ export function projectFactionDetailView(events: GameEvent[], factionId: Faction
       cardId: c.id,
       cardName: c.name,
       attack: c.attack,
-      armor: c.armor,
+      armor: c.defense,
       agility: c.agility
     }))
 
@@ -322,7 +322,7 @@ export function projectFactionDetailView(events: GameEvent[], factionId: Faction
       cardId: c.id,
       cardName: c.name,
       attack: c.attack,
-      armor: c.armor,
+      armor: c.defense,
       agility: c.agility
     }))
 
