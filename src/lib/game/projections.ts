@@ -21,6 +21,7 @@ import type {
   GameStats,
   CardBattleHistory
 } from './types'
+import { getCardById } from './content/cards'
 
 // ----------------------------------------------------------------------------
 // Initial State
@@ -419,15 +420,15 @@ export function evolveState(state: GameState, event: GameEvent): GameState {
     // ========================================================================
 
     case 'CARD_GAINED':
-      // Note: Actual card data would come from content lookup
-      // For now, create a placeholder card
+      // Look up actual card data from content
+      const cardData = getCardById(event.data.cardId)
       const newCard: OwnedCard = {
         id: event.data.cardId,
-        name: event.data.cardId.replace(/_/g, ' '),
+        name: cardData?.name || event.data.cardId.replace(/_/g, ' '),
         faction: event.data.factionId,
-        attack: 3,
-        armor: 3,
-        agility: 3,
+        attack: cardData?.attack ?? 3,
+        armor: cardData?.armor ?? 3,
+        agility: cardData?.agility ?? 3,
         source: event.data.source,
         acquiredAt: event.data.timestamp,
         isLocked: false
