@@ -30,8 +30,8 @@ function createCard(overrides: Partial<Card> = {}): Card {
     name: 'Test Card',
     faction: 'ironveil',
     attack: 3,
-    armor: 2,
-    agility: 4,
+    defense: 2,
+    agility: 4, hull: 5, energyCost: 2, abilities: [],
     ...overrides
   }
 }
@@ -194,8 +194,8 @@ describe('Battle Resolution Read Model', () => {
 
     it('adds completed round from ROUND_RESOLVED', () => {
       // Given: battle with one round completed
-      const playerCard = createCard({ id: 'p1', name: 'Iron Guardian', attack: 4, armor: 3, agility: 2 })
-      const opponentCard = createCard({ id: 'o1', name: 'Scavenger Raider', faction: 'ashfall', attack: 2, armor: 1, agility: 3 })
+      const playerCard = createCard({ id: 'p1', name: 'Iron Guardian', attack: 4, defense: 3, agility: 2 })
+      const opponentCard = createCard({ id: 'o1', name: 'Scavenger Raider', faction: 'ashfall', attack: 2, defense: 1, agility: 3 })
 
       const events: GameEvent[] = [
         createBattleTriggeredEvent('battle-1'),
@@ -220,8 +220,8 @@ describe('Battle Resolution Read Model', () => {
 
     it('calculates target numbers from armor', () => {
       // Given: cards with specific armor values
-      const playerCard = createCard({ armor: 5 })
-      const opponentCard = createCard({ armor: 3, faction: 'ashfall' })
+      const playerCard = createCard({ defense: 5 })
+      const opponentCard = createCard({ defense: 3, faction: 'ashfall' })
 
       const events: GameEvent[] = [
         createBattleTriggeredEvent('battle-1'),
@@ -487,7 +487,7 @@ describe('Battle Resolution Read Model', () => {
         id: 'special-card',
         name: 'Special Card',
         attack: 5,
-        armor: 4,
+        defense: 4,
         agility: 3
       })
       const events: GameEvent[] = [
@@ -503,7 +503,7 @@ describe('Battle Resolution Read Model', () => {
       expect(cardView.id).toBe('special-card')
       expect(cardView.name).toBe('Special Card')
       expect(cardView.attack).toBe(5)
-      expect(cardView.armor).toBe(4)
+      expect(cardView.defense).toBe(4)
       expect(cardView.agility).toBe(3)
     })
   })

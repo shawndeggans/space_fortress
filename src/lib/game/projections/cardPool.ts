@@ -29,7 +29,7 @@ export interface CardViewData {
   factionIcon: string
   factionColor: string
   attack: number
-  armor: number
+  defense: number
   agility: number
   flavorText?: string
   source: 'starter' | 'quest' | 'alliance' | 'choice' | 'unlock'
@@ -133,7 +133,7 @@ export function projectCardPoolView(events: GameEvent[], battleId?: string, prov
       factionIcon: FACTION_ICONS[card.faction],
       factionColor: FACTION_COLORS[card.faction],
       attack: card.attack,
-      armor: card.armor,
+      defense: card.defense,
       agility: card.agility,
       flavorText: card.flavorText,
       source: card.source,

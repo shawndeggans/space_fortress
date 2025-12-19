@@ -31,7 +31,7 @@ export interface BattleCardView {
   factionId: FactionId | 'scavengers' | 'pirates'
   factionIcon: string
   attack: number
-  armor: number
+  defense: number
   agility: number
 }
 
@@ -169,7 +169,7 @@ export function projectBattleView(events: GameEvent[], battleId?: string, provid
       roll: round.playerRoll.base,
       modifier: round.playerRoll.modifier,
       total: round.playerRoll.total,
-      targetArmor: round.opponentCard.armor,
+      targetArmor: round.opponentCard.defense,
       targetNumber: round.playerRoll.target,
       isHit: round.playerRoll.hit
     },
@@ -179,7 +179,7 @@ export function projectBattleView(events: GameEvent[], battleId?: string, provid
       roll: round.opponentRoll.base,
       modifier: round.opponentRoll.modifier,
       total: round.opponentRoll.total,
-      targetArmor: round.playerCard.armor,
+      targetArmor: round.playerCard.defense,
       targetNumber: round.opponentRoll.target,
       isHit: round.opponentRoll.hit
     },
@@ -276,7 +276,7 @@ function cardToView(card: Card): BattleCardView {
     factionId,
     factionIcon: FACTION_ICONS[factionId] || '○',
     attack: card.attack,
-    armor: card.armor,
+    defense: card.defense,
     agility: card.agility
   }
 }

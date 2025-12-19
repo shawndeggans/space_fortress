@@ -145,9 +145,19 @@ export const events = {
     data: { timestamp: ts(), questIds }
   }),
 
-  cardGained: (cardId: string, factionId: FactionId = 'meridian', source: 'starter' | 'quest' | 'alliance' | 'choice' = 'starter'): GameEvent => ({
+  cardGained: (
+    cardId: string,
+    factionId: FactionId = 'meridian',
+    source: 'starter' | 'quest' | 'alliance' | 'choice' = 'starter',
+    name: string = cardId.replace(/_/g, ' '),
+    attack: number = 3,
+    defense: number = 3,
+    hull: number = 5,
+    agility: number = 3,
+    energyCost: number = 2
+  ): GameEvent => ({
     type: 'CARD_GAINED',
-    data: { timestamp: ts(), cardId, factionId, source }
+    data: { timestamp: ts(), cardId, factionId, source, name, attack, defense, hull, agility, energyCost }
   }),
 
   cardLost: (cardId: string, factionId: FactionId = 'meridian', reason: 'reputation' | 'betrayal' | 'choice' | 'penalty' = 'choice'): GameEvent => ({

@@ -66,8 +66,11 @@ function createTestCards(count: number): OwnedCard[] {
       name: `Test Card ${i}`,
       faction: 'meridian',
       attack: 3,
-      armor: 3,
+      defense: 3,
+      hull: 5,
       agility: 3,
+      energyCost: 2,
+      abilities: [],
       source: i < 3 ? 'starter' : 'quest',
       acquiredAt: new Date().toISOString(),
       isLocked: false
@@ -320,6 +323,7 @@ describe('HP-3: Game Ending After Three Quests', () => {
         betrayals: 0,
         totalBountyEarned: 900,
         totalBountyShared: 200,
+        totalBountyLost: 0,
         cardsAcquired: 8,
         cardsLost: 0,
         playTimeSeconds: 3600

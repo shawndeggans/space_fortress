@@ -183,9 +183,9 @@ describe('Gameplay Simulation', () => {
     it('Simulation 7: Form alliance with neutral faction', () => {
       // Create a state in alliance phase with 3 starter cards
       const starterCards: OwnedCard[] = [
-        { id: 'starter1', name: 'Starter Ship 1', faction: 'meridian', attack: 3, armor: 3, agility: 3, source: 'starter', acquiredAt: '2024-01-01', isLocked: false },
-        { id: 'starter2', name: 'Starter Ship 2', faction: 'meridian', attack: 3, armor: 3, agility: 3, source: 'starter', acquiredAt: '2024-01-01', isLocked: false },
-        { id: 'starter3', name: 'Starter Ship 3', faction: 'meridian', attack: 3, armor: 3, agility: 3, source: 'starter', acquiredAt: '2024-01-01', isLocked: false }
+        { id: 'starter1', name: 'Starter Ship 1', faction: 'meridian', attack: 3, defense: 3, hull: 5, agility: 3, energyCost: 2, abilities: [], source: 'starter', acquiredAt: '2024-01-01', isLocked: false },
+        { id: 'starter2', name: 'Starter Ship 2', faction: 'meridian', attack: 3, defense: 3, hull: 5, agility: 3, energyCost: 2, abilities: [], source: 'starter', acquiredAt: '2024-01-01', isLocked: false },
+        { id: 'starter3', name: 'Starter Ship 3', faction: 'meridian', attack: 3, defense: 3, hull: 5, agility: 3, energyCost: 2, abilities: [], source: 'starter', acquiredAt: '2024-01-01', isLocked: false }
       ]
       let state = getInitialState()
       state = {
@@ -324,12 +324,12 @@ describe('Gameplay Simulation', () => {
           battlesLost: 0
         },
         ownedCards: [
-          { id: 'card1', name: 'Test Card 1', faction: 'meridian', attack: 3, armor: 3, agility: 3, source: 'starter', acquiredAt: '', isLocked: false },
-          { id: 'card2', name: 'Test Card 2', faction: 'meridian', attack: 4, armor: 2, agility: 2, source: 'starter', acquiredAt: '', isLocked: false },
-          { id: 'card3', name: 'Test Card 3', faction: 'meridian', attack: 2, armor: 4, agility: 2, source: 'starter', acquiredAt: '', isLocked: false },
-          { id: 'card4', name: 'Test Card 4', faction: 'meridian', attack: 3, armor: 3, agility: 3, source: 'starter', acquiredAt: '', isLocked: false },
-          { id: 'card5', name: 'Test Card 5', faction: 'meridian', attack: 5, armor: 1, agility: 3, source: 'starter', acquiredAt: '', isLocked: false },
-          { id: 'card6', name: 'Locked Card', faction: 'ironveil', attack: 4, armor: 4, agility: 4, source: 'quest', acquiredAt: '', isLocked: true }
+          { id: 'card1', name: 'Test Card 1', faction: 'meridian', attack: 3, defense: 3, agility: 3, hull: 5, energyCost: 2, abilities: [], source: 'starter', acquiredAt: '', isLocked: false },
+          { id: 'card2', name: 'Test Card 2', faction: 'meridian', attack: 4, defense: 2, agility: 2, hull: 5, energyCost: 2, abilities: [], source: 'starter', acquiredAt: '', isLocked: false },
+          { id: 'card3', name: 'Test Card 3', faction: 'meridian', attack: 2, defense: 4, agility: 2, hull: 5, energyCost: 2, abilities: [], source: 'starter', acquiredAt: '', isLocked: false },
+          { id: 'card4', name: 'Test Card 4', faction: 'meridian', attack: 3, defense: 3, agility: 3, hull: 5, energyCost: 2, abilities: [], source: 'starter', acquiredAt: '', isLocked: false },
+          { id: 'card5', name: 'Test Card 5', faction: 'meridian', attack: 5, defense: 1, agility: 3, hull: 5, energyCost: 2, abilities: [], source: 'starter', acquiredAt: '', isLocked: false },
+          { id: 'card6', name: 'Locked Card', faction: 'ironveil', attack: 4, defense: 4, agility: 4, hull: 5, energyCost: 2, abilities: [], source: 'quest', acquiredAt: '', isLocked: true }
         ],
         currentBattle: {
           battleId: 'battle-1',
@@ -374,7 +374,7 @@ describe('Gameplay Simulation', () => {
           battlesLost: 0
         },
         ownedCards: [
-          { id: 'locked_card', name: 'Locked Card', faction: 'ironveil', attack: 4, armor: 4, agility: 4, source: 'quest', acquiredAt: '', isLocked: true }
+          { id: 'locked_card', name: 'Locked Card', faction: 'ironveil', attack: 4, defense: 4, agility: 4, hull: 5, energyCost: 2, abilities: [], source: 'quest', acquiredAt: '', isLocked: true }
         ],
         currentBattle: {
           battleId: 'battle-1',
@@ -410,12 +410,12 @@ describe('Gameplay Simulation', () => {
           battlesLost: 0
         },
         ownedCards: [
-          { id: 'card1', name: 'Card 1', faction: 'meridian', attack: 3, armor: 3, agility: 3, source: 'starter', acquiredAt: '', isLocked: false },
-          { id: 'card2', name: 'Card 2', faction: 'meridian', attack: 3, armor: 3, agility: 3, source: 'starter', acquiredAt: '', isLocked: false },
-          { id: 'card3', name: 'Card 3', faction: 'meridian', attack: 3, armor: 3, agility: 3, source: 'starter', acquiredAt: '', isLocked: false },
-          { id: 'card4', name: 'Card 4', faction: 'meridian', attack: 3, armor: 3, agility: 3, source: 'starter', acquiredAt: '', isLocked: false },
-          { id: 'card5', name: 'Card 5', faction: 'meridian', attack: 3, armor: 3, agility: 3, source: 'starter', acquiredAt: '', isLocked: false },
-          { id: 'card6', name: 'Card 6', faction: 'meridian', attack: 3, armor: 3, agility: 3, source: 'starter', acquiredAt: '', isLocked: false }
+          { id: 'card1', name: 'Card 1', faction: 'meridian', attack: 3, defense: 3, agility: 3, hull: 5, energyCost: 2, abilities: [], source: 'starter', acquiredAt: '', isLocked: false },
+          { id: 'card2', name: 'Card 2', faction: 'meridian', attack: 3, defense: 3, agility: 3, hull: 5, energyCost: 2, abilities: [], source: 'starter', acquiredAt: '', isLocked: false },
+          { id: 'card3', name: 'Card 3', faction: 'meridian', attack: 3, defense: 3, agility: 3, hull: 5, energyCost: 2, abilities: [], source: 'starter', acquiredAt: '', isLocked: false },
+          { id: 'card4', name: 'Card 4', faction: 'meridian', attack: 3, defense: 3, agility: 3, hull: 5, energyCost: 2, abilities: [], source: 'starter', acquiredAt: '', isLocked: false },
+          { id: 'card5', name: 'Card 5', faction: 'meridian', attack: 3, defense: 3, agility: 3, hull: 5, energyCost: 2, abilities: [], source: 'starter', acquiredAt: '', isLocked: false },
+          { id: 'card6', name: 'Card 6', faction: 'meridian', attack: 3, defense: 3, agility: 3, hull: 5, energyCost: 2, abilities: [], source: 'starter', acquiredAt: '', isLocked: false }
         ],
         currentBattle: {
           battleId: 'battle-1',
@@ -439,19 +439,19 @@ describe('Gameplay Simulation', () => {
   describe('Combat Resolution', () => {
     it('Simulation 13: Combat resolves correctly with seeded RNG', () => {
       const playerFleet: Card[] = [
-        { id: 'p1', name: 'Player Card 1', faction: 'meridian', attack: 4, armor: 3, agility: 3 },
-        { id: 'p2', name: 'Player Card 2', faction: 'meridian', attack: 3, armor: 4, agility: 2 },
-        { id: 'p3', name: 'Player Card 3', faction: 'meridian', attack: 5, armor: 2, agility: 4 },
-        { id: 'p4', name: 'Player Card 4', faction: 'meridian', attack: 2, armor: 5, agility: 2 },
-        { id: 'p5', name: 'Player Card 5', faction: 'meridian', attack: 3, armor: 3, agility: 3 }
+        { id: 'p1', name: 'Player Card 1', faction: 'meridian', attack: 4, defense: 3, agility: 3, hull: 5, energyCost: 2, abilities: [] },
+        { id: 'p2', name: 'Player Card 2', faction: 'meridian', attack: 3, defense: 4, agility: 2, hull: 5, energyCost: 2, abilities: [] },
+        { id: 'p3', name: 'Player Card 3', faction: 'meridian', attack: 5, defense: 2, agility: 4, hull: 5, energyCost: 2, abilities: [] },
+        { id: 'p4', name: 'Player Card 4', faction: 'meridian', attack: 2, defense: 5, agility: 2, hull: 5, energyCost: 2, abilities: [] },
+        { id: 'p5', name: 'Player Card 5', faction: 'meridian', attack: 3, defense: 3, agility: 3, hull: 5, energyCost: 2, abilities: [] }
       ]
 
       const opponentFleet: Card[] = [
-        { id: 'o1', name: 'Opponent Card 1', faction: 'ashfall', attack: 3, armor: 3, agility: 3 },
-        { id: 'o2', name: 'Opponent Card 2', faction: 'ashfall', attack: 3, armor: 3, agility: 3 },
-        { id: 'o3', name: 'Opponent Card 3', faction: 'ashfall', attack: 3, armor: 3, agility: 3 },
-        { id: 'o4', name: 'Opponent Card 4', faction: 'ashfall', attack: 3, armor: 3, agility: 3 },
-        { id: 'o5', name: 'Opponent Card 5', faction: 'ashfall', attack: 3, armor: 3, agility: 3 }
+        { id: 'o1', name: 'Opponent Card 1', faction: 'ashfall', attack: 3, defense: 3, agility: 3, hull: 5, energyCost: 2, abilities: [] },
+        { id: 'o2', name: 'Opponent Card 2', faction: 'ashfall', attack: 3, defense: 3, agility: 3, hull: 5, energyCost: 2, abilities: [] },
+        { id: 'o3', name: 'Opponent Card 3', faction: 'ashfall', attack: 3, defense: 3, agility: 3, hull: 5, energyCost: 2, abilities: [] },
+        { id: 'o4', name: 'Opponent Card 4', faction: 'ashfall', attack: 3, defense: 3, agility: 3, hull: 5, energyCost: 2, abilities: [] },
+        { id: 'o5', name: 'Opponent Card 5', faction: 'ashfall', attack: 3, defense: 3, agility: 3, hull: 5, energyCost: 2, abilities: [] }
       ]
 
       // Set seed for deterministic results
@@ -486,19 +486,19 @@ describe('Gameplay Simulation', () => {
 
     it('Simulation 14: Higher stats generally win', () => {
       const strongFleet: Card[] = [
-        { id: 'p1', name: 'Strong 1', faction: 'meridian', attack: 6, armor: 6, agility: 5 },
-        { id: 'p2', name: 'Strong 2', faction: 'meridian', attack: 6, armor: 6, agility: 5 },
-        { id: 'p3', name: 'Strong 3', faction: 'meridian', attack: 6, armor: 6, agility: 5 },
-        { id: 'p4', name: 'Strong 4', faction: 'meridian', attack: 6, armor: 6, agility: 5 },
-        { id: 'p5', name: 'Strong 5', faction: 'meridian', attack: 6, armor: 6, agility: 5 }
+        { id: 'p1', name: 'Strong 1', faction: 'meridian', attack: 6, defense: 6, agility: 5, hull: 5, energyCost: 2, abilities: [] },
+        { id: 'p2', name: 'Strong 2', faction: 'meridian', attack: 6, defense: 6, agility: 5, hull: 5, energyCost: 2, abilities: [] },
+        { id: 'p3', name: 'Strong 3', faction: 'meridian', attack: 6, defense: 6, agility: 5, hull: 5, energyCost: 2, abilities: [] },
+        { id: 'p4', name: 'Strong 4', faction: 'meridian', attack: 6, defense: 6, agility: 5, hull: 5, energyCost: 2, abilities: [] },
+        { id: 'p5', name: 'Strong 5', faction: 'meridian', attack: 6, defense: 6, agility: 5, hull: 5, energyCost: 2, abilities: [] }
       ]
 
       const weakFleet: Card[] = [
-        { id: 'o1', name: 'Weak 1', faction: 'ashfall', attack: 1, armor: 1, agility: 1 },
-        { id: 'o2', name: 'Weak 2', faction: 'ashfall', attack: 1, armor: 1, agility: 1 },
-        { id: 'o3', name: 'Weak 3', faction: 'ashfall', attack: 1, armor: 1, agility: 1 },
-        { id: 'o4', name: 'Weak 4', faction: 'ashfall', attack: 1, armor: 1, agility: 1 },
-        { id: 'o5', name: 'Weak 5', faction: 'ashfall', attack: 1, armor: 1, agility: 1 }
+        { id: 'o1', name: 'Weak 1', faction: 'ashfall', attack: 1, defense: 1, agility: 1, hull: 5, energyCost: 2, abilities: [] },
+        { id: 'o2', name: 'Weak 2', faction: 'ashfall', attack: 1, defense: 1, agility: 1, hull: 5, energyCost: 2, abilities: [] },
+        { id: 'o3', name: 'Weak 3', faction: 'ashfall', attack: 1, defense: 1, agility: 1, hull: 5, energyCost: 2, abilities: [] },
+        { id: 'o4', name: 'Weak 4', faction: 'ashfall', attack: 1, defense: 1, agility: 1, hull: 5, energyCost: 2, abilities: [] },
+        { id: 'o5', name: 'Weak 5', faction: 'ashfall', attack: 1, defense: 1, agility: 1, hull: 5, energyCost: 2, abilities: [] }
       ]
 
       // Run multiple times to check probability
@@ -531,10 +531,10 @@ describe('Gameplay Simulation', () => {
       expect(opponent.factionId).toBe('scavengers')
       expect(opponent.cards.length).toBe(5)
 
-      // Check fleet has valid stats
+      // Check fleet has valid stats (defense can be 0 for glass cannon ships)
       opponent.cards.forEach(card => {
         expect(card.attack).toBeGreaterThanOrEqual(1)
-        expect(card.armor).toBeGreaterThanOrEqual(1)
+        expect(card.defense).toBeGreaterThanOrEqual(0)
         expect(card.agility).toBeGreaterThanOrEqual(1)
       })
 
@@ -555,7 +555,7 @@ describe('Gameplay Simulation', () => {
 
       // Calculate average stats
       const avgStat = (cards: Card[]) => {
-        const total = cards.reduce((sum, card) => sum + card.attack + card.armor + card.agility, 0)
+        const total = cards.reduce((sum, card) => sum + card.attack + card.defense + card.agility, 0)
         return total / (cards.length * 3)
       }
 

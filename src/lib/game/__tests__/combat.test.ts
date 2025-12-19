@@ -23,8 +23,11 @@ function createCard(overrides: Partial<Card> = {}): Card {
     name: 'Test Card',
     faction: 'meridian',
     attack: 3,
-    armor: 3,
+    defense: 3,
+    hull: 5,
     agility: 3,
+    energyCost: 2,
+    abilities: [],
     ...overrides
   }
 }
@@ -152,8 +155,8 @@ describe('Round Outcome', () => {
 
 describe('Round Resolution', () => {
   it('resolves a round with predetermined rolls', () => {
-    const playerCard = createCard({ attack: 4, armor: 3, agility: 5 })
-    const opponentCard = createCard({ attack: 3, armor: 4, agility: 2 })
+    const playerCard = createCard({ attack: 4, defense: 3, agility: 5 })
+    const opponentCard = createCard({ attack: 3, defense: 4, agility: 2 })
 
     // Player rolls 15, hits (15+4=19 vs 14)
     // Opponent rolls 8, misses (8+3=11 vs 13)
@@ -188,8 +191,8 @@ describe('Battle Resolution', () => {
   })
 
   it('resolves a complete battle with predetermined rolls', () => {
-    const playerFleet = createFleet({ attack: 4, armor: 3 })
-    const opponentFleet = createFleet({ attack: 3, armor: 4 })
+    const playerFleet = createFleet({ attack: 4, defense: 3 })
+    const opponentFleet = createFleet({ attack: 3, defense: 4 })
 
     // Player wins rounds 1, 2, 3 (high rolls)
     // Opponent wins rounds 4, 5 (player low rolls)
@@ -211,8 +214,8 @@ describe('Battle Resolution', () => {
   })
 
   it('handles draws correctly', () => {
-    const playerFleet = createFleet({ attack: 3, armor: 3 })
-    const opponentFleet = createFleet({ attack: 3, armor: 3 })
+    const playerFleet = createFleet({ attack: 3, defense: 3 })
+    const opponentFleet = createFleet({ attack: 3, defense: 3 })
 
     // All rounds are draws (both hit or both miss)
     const rolls = [
@@ -232,8 +235,8 @@ describe('Battle Resolution', () => {
   })
 
   it('detects defeat correctly', () => {
-    const playerFleet = createFleet({ attack: 2, armor: 2 })
-    const opponentFleet = createFleet({ attack: 5, armor: 5 })
+    const playerFleet = createFleet({ attack: 2, defense: 2 })
+    const opponentFleet = createFleet({ attack: 5, defense: 5 })
 
     // Opponent dominates
     const rolls = [
@@ -313,8 +316,8 @@ describe('Battle Event Generation', () => {
   })
 
   it('includes correct data in events', () => {
-    const playerFleet = createFleet({ attack: 4, armor: 3, agility: 5 })
-    const opponentFleet = createFleet({ attack: 3, armor: 4, agility: 2 })
+    const playerFleet = createFleet({ attack: 4, defense: 3, agility: 5 })
+    const opponentFleet = createFleet({ attack: 3, defense: 4, agility: 2 })
 
     const rolls = [
       { player: 15, opponent: 8 },
@@ -362,8 +365,8 @@ describe('Execute Battle (Integration)', () => {
   })
 
   it('executes a complete battle and returns resolution + events', () => {
-    const playerFleet = createFleet({ attack: 4, armor: 4, agility: 3 })
-    const opponentFleet = createFleet({ attack: 3, armor: 3, agility: 3 })
+    const playerFleet = createFleet({ attack: 4, defense: 4, agility: 3 })
+    const opponentFleet = createFleet({ attack: 3, defense: 3, agility: 3 })
 
     const { resolution, events } = executeBattle(
       {

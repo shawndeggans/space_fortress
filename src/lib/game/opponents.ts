@@ -41,8 +41,10 @@ export interface CardTemplate {
   id: string
   name: string
   attack: number
-  armor: number
+  defense: number  // Damage reduction (was 'armor')
+  hull: number     // Hit points
   agility: number
+  energyCost: number // Cost to deploy
   weight: number  // Selection weight (higher = more likely)
 }
 
@@ -58,60 +60,60 @@ export interface BattleGenerationContext {
 // ----------------------------------------------------------------------------
 
 const SCAVENGER_CARDS: CardTemplate[] = [
-  { id: 'scav_rustbucket', name: 'Rustbucket Raider', attack: 2, armor: 2, agility: 3, weight: 3 },
-  { id: 'scav_salvage_hauler', name: 'Salvage Hauler', attack: 1, armor: 4, agility: 1, weight: 2 },
-  { id: 'scav_dart', name: 'Dart Fighter', attack: 3, armor: 1, agility: 4, weight: 2 },
-  { id: 'scav_gunboat', name: 'Scrap Gunboat', attack: 4, armor: 2, agility: 2, weight: 2 },
-  { id: 'scav_barge', name: 'Armed Barge', attack: 2, armor: 5, agility: 1, weight: 1 },
-  { id: 'scav_interceptor', name: 'Cobbled Interceptor', attack: 3, armor: 2, agility: 3, weight: 2 },
-  { id: 'scav_command', name: 'Scavenger Command', attack: 3, armor: 3, agility: 2, weight: 1 },
+  { id: 'scav_rustbucket', name: 'Rustbucket Raider', attack: 2, defense: 1, hull: 4, agility: 3, energyCost: 1, weight: 3 },
+  { id: 'scav_salvage_hauler', name: 'Salvage Hauler', attack: 1, defense: 3, hull: 5, agility: 1, energyCost: 2, weight: 2 },
+  { id: 'scav_dart', name: 'Dart Fighter', attack: 3, defense: 0, hull: 3, agility: 4, energyCost: 1, weight: 2 },
+  { id: 'scav_gunboat', name: 'Scrap Gunboat', attack: 4, defense: 1, hull: 4, agility: 2, energyCost: 2, weight: 2 },
+  { id: 'scav_barge', name: 'Armed Barge', attack: 2, defense: 4, hull: 6, agility: 1, energyCost: 2, weight: 1 },
+  { id: 'scav_interceptor', name: 'Cobbled Interceptor', attack: 3, defense: 1, hull: 4, agility: 3, energyCost: 2, weight: 2 },
+  { id: 'scav_command', name: 'Scavenger Command', attack: 3, defense: 2, hull: 5, agility: 2, energyCost: 2, weight: 1 },
 ]
 
 const PIRATE_CARDS: CardTemplate[] = [
-  { id: 'pirate_raider', name: 'Pirate Raider', attack: 4, armor: 2, agility: 4, weight: 2 },
-  { id: 'pirate_corsair', name: 'Corsair Gunship', attack: 5, armor: 3, agility: 2, weight: 2 },
-  { id: 'pirate_interceptor', name: 'Pirate Interceptor', attack: 3, armor: 2, agility: 5, weight: 2 },
-  { id: 'pirate_frigate', name: 'Marauder Frigate', attack: 4, armor: 4, agility: 2, weight: 2 },
-  { id: 'pirate_flagship', name: 'Pirate Flagship', attack: 5, armor: 5, agility: 1, weight: 1 },
-  { id: 'pirate_hunter', name: 'Bounty Hunter', attack: 4, armor: 3, agility: 3, weight: 2 },
-  { id: 'pirate_bomber', name: 'Pirate Bomber', attack: 6, armor: 2, agility: 2, weight: 1 },
+  { id: 'pirate_raider', name: 'Pirate Raider', attack: 4, defense: 1, hull: 4, agility: 4, energyCost: 2, weight: 2 },
+  { id: 'pirate_corsair', name: 'Corsair Gunship', attack: 5, defense: 2, hull: 5, agility: 2, energyCost: 3, weight: 2 },
+  { id: 'pirate_interceptor', name: 'Pirate Interceptor', attack: 3, defense: 1, hull: 3, agility: 5, energyCost: 2, weight: 2 },
+  { id: 'pirate_frigate', name: 'Marauder Frigate', attack: 4, defense: 3, hull: 6, agility: 2, energyCost: 3, weight: 2 },
+  { id: 'pirate_flagship', name: 'Pirate Flagship', attack: 5, defense: 4, hull: 7, agility: 1, energyCost: 4, weight: 1 },
+  { id: 'pirate_hunter', name: 'Bounty Hunter', attack: 4, defense: 2, hull: 5, agility: 3, energyCost: 2, weight: 2 },
+  { id: 'pirate_bomber', name: 'Pirate Bomber', attack: 6, defense: 1, hull: 4, agility: 2, energyCost: 3, weight: 1 },
 ]
 
 const FACTION_CARDS: Record<FactionId, CardTemplate[]> = {
   ironveil: [
-    { id: 'iv_mining_barge', name: 'Mining Barge Retrofit', attack: 5, armor: 4, agility: 1, weight: 2 },
-    { id: 'iv_extraction_gun', name: 'Extraction Gunship', attack: 4, armor: 4, agility: 2, weight: 2 },
-    { id: 'iv_security_corvette', name: 'Security Corvette', attack: 3, armor: 3, agility: 4, weight: 2 },
-    { id: 'iv_heavy_hauler', name: 'Heavy Hauler', attack: 2, armor: 6, agility: 2, weight: 1 },
-    { id: 'iv_siege_platform', name: 'Siege Platform', attack: 6, armor: 5, agility: 1, weight: 1 },
+    { id: 'iv_mining_barge', name: 'Mining Barge Retrofit', attack: 5, defense: 3, hull: 6, agility: 1, energyCost: 3, weight: 2 },
+    { id: 'iv_extraction_gun', name: 'Extraction Gunship', attack: 4, defense: 3, hull: 6, agility: 2, energyCost: 3, weight: 2 },
+    { id: 'iv_security_corvette', name: 'Security Corvette', attack: 3, defense: 2, hull: 5, agility: 4, energyCost: 2, weight: 2 },
+    { id: 'iv_heavy_hauler', name: 'Heavy Hauler', attack: 2, defense: 5, hull: 7, agility: 2, energyCost: 3, weight: 1 },
+    { id: 'iv_siege_platform', name: 'Siege Platform', attack: 6, defense: 4, hull: 7, agility: 1, energyCost: 4, weight: 1 },
   ],
   ashfall: [
-    { id: 'af_refugee_runner', name: 'Refugee Runner', attack: 2, armor: 2, agility: 5, weight: 2 },
-    { id: 'af_interceptor', name: 'Ashfall Interceptor', attack: 3, armor: 2, agility: 5, weight: 2 },
-    { id: 'af_scout', name: 'Remnant Scout', attack: 3, armor: 1, agility: 6, weight: 2 },
-    { id: 'af_guardian', name: 'Fleet Guardian', attack: 4, armor: 3, agility: 3, weight: 2 },
-    { id: 'af_exodus_ship', name: 'Exodus Ship', attack: 2, armor: 5, agility: 3, weight: 1 },
+    { id: 'af_refugee_runner', name: 'Refugee Runner', attack: 2, defense: 1, hull: 4, agility: 5, energyCost: 1, weight: 2 },
+    { id: 'af_interceptor', name: 'Ashfall Interceptor', attack: 3, defense: 1, hull: 4, agility: 5, energyCost: 2, weight: 2 },
+    { id: 'af_scout', name: 'Remnant Scout', attack: 3, defense: 0, hull: 3, agility: 6, energyCost: 1, weight: 2 },
+    { id: 'af_guardian', name: 'Fleet Guardian', attack: 4, defense: 2, hull: 5, agility: 3, energyCost: 2, weight: 2 },
+    { id: 'af_exodus_ship', name: 'Exodus Ship', attack: 2, defense: 4, hull: 6, agility: 3, energyCost: 3, weight: 1 },
   ],
   meridian: [
-    { id: 'md_broker_vessel', name: 'Broker Vessel', attack: 3, armor: 4, agility: 3, weight: 2 },
-    { id: 'md_trade_escort', name: 'Trade Escort', attack: 3, armor: 3, agility: 4, weight: 2 },
-    { id: 'md_negotiator', name: 'Negotiator Yacht', attack: 2, armor: 4, agility: 4, weight: 2 },
-    { id: 'md_enforcer', name: 'Contract Enforcer', attack: 4, armor: 4, agility: 2, weight: 2 },
-    { id: 'md_arbiter', name: 'Arbiter Cruiser', attack: 4, armor: 5, agility: 2, weight: 1 },
+    { id: 'md_broker_vessel', name: 'Broker Vessel', attack: 3, defense: 3, hull: 5, agility: 3, energyCost: 2, weight: 2 },
+    { id: 'md_trade_escort', name: 'Trade Escort', attack: 3, defense: 2, hull: 5, agility: 4, energyCost: 2, weight: 2 },
+    { id: 'md_negotiator', name: 'Negotiator Yacht', attack: 2, defense: 3, hull: 5, agility: 4, energyCost: 2, weight: 2 },
+    { id: 'md_enforcer', name: 'Contract Enforcer', attack: 4, defense: 3, hull: 6, agility: 2, energyCost: 3, weight: 2 },
+    { id: 'md_arbiter', name: 'Arbiter Cruiser', attack: 4, defense: 4, hull: 6, agility: 2, energyCost: 3, weight: 1 },
   ],
   void_wardens: [
-    { id: 'vw_bastion', name: 'Bastion Platform', attack: 1, armor: 7, agility: 2, weight: 2 },
-    { id: 'vw_cruiser', name: 'Warden Cruiser', attack: 2, armor: 5, agility: 3, weight: 2 },
-    { id: 'vw_patrol', name: 'Patrol Cutter', attack: 3, armor: 4, agility: 3, weight: 2 },
-    { id: 'vw_sentinel', name: 'Sentinel Frigate', attack: 2, armor: 6, agility: 2, weight: 2 },
-    { id: 'vw_fortress', name: 'Void Fortress', attack: 3, armor: 8, agility: 1, weight: 1 },
+    { id: 'vw_bastion', name: 'Bastion Platform', attack: 1, defense: 6, hull: 8, agility: 2, energyCost: 3, weight: 2 },
+    { id: 'vw_cruiser', name: 'Warden Cruiser', attack: 2, defense: 4, hull: 7, agility: 3, energyCost: 3, weight: 2 },
+    { id: 'vw_patrol', name: 'Patrol Cutter', attack: 3, defense: 3, hull: 6, agility: 3, energyCost: 2, weight: 2 },
+    { id: 'vw_sentinel', name: 'Sentinel Frigate', attack: 2, defense: 5, hull: 7, agility: 2, energyCost: 3, weight: 2 },
+    { id: 'vw_fortress', name: 'Void Fortress', attack: 3, defense: 7, hull: 9, agility: 1, energyCost: 4, weight: 1 },
   ],
   sundered_oath: [
-    { id: 'so_striker', name: 'Oath Striker', attack: 6, armor: 2, agility: 2, weight: 2 },
-    { id: 'so_raider', name: 'Broken Raider', attack: 5, armor: 2, agility: 3, weight: 2 },
-    { id: 'so_vengeance', name: 'Vengeance Cruiser', attack: 6, armor: 3, agility: 1, weight: 2 },
-    { id: 'so_shadow', name: 'Shadow Runner', attack: 4, armor: 1, agility: 5, weight: 2 },
-    { id: 'so_dreadnought', name: 'Broken Dreadnought', attack: 7, armor: 4, agility: 1, weight: 1 },
+    { id: 'so_striker', name: 'Oath Striker', attack: 6, defense: 1, hull: 4, agility: 2, energyCost: 3, weight: 2 },
+    { id: 'so_raider', name: 'Broken Raider', attack: 5, defense: 1, hull: 4, agility: 3, energyCost: 2, weight: 2 },
+    { id: 'so_vengeance', name: 'Vengeance Cruiser', attack: 6, defense: 2, hull: 5, agility: 1, energyCost: 3, weight: 2 },
+    { id: 'so_shadow', name: 'Shadow Runner', attack: 4, defense: 0, hull: 3, agility: 5, energyCost: 2, weight: 2 },
+    { id: 'so_dreadnought', name: 'Broken Dreadnought', attack: 7, defense: 3, hull: 6, agility: 1, energyCost: 4, weight: 1 },
   ],
 }
 
@@ -297,8 +299,11 @@ function templateToCard(
     name: template.name,
     faction: factionId as FactionId,  // Type coercion for scavengers/pirates
     attack: Math.max(1, template.attack + modifiers.statBonus),
-    armor: Math.max(1, template.armor + modifiers.statBonus),
+    defense: Math.max(0, template.defense + modifiers.statBonus),
+    hull: Math.max(1, template.hull + modifiers.statBonus),
     agility: Math.max(1, template.agility + modifiers.statBonus),
+    energyCost: template.energyCost,
+    abilities: [],  // Opponent cards don't have abilities in the old system
   }
 }
 
@@ -359,7 +364,7 @@ export function generateAdaptiveFleet(
 
   // Calculate current fleet strength
   const currentStrength = fleet.cards.reduce(
-    (sum, c) => sum + c.attack + c.armor + c.agility,
+    (sum, c) => sum + c.attack + c.defense + c.hull + c.agility,
     0
   )
 
@@ -371,7 +376,8 @@ export function generateAdaptiveFleet(
     fleet.cards = fleet.cards.map(card => ({
       ...card,
       attack: Math.max(1, card.attack + adjustment),
-      armor: Math.max(1, card.armor + adjustment),
+      defense: Math.max(0, card.defense + adjustment),
+      hull: Math.max(1, card.hull + adjustment),
     }))
   }
 
@@ -383,7 +389,7 @@ export function generateAdaptiveFleet(
  */
 export function calculateFleetStrength(cards: Card[]): number {
   return cards.reduce(
-    (sum, c) => sum + c.attack + c.armor + c.agility,
+    (sum, c) => sum + c.attack + c.defense + c.hull + c.agility,
     0
   )
 }

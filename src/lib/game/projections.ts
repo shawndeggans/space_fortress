@@ -21,6 +21,7 @@ import type {
   GameStats,
   CardBattleHistory
 } from './types'
+// getCardById is used to look up abilities (which are not stored in events)
 import { getCardById } from './content/cards'
 
 // ----------------------------------------------------------------------------
@@ -63,6 +64,9 @@ export function getInitialState(): GameState {
 
     // Current mediation
     currentMediationId: null,
+    mediationParties: null,
+    hasLeaned: false,
+    leanedToward: null,
 
     // Economy
     bounty: 0,
@@ -98,6 +102,7 @@ function getInitialStats(): GameStats {
     betrayals: 0,
     totalBountyEarned: 0,
     totalBountyShared: 0,
+    totalBountyLost: 0,
     cardsAcquired: 0,
     cardsLost: 0,
     playTimeSeconds: 0
@@ -352,26 +357,38 @@ export function evolveState(state: GameState, event: GameEvent): GameState {
     case 'MEDIATION_STARTED':
       return {
         ...state,
-        currentMediationId: event.data.mediationId
+        currentMediationId: event.data.mediationId,
+        mediationParties: event.data.partyFactionIds,
+        hasLeaned: false,
+        leanedToward: null
       }
 
     case 'POSITION_VIEWED':
       return state  // View-only
 
     case 'MEDIATION_LEANED':
-      // Reputation effects would be calculated and emitted as separate events
-      return state
+      return {
+        ...state,
+        hasLeaned: true,
+        leanedToward: event.data.towardFactionId
+      }
 
     case 'MEDIATION_COLLAPSED':
       return {
         ...state,
-        currentMediationId: null
+        currentMediationId: null,
+        mediationParties: null,
+        hasLeaned: false,
+        leanedToward: null
       }
 
     case 'COMPROMISE_ACCEPTED':
       return {
         ...state,
         currentMediationId: null,
+        mediationParties: null,
+        hasLeaned: false,
+        leanedToward: null,
         stats: {
           ...state.stats,
           battlesAvoided: state.stats.battlesAvoided + 1
@@ -420,15 +437,19 @@ export function evolveState(state: GameState, event: GameEvent): GameState {
     // ========================================================================
 
     case 'CARD_GAINED':
-      // Look up actual card data from content
-      const cardData = getCardById(event.data.cardId)
+      // Use fat event data directly - no content lookup needed
+      // Get abilities from card definition (not stored in event)
+      const cardDef = getCardById(event.data.cardId)
       const newCard: OwnedCard = {
         id: event.data.cardId,
-        name: cardData?.name || event.data.cardId.replace(/_/g, ' '),
+        name: event.data.name,
         faction: event.data.factionId,
-        attack: cardData?.attack ?? 3,
-        armor: cardData?.armor ?? 3,
-        agility: cardData?.agility ?? 3,
+        attack: event.data.attack,
+        defense: event.data.defense,
+        hull: event.data.hull,
+        agility: event.data.agility,
+        energyCost: event.data.energyCost,
+        abilities: cardDef?.abilities ?? [],
         source: event.data.source,
         acquiredAt: event.data.timestamp,
         isLocked: false
@@ -577,14 +598,14 @@ export function evolveState(state: GameState, event: GameEvent): GameState {
           base: event.data.playerRoll.base,
           modifier: event.data.playerRoll.modifier,
           total: event.data.playerRoll.total,
-          target: 10 + event.data.opponentCard.armor,
+          target: 10 + event.data.opponentCard.defense,
           hit: event.data.playerRoll.hit
         },
         opponentRoll: {
           base: event.data.opponentRoll.base,
           modifier: event.data.opponentRoll.modifier,
           total: event.data.opponentRoll.total,
-          target: 10 + event.data.playerCard.armor,
+          target: 10 + event.data.playerCard.defense,
           hit: event.data.opponentRoll.hit
         },
         outcome: event.data.outcome
@@ -640,6 +661,18 @@ export function evolveState(state: GameState, event: GameEvent): GameState {
       return state
 
     case 'OUTCOME_ACKNOWLEDGED':
+      // Validate battle exists before clearing
+      if (!state.currentBattle) {
+        console.warn('OUTCOME_ACKNOWLEDGED: No current battle to acknowledge')
+        return state
+      }
+      // Validate acknowledgment matches current battle
+      if (state.currentBattle.battleId !== event.data.battleId) {
+        console.warn('OUTCOME_ACKNOWLEDGED: Mismatch between current battle and acknowledged', {
+          current: state.currentBattle.battleId,
+          acknowledged: event.data.battleId
+        })
+      }
       return {
         ...state,
         currentBattle: null
@@ -653,7 +686,10 @@ export function evolveState(state: GameState, event: GameEvent): GameState {
           ...state.stats,
           totalBountyEarned: event.data.amount > 0
             ? state.stats.totalBountyEarned + event.data.amount
-            : state.stats.totalBountyEarned
+            : state.stats.totalBountyEarned,
+          totalBountyLost: event.data.amount < 0
+            ? state.stats.totalBountyLost + Math.abs(event.data.amount)
+            : state.stats.totalBountyLost
         }
       }
 
@@ -696,6 +732,19 @@ export function evolveState(state: GameState, event: GameEvent): GameState {
       }
 
     case 'CHOICE_CONSEQUENCE_ACKNOWLEDGED':
+      // Validate pending state exists before clearing
+      if (!state.pendingChoiceConsequence) {
+        console.warn('CHOICE_CONSEQUENCE_ACKNOWLEDGED: No pending consequence to acknowledge')
+        return state
+      }
+      // Validate acknowledgment matches pending item
+      if (state.pendingChoiceConsequence.dilemmaId !== event.data.dilemmaId ||
+          state.pendingChoiceConsequence.choiceId !== event.data.choiceId) {
+        console.warn('CHOICE_CONSEQUENCE_ACKNOWLEDGED: Mismatch between pending and acknowledged', {
+          pending: { dilemmaId: state.pendingChoiceConsequence.dilemmaId, choiceId: state.pendingChoiceConsequence.choiceId },
+          acknowledged: { dilemmaId: event.data.dilemmaId, choiceId: event.data.choiceId }
+        })
+      }
       // Clear the pending consequence
       return {
         ...state,
@@ -718,6 +767,18 @@ export function evolveState(state: GameState, event: GameEvent): GameState {
       }
 
     case 'QUEST_SUMMARY_ACKNOWLEDGED':
+      // Validate pending state exists before clearing
+      if (!state.pendingQuestSummary) {
+        console.warn('QUEST_SUMMARY_ACKNOWLEDGED: No pending quest summary to acknowledge')
+        return state
+      }
+      // Validate acknowledgment matches pending item
+      if (state.pendingQuestSummary.questId !== event.data.questId) {
+        console.warn('QUEST_SUMMARY_ACKNOWLEDGED: Mismatch between pending and acknowledged', {
+          pending: state.pendingQuestSummary.questId,
+          acknowledged: event.data.questId
+        })
+      }
       // Clear the pending quest summary
       return {
         ...state,

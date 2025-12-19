@@ -70,7 +70,7 @@ export interface CardTermView {
   name: string
   factionIcon: string
   attack: number
-  armor: number
+  defense: number
   agility: number
 }
 
@@ -424,14 +424,14 @@ export function buildAllianceTermsView(
       name: `${faction?.name ?? factionId} Ship Alpha`,
       factionIcon: FACTION_ICONS[factionId],
       attack: getStatForProfile(FACTION_CARD_PROFILES[factionId], 'attack'),
-      armor: getStatForProfile(FACTION_CARD_PROFILES[factionId], 'armor'),
+      defense: getStatForProfile(FACTION_CARD_PROFILES[factionId], 'defense'),
       agility: getStatForProfile(FACTION_CARD_PROFILES[factionId], 'agility')
     },
     {
       name: `${faction?.name ?? factionId} Ship Beta`,
       factionIcon: FACTION_ICONS[factionId],
       attack: getStatForProfile(FACTION_CARD_PROFILES[factionId], 'attack'),
-      armor: getStatForProfile(FACTION_CARD_PROFILES[factionId], 'armor'),
+      defense: getStatForProfile(FACTION_CARD_PROFILES[factionId], 'defense'),
       agility: getStatForProfile(FACTION_CARD_PROFILES[factionId], 'agility')
     }
   ]
@@ -527,13 +527,13 @@ export function projectAllianceTermsView(
 // Helpers
 // ----------------------------------------------------------------------------
 
-function getStatForProfile(profile: string, stat: 'attack' | 'armor' | 'agility'): number {
+function getStatForProfile(profile: string, stat: 'attack' | 'defense' | 'agility'): number {
   const profiles: Record<string, Record<string, number>> = {
-    'Siege': { attack: 5, armor: 4, agility: 1 },
-    'Interceptor': { attack: 3, armor: 2, agility: 5 },
-    'Balanced': { attack: 3, armor: 4, agility: 3 },
-    'Tank': { attack: 1, armor: 7, agility: 2 },
-    'Glass Cannon': { attack: 6, armor: 2, agility: 2 }
+    'Siege': { attack: 5, defense: 4, agility: 1 },
+    'Interceptor': { attack: 3, defense: 2, agility: 5 },
+    'Balanced': { attack: 3, defense: 4, agility: 3 },
+    'Tank': { attack: 1, defense: 7, agility: 2 },
+    'Glass Cannon': { attack: 6, defense: 2, agility: 2 }
   }
 
   return profiles[profile]?.[stat] ?? 3

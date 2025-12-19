@@ -34,15 +34,15 @@ function createGameStartEvents(playerId = 'player-1'): GameEvent[] {
     },
     {
       type: 'CARD_GAINED',
-      data: { timestamp, cardId: 'starter_scout', factionId: 'meridian', source: 'starter' }
+      data: { timestamp, cardId: 'starter_scout', factionId: 'meridian', source: 'starter', name: 'Scout', attack: 3, defense: 3, agility: 4, hull: 5, energyCost: 2 }
     },
     {
       type: 'CARD_GAINED',
-      data: { timestamp, cardId: 'starter_freighter', factionId: 'meridian', source: 'starter' }
+      data: { timestamp, cardId: 'starter_freighter', factionId: 'meridian', source: 'starter', name: 'Armed Freighter', attack: 2, defense: 4, agility: 3, hull: 5, energyCost: 2 }
     },
     {
       type: 'CARD_GAINED',
-      data: { timestamp, cardId: 'starter_corvette', factionId: 'meridian', source: 'starter' }
+      data: { timestamp, cardId: 'starter_corvette', factionId: 'meridian', source: 'starter', name: 'Corvette', attack: 3, defense: 3, agility: 3, hull: 5, energyCost: 2 }
     },
     {
       type: 'QUESTS_GENERATED',
@@ -235,8 +235,8 @@ describe('Deployment View Projection', () => {
     const events: GameEvent[] = [
       ...createGameStartEvents(),
       // Add more cards so we have 5
-      { type: 'CARD_GAINED', data: { timestamp: ts(500), cardId: 'card_4', factionId: 'ironveil', source: 'quest' } },
-      { type: 'CARD_GAINED', data: { timestamp: ts(600), cardId: 'card_5', factionId: 'ashfall', source: 'quest' } },
+      { type: 'CARD_GAINED', data: { timestamp: ts(500), cardId: 'card_4', factionId: 'ironveil', source: 'quest', name: 'Card 4', attack: 4, defense: 3, agility: 3, hull: 5, energyCost: 2 } },
+      { type: 'CARD_GAINED', data: { timestamp: ts(600), cardId: 'card_5', factionId: 'ashfall', source: 'quest', name: 'Card 5', attack: 3, defense: 4, agility: 3, hull: 5, energyCost: 2 } },
       {
         type: 'BATTLE_TRIGGERED',
         data: {
@@ -349,8 +349,8 @@ describe('Alliance Options Projection', () => {
     const events: GameEvent[] = [
       ...createGameStartEvents(),  // 3 starter cards
       // Add 2 more cards so player has 5 total (enough to proceed alone)
-      { type: 'CARD_GAINED', data: { timestamp: ts(900), cardId: 'extra_card_1', factionId: 'ironveil', source: 'quest' } },
-      { type: 'CARD_GAINED', data: { timestamp: ts(950), cardId: 'extra_card_2', factionId: 'ironveil', source: 'quest' } },
+      { type: 'CARD_GAINED', data: { timestamp: ts(900), cardId: 'extra_card_1', factionId: 'ironveil', source: 'quest', name: 'Extra Card 1', attack: 4, defense: 4, agility: 2, hull: 5, energyCost: 2 } },
+      { type: 'CARD_GAINED', data: { timestamp: ts(950), cardId: 'extra_card_2', factionId: 'ironveil', source: 'quest', name: 'Extra Card 2', attack: 4, defense: 3, agility: 2, hull: 5, energyCost: 2 } },
       {
         type: 'QUEST_ACCEPTED',
         data: { timestamp: ts(1000), questId: 'quest_salvage_claim', factionId: 'ironveil', initialBounty: 500, initialCardIds: [] }

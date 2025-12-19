@@ -199,7 +199,7 @@
           {#each termsView.cardsProvided as card}
             <div class="card-preview">
               <span class="card-name">{card.name}</span>
-              <span class="card-stats">⚔{card.attack} 🛡{card.armor} ⚡{card.agility}</span>
+              <span class="card-stats">⚔{card.attack} 🛡{card.defense} ⚡{card.agility}</span>
             </div>
           {/each}
         </div>

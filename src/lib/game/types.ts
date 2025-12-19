@@ -38,17 +38,107 @@ export interface FactionReputation {
 }
 
 // ----------------------------------------------------------------------------
-// Cards (Ships)
+// Cards (Ships) - Tactical Combat System
 // ----------------------------------------------------------------------------
 
+// Ability trigger timing
+export type AbilityTrigger =
+  | 'onDeploy'    // When card enters battlefield
+  | 'onAttack'    // When card declares attack
+  | 'onDefend'    // When card is attacked
+  | 'onDestroyed' // When card's hull reaches 0
+  | 'startTurn'   // At start of owner's turn
+  | 'endTurn'     // At end of owner's turn
+  | 'activated'   // Manual activation (costs energy)
+  | 'passive'     // Always active while on field
+
+// Target types for abilities
+export type AbilityTargetType =
+  | 'self'
+  | 'ally'
+  | 'enemy'
+  | 'any_card'
+  | 'all_enemies'
+  | 'all_allies'
+  | 'adjacent'
+  | 'flagship'
+
+// Ability effect definitions - discriminated union
+export type AbilityEffect =
+  // Damage effects
+  | { type: 'deal_damage'; amount: number }
+  | { type: 'area_damage'; amount: number; targets: 'all_enemies' | 'adjacent' }
+  | { type: 'damage_flagship'; amount: number }
+  // Defensive effects
+  | { type: 'repair'; amount: number }
+  | { type: 'shield'; amount: number; duration: number }
+  | { type: 'redirect_damage'; to: 'attacker' | 'adjacent' }
+  | { type: 'repair_flagship'; amount: number }
+  // Control effects
+  | { type: 'stun'; duration: number }
+  | { type: 'disable_ability'; duration: number }
+  | { type: 'force_attack'; target: 'ally' | 'flagship' }
+  | { type: 'taunt'; duration: number }
+  // Buff/Debuff effects
+  | { type: 'boost_attack'; amount: number; duration: number }
+  | { type: 'boost_defense'; amount: number; duration: number }
+  | { type: 'reduce_attack'; amount: number; duration: number }
+  | { type: 'reduce_defense'; amount: number; duration: number }
+  | { type: 'energy_drain'; amount: number }
+  | { type: 'energy_restore'; amount: number }
+  // Utility effects
+  | { type: 'draw_card'; amount: number }
+  | { type: 'discard_random'; amount: number }
+  | { type: 'return_to_hand'; target: 'self' | 'enemy' }
+  | { type: 'destroy_card' }
+  | { type: 'copy_stats' }
+  // Favor effects (for liaison cards)
+  | { type: 'gain_favor'; amount: number; faction: FactionId | 'same' }
+  // Conditional effects
+  | { type: 'conditional'; condition: AbilityCondition; effect: AbilityEffect }
+  // Multi-effect
+  | { type: 'multi'; effects: AbilityEffect[] }
+
+// Conditions for conditional abilities
+export type AbilityCondition =
+  | { type: 'hull_below'; percentage: number }
+  | { type: 'hull_above'; percentage: number }
+  | { type: 'energy_above'; amount: number }
+  | { type: 'allies_count'; comparison: 'gt' | 'lt' | 'eq'; count: number }
+  | { type: 'enemies_count'; comparison: 'gt' | 'lt' | 'eq'; count: number }
+  | { type: 'card_destroyed_this_turn' }
+  | { type: 'first_card_played' }
+
+// Card ability definition
+export interface CardAbility {
+  id: string
+  name: string
+  trigger: AbilityTrigger
+  energyCost?: number        // Required for 'activated' trigger
+  targetType: AbilityTargetType
+  effect: AbilityEffect
+  description: string
+  cooldown?: number          // Turns between uses (for activated abilities)
+}
+
+// Base card interface for tactical combat
 export interface Card {
   id: string
   name: string
   faction: FactionId
-  attack: number   // 1-6: Offensive power
-  armor: number    // 1-7: Defensive strength
-  agility: number  // 1-5: Initiative in combat
+  // Combat stats
+  attack: number      // 1-6: Damage dealt when attacking
+  defense: number     // 1-5: Damage reduction (was 'armor')
+  hull: number        // 1-8: Hit points for this card
+  agility: number     // 1-5: Initiative in combat (turn order)
+  energyCost: number  // 1-4: Cost to deploy from hand
+  // Abilities
+  abilities: CardAbility[]
+  // Metadata
   flavorText?: string
+  // Liaison card properties
+  isLiaison?: boolean
+  favorGeneration?: number  // Bonus favor on kill/trigger
 }
 
 export interface OwnedCard extends Card {
@@ -406,6 +496,7 @@ export interface GameStats {
   betrayals: number
   totalBountyEarned: number
   totalBountyShared: number
+  totalBountyLost: number  // Bounty lost to penalties, choices, etc.
   cardsAcquired: number
   cardsLost: number
   playTimeSeconds: number
@@ -450,6 +541,10 @@ export interface GameState {
 
   // Current mediation (when in mediation phase)
   currentMediationId: string | null
+  // Mediation state tracking
+  mediationParties: [FactionId, FactionId] | null
+  hasLeaned: boolean
+  leanedToward: FactionId | null
 
   // Economy
   bounty: number

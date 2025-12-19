@@ -272,6 +272,15 @@ export interface CardGainedEvent {
     cardId: string
     factionId: FactionId
     source: 'starter' | 'quest' | 'alliance' | 'choice' | 'unlock'
+    // Fat event: include card stats at time of acquisition
+    // This ensures projections don't need to look up card definitions
+    name: string
+    attack: number
+    defense: number    // Damage reduction (was 'armor')
+    hull: number       // Hit points
+    agility: number
+    energyCost: number // Cost to deploy
+    // Note: abilities are not stored in event - looked up from card definition
   }
 }
 
@@ -765,11 +774,17 @@ export const EventFactory = {
   cardGained(
     cardId: string,
     factionId: FactionId,
-    source: CardGainedEvent['data']['source']
+    source: CardGainedEvent['data']['source'],
+    name: string,
+    attack: number,
+    defense: number,
+    hull: number,
+    agility: number,
+    energyCost: number
   ): CardGainedEvent {
     return {
       type: 'CARD_GAINED',
-      data: { timestamp: createTimestamp(), cardId, factionId, source }
+      data: { timestamp: createTimestamp(), cardId, factionId, source, name, attack, defense, hull, agility, energyCost }
     }
   },
 

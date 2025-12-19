@@ -136,6 +136,42 @@ function toQuestSummaryState(state: GameState): QuestSummaryState {
   }
 }
 
+/**
+ * Convert GameState to MediationState for slice handlers.
+ * Maps the full GameState to the slice-specific state needed by mediation handlers.
+ */
+function toMediationState(state: GameState): MediationState {
+  return {
+    currentPhase: state.currentPhase,
+    currentMediationId: state.currentMediationId,
+    mediationParties: state.mediationParties,
+    hasLeaned: state.hasLeaned,
+    leanedToward: state.leanedToward,
+    activeQuest: state.activeQuest ? { questId: state.activeQuest.questId } : null
+  }
+}
+
+/**
+ * Convert GameState to DeploymentState for slice handlers.
+ * This adapter maps the full GameState to the minimal slice state needed.
+ */
+function toDeploymentState(state: GameState): DeploymentState {
+  return {
+    currentPhase: state.currentPhase,
+    currentBattle: state.currentBattle ? {
+      battleId: state.currentBattle.battleId,
+      questId: state.currentBattle.questId,
+      context: state.currentBattle.context,
+      opponentType: state.currentBattle.opponentType,
+      difficulty: state.currentBattle.difficulty,
+      selectedCardIds: state.currentBattle.selectedCardIds,
+      positions: state.currentBattle.positions
+    } : null,
+    activeQuest: state.activeQuest ? { questId: state.activeQuest.questId } : null,
+    ownedCards: state.ownedCards
+  }
+}
+
 // ----------------------------------------------------------------------------
 // Main Decider Function
 // ----------------------------------------------------------------------------
@@ -205,13 +241,13 @@ export function decide(command: GameCommand, state: GameState): GameEvent[] {
       return handleViewPosition(command, state)
 
     case 'LEAN_TOWARD_FACTION':
-      return sliceHandleLeanTowardFaction(command, state as unknown as MediationState)
+      return sliceHandleLeanTowardFaction(command, toMediationState(state))
 
     case 'REFUSE_TO_LEAN':
-      return sliceHandleRefuseToLean(command, state as unknown as MediationState)
+      return sliceHandleRefuseToLean(command, toMediationState(state))
 
     case 'ACCEPT_COMPROMISE':
-      return sliceHandleAcceptCompromise(command, state as unknown as MediationState)
+      return sliceHandleAcceptCompromise(command, toMediationState(state))
 
     // ========================================================================
     // Battle: Card Selection
@@ -231,10 +267,10 @@ export function decide(command: GameCommand, state: GameState): GameEvent[] {
     // ========================================================================
 
     case 'SET_CARD_POSITION':
-      return sliceHandleSetCardPosition(command, state as DeploymentState)
+      return sliceHandleSetCardPosition(command, toDeploymentState(state))
 
     case 'LOCK_ORDERS':
-      return sliceHandleLockOrders(command, state as DeploymentState)
+      return sliceHandleLockOrders(command, toDeploymentState(state))
 
     // ========================================================================
     // Battle: Execution
@@ -345,18 +381,26 @@ function handleStartGame(
     }
   ]
 
-  // Grant starter cards
-  const factions: FactionId[] = ['meridian', 'meridian', 'meridian']  // Starter cards are neutral/Meridian
-  starterCardIds.forEach((cardId, i) => {
-    events.push({
-      type: 'CARD_GAINED',
-      data: {
-        timestamp: ts,
-        cardId,
-        factionId: factions[i],
-        source: 'starter'
-      }
-    })
+  // Grant starter cards with full card data (fat events)
+  starterCardIds.forEach((cardId) => {
+    const card = getCardById(cardId)
+    if (card) {
+      events.push({
+        type: 'CARD_GAINED',
+        data: {
+          timestamp: ts,
+          cardId,
+          factionId: card.faction,
+          source: 'starter',
+          name: card.name,
+          attack: card.attack,
+          defense: card.defense,
+          hull: card.hull,
+          agility: card.agility,
+          energyCost: card.energyCost
+        }
+      })
+    }
   })
 
   // Generate initial quests
@@ -448,7 +492,7 @@ function handleAcceptQuest(
     }
   ]
 
-  // Emit CARD_GAINED events for each initial quest card
+  // Emit CARD_GAINED events for each initial quest card (fat events with card stats)
   for (const cardId of quest.initialCards) {
     const card = getCardById(cardId)
     if (card) {
@@ -458,7 +502,13 @@ function handleAcceptQuest(
           timestamp: ts,
           cardId,
           factionId: card.faction,
-          source: 'quest'
+          source: 'quest',
+          name: card.name,
+          attack: card.attack,
+          defense: card.defense,
+          hull: card.hull,
+          agility: card.agility,
+          energyCost: card.energyCost
         }
       })
     }
@@ -598,7 +648,7 @@ function handleMakeChoice(
     })
   }
 
-  // Apply cards gained
+  // Apply cards gained (fat events with card stats)
   for (const cardId of consequences.cardsGained) {
     const card = getCardById(cardId)
     if (card) {
@@ -608,7 +658,13 @@ function handleMakeChoice(
           timestamp: ts,
           cardId: cardId,
           factionId: card.faction,
-          source: 'choice'
+          source: 'choice',
+          name: card.name,
+          attack: card.attack,
+          defense: card.defense,
+          hull: card.hull,
+          agility: card.agility,
+          energyCost: card.energyCost
         }
       })
     }
@@ -866,17 +922,26 @@ function handleFormAlliance(
     }
   ]
 
-  // Emit CARD_GAINED events for each alliance card
+  // Emit CARD_GAINED events for each alliance card (fat events with card stats)
   for (const cardId of allianceCardIds) {
-    events.push({
-      type: 'CARD_GAINED',
-      data: {
-        timestamp: ts,
-        cardId,
-        factionId: command.data.factionId,
-        source: 'alliance'
-      }
-    })
+    const card = getCardById(cardId)
+    if (card) {
+      events.push({
+        type: 'CARD_GAINED',
+        data: {
+          timestamp: ts,
+          cardId,
+          factionId: card.faction,
+          source: 'alliance',
+          name: card.name,
+          attack: card.attack,
+          defense: card.defense,
+          hull: card.hull,
+          agility: card.agility,
+          energyCost: card.energyCost
+        }
+      })
+    }
   }
 
   // Stay in alliance phase - player can form more alliances

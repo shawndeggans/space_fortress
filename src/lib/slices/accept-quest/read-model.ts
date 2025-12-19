@@ -67,7 +67,7 @@ export interface CardPreview {
   name: string
   factionId: FactionId
   attack: number
-  armor: number
+  defense: number
   agility: number
 }
 
@@ -322,7 +322,7 @@ export function buildQuestDetailView(
         name: card.name,
         factionId: card.faction,
         attack: card.attack,
-        armor: card.armor,
+        defense: card.defense,
         agility: card.agility
       }
     })

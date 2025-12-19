@@ -34,8 +34,11 @@ function createOwnedCard(id: string, faction: FactionId): OwnedCard {
     name: `Test Card ${id}`,
     faction,
     attack: 10,
-    armor: 8,
+    defense: 8,
+    hull: 5,
     agility: 6,
+    energyCost: 2,
+    abilities: [],
     source: 'quest',
     acquiredAt: new Date().toISOString(),
     isLocked: false

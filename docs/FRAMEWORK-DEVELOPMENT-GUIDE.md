@@ -34,16 +34,43 @@ Player Action -> Command -> Decider -> Events -> Event Store -> Projections -> U
 src/
 ├── lib/
 │   ├── game/
-│   │   ├── types.ts        # Commands, Events, State definitions
-│   │   ├── decider.ts      # Command -> Event logic (game rules)
-│   │   ├── projections.ts  # Event -> State reconstruction
-│   │   └── __tests__/      # Unit tests
+│   │   ├── types.ts           # Core type definitions (Card, Quest, Faction, etc.)
+│   │   ├── events.ts          # Event type definitions (51 event types)
+│   │   ├── commands.ts        # Command type definitions
+│   │   ├── decider.ts         # Command -> Event logic (game rules)
+│   │   ├── projections.ts     # Event -> State reconstruction (evolveState)
+│   │   ├── combat.ts          # Battle resolution engine (d20 system)
+│   │   ├── opponents.ts       # Enemy fleet generation
+│   │   ├── content/           # Game data (cards, quests, factions)
+│   │   ├── projections/       # Screen-specific read models
+│   │   └── __tests__/         # Unit tests (469+ tests)
+│   ├── slices/                # Vertical slice handlers
+│   │   ├── accept-quest/
+│   │   ├── make-choice/
+│   │   ├── card-selection/
+│   │   ├── deployment/
+│   │   ├── battle-resolution/
+│   │   ├── form-alliance/
+│   │   ├── mediation/
+│   │   └── consequence/
+│   ├── narrative/             # Quest/dilemma content system
+│   │   ├── graph.ts           # Narrative graph structure
+│   │   └── condition-resolver.ts
+│   ├── navigation/
+│   │   └── router.ts          # Phase-to-route mapping with guards
 │   ├── eventStore/
-│   │   └── BrowserEventStore.ts  # SQLite in browser via sql.js
-│   └── stores/
-│       └── gameStore.ts    # Svelte reactive store
+│   │   └── BrowserEventStore.ts  # SQLite + snapshots + IndexedDB
+│   ├── stores/
+│   │   └── gameStore.ts       # Svelte store with command mutex
+│   └── components/            # Reusable UI components
 ├── routes/
-│   └── +page.svelte        # Game UI
+│   ├── +layout.svelte         # Navigation guards, header
+│   ├── quest-hub/
+│   ├── narrative/
+│   ├── card-pool/
+│   ├── deployment/
+│   ├── battle/
+│   └── ...                    # 12 game screens
 ```
 
 ## Core Concepts
@@ -333,6 +360,97 @@ The game uses **sql.js** (SQLite compiled to WebAssembly) with **IndexedDB** for
 
 ## Advanced Topics
 
+### Command Serialization (Preventing Race Conditions)
+
+Commands are serialized using a mutex to prevent race conditions when multiple UI actions fire rapidly:
+
+```typescript
+// src/lib/stores/gameStore.ts
+import { Mutex } from 'async-mutex'
+
+const commandMutex = new Mutex()
+
+async handleCommand(command: GameCommand) {
+  // All commands are serialized through the mutex
+  return commandMutex.runExclusive(async () => {
+    const events = decide(command, currentState)
+    await eventStore.appendEvents(streamId, events)
+    // Update state...
+  })
+}
+```
+
+This prevents issues like double-clicking causing duplicate events or interleaved state updates.
+
+### Fat Events (Self-Contained Data)
+
+Events should contain all data needed for state reconstruction without requiring lookups:
+
+```typescript
+// WRONG - Thin event requires card lookup during replay
+{ type: 'CARD_GAINED', data: { cardId: 'ironveil_destroyer' } }
+
+// CORRECT - Fat event is self-contained
+{
+  type: 'CARD_GAINED',
+  data: {
+    cardId: 'ironveil_destroyer',
+    factionId: 'ironveil',
+    name: 'Ironveil Destroyer',
+    attack: 5,
+    armor: 4,
+    agility: 2,
+    source: 'quest'
+  }
+}
+```
+
+**Why fat events matter:**
+- Events replay deterministically even if card database changes
+- No dependency on external data during state reconstruction
+- Easier debugging - events show exactly what happened
+
+### Graceful Degradation
+
+The event store handles corrupted data gracefully instead of crashing:
+
+```typescript
+// src/lib/eventStore/BrowserEventStore.ts
+async getEvents(streamId: string): Promise<GameEvent[]> {
+  const events: GameEvent[] = []
+  for (const row of result[0].values) {
+    try {
+      const event = {
+        type: row[0],
+        data: JSON.parse(row[1] as string)
+      } as GameEvent
+      events.push(event)
+    } catch (error) {
+      // Log but continue - don't fail the entire load
+      console.error('Failed to parse event, skipping:', error)
+    }
+  }
+  return events
+}
+```
+
+### Pending State Validation
+
+Before clearing pending state (like `pendingChoiceConsequence`), validate it matches expectations:
+
+```typescript
+case 'CHOICE_CONSEQUENCE_ACKNOWLEDGED':
+  // Validate before clearing
+  if (!state.pendingChoiceConsequence) {
+    console.warn('No pending consequence to acknowledge')
+    return state
+  }
+  if (state.pendingChoiceConsequence.choiceId !== event.data.choiceId) {
+    console.warn('Mismatch between pending and acknowledged choice')
+  }
+  return { ...state, pendingChoiceConsequence: null }
+```
+
 ### Event Versioning (for updates/DLC)
 
 Never change existing event structures. Add optional fields with defaults:
@@ -356,33 +474,63 @@ interface ItemCollectedV2 {
 }
 ```
 
-### Snapshots (for performance)
+### Snapshots (Automatic Performance Optimization)
 
-If games get long (1000+ events), implement snapshotting:
+The event store automatically creates snapshots after 50 events to speed up state reconstruction:
 
 ```typescript
-// Save state snapshot every 100 events
-if (eventCount % 100 === 0) {
-  await eventStore.saveSnapshot(streamId, state, eventCount)
+// src/lib/eventStore/BrowserEventStore.ts
+const SCHEMA_VERSION = 1    // Increment when GameState shape changes
+const SNAPSHOT_THRESHOLD = 50
+
+async loadStateWithSnapshot(
+  streamId: string,
+  evolve: (state: GameState, event: GameEvent) => GameState,
+  initialState: GameState
+): Promise<GameState> {
+  // 1. Try to load existing snapshot
+  const snapshot = await this.loadSnapshot(streamId)
+
+  let state = snapshot?.state ?? initialState
+  let startSequence = snapshot?.sequence ?? 0
+
+  // 2. Replay only events after the snapshot
+  const recentEvents = await this.getEventsSince(streamId, startSequence)
+  state = recentEvents.reduce(evolve, state)
+
+  // 3. Save new snapshot if we've replayed enough events
+  const totalEvents = await this.getEventCount(streamId)
+  if (totalEvents - startSequence >= SNAPSHOT_THRESHOLD) {
+    await this.saveSnapshot(streamId, state, totalEvents)
+  }
+
+  return state
+}
+```
+
+**Schema versioning:** When `GameState` shape changes, increment `SCHEMA_VERSION`. Old snapshots with mismatched versions are automatically invalidated and rebuilt from events.
+
+### Stream IDs and Player Identity
+
+Player IDs and stream IDs are kept separate to prevent double-prefixing bugs:
+
+```typescript
+// src/lib/stores/gameStore.ts
+
+// Store the raw player ID (e.g., "abc123")
+let currentPlayerId: string | null = null
+
+// Helper function constructs stream ID when needed
+function getStreamId(): string {
+  if (!currentPlayerId) throw new Error('No player ID set')
+  return `player-${currentPlayerId}`  // Returns "player-abc123"
 }
 
-// On load, start from snapshot instead of beginning
-const snapshot = await eventStore.getLatestSnapshot(streamId)
-const recentEvents = await eventStore.getEventsSince(streamId, snapshot.sequence)
-const state = recentEvents.reduce(evolveState, snapshot.state)
+// Usage in command handling
+await eventStore.appendEvents(getStreamId(), events)
 ```
 
-### Multiple Playthroughs
-
-Each playthrough gets a unique stream ID:
-
-```typescript
-// New game creates new stream
-const playerId = `player-${Date.now()}`
-// Events go to: `player-1702567890123`
-
-// This allows multiple saves without collision
-```
+**Why this matters:** Previously, the code stored `player-abc123` and then called `player-${playerId}`, resulting in `player-player-abc123`.
 
 ## Svelte UI Patterns
 
@@ -430,6 +578,63 @@ The game store is reactive - UI updates automatically:
 {/if}
 ```
 
+### Navigation Guards
+
+The app uses navigation guards to keep URLs in sync with game phase and prevent invalid navigation:
+
+```typescript
+// src/lib/navigation/router.ts
+export const PHASE_ROUTES: Record<GamePhase, string | null> = {
+  not_started: '/',
+  quest_hub: '/quest-hub',
+  narrative: '/narrative',
+  choice_consequence: '/choice-consequence',
+  alliance: '/alliance',
+  mediation: '/mediation',
+  card_selection: '/card-pool',
+  deployment: '/deployment',
+  battle: '/battle',
+  consequence: '/consequence',
+  post_battle_dilemma: '/narrative',  // Reuses narrative screen
+  quest_summary: '/quest-summary',
+  ending: '/ending'
+}
+
+export function isRouteValidForPhase(route: string, currentPhase: GamePhase): boolean {
+  const validPhases = ROUTE_PHASES[route]
+  return validPhases?.includes(currentPhase) ?? false
+}
+```
+
+```svelte
+<!-- src/routes/+layout.svelte -->
+<script>
+  import { beforeNavigate } from '$app/navigation'
+  import { isRouteValidForPhase, getRouteForPhase } from '$lib/navigation/router'
+
+  // Prevent navigation to invalid routes
+  beforeNavigate((navigation) => {
+    if (!isRouteValidForPhase(navigation.to.url.pathname, $gameState.currentPhase)) {
+      navigation.cancel()
+      goto(getRouteForPhase($gameState.currentPhase), { replaceState: true })
+    }
+  })
+
+  // Auto-navigate when phase changes
+  $effect(() => {
+    const expectedRoute = getRouteForPhase($gameState.currentPhase)
+    if (expectedRoute && $page.url.pathname !== expectedRoute) {
+      goto(expectedRoute, { replaceState: true })
+    }
+  })
+</script>
+```
+
+**Why navigation guards matter:**
+- Prevents 404 errors from bookmark/refresh on invalid routes
+- Keeps URL as single source of truth for "where am I"
+- Auto-redirects to correct screen when game phase changes
+
 ## Scripts Reference
 
 | Command | Description |
@@ -443,12 +648,13 @@ The game store is reactive - UI updates automatically:
 
 ## Tech Stack
 
-- **Svelte 5** - Reactive UI framework
-- **SvelteKit** - Application framework
-- **TypeScript** - Type safety
+- **Svelte 5** - Reactive UI framework with runes
+- **SvelteKit** - Application framework with file-based routing
+- **TypeScript** - Type safety with discriminated unions
 - **sql.js** - SQLite in the browser (WebAssembly)
-- **IndexedDB** - Persistent storage
-- **Vitest** - Unit testing
+- **IndexedDB** - Persistent storage for SQLite database
+- **async-mutex** - Command serialization to prevent race conditions
+- **Vitest** - Unit testing (469+ tests)
 
 ## Future: Desktop Builds
 

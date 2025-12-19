@@ -133,15 +133,15 @@ describe('Adaptive Fleet Generation', () => {
 describe('Fleet Strength Calculation', () => {
   it('calculates total stats correctly', () => {
     const cards: Card[] = [
-      { id: '1', name: 'A', faction: 'meridian', attack: 3, armor: 3, agility: 3 },
-      { id: '2', name: 'B', faction: 'meridian', attack: 4, armor: 4, agility: 2 },
-      { id: '3', name: 'C', faction: 'meridian', attack: 2, armor: 5, agility: 3 },
+      { id: '1', name: 'A', faction: 'meridian', attack: 3, defense: 3, agility: 3, hull: 5, energyCost: 2, abilities: [] },
+      { id: '2', name: 'B', faction: 'meridian', attack: 4, defense: 4, agility: 2, hull: 5, energyCost: 2, abilities: [] },
+      { id: '3', name: 'C', faction: 'meridian', attack: 2, defense: 5, agility: 3, hull: 5, energyCost: 2, abilities: [] },
     ]
 
     const strength = calculateFleetStrength(cards)
 
-    // (3+3+3) + (4+4+2) + (2+5+3) = 9 + 10 + 10 = 29
-    expect(strength).toBe(29)
+    // Now includes hull: (3+3+3+5) + (4+4+2+5) + (2+5+3+5) = 14 + 15 + 15 = 44
+    expect(strength).toBe(44)
   })
 
   it('returns 0 for empty fleet', () => {
@@ -202,8 +202,9 @@ describe('Card Pools', () => {
       for (const card of pool) {
         expect(card.attack).toBeGreaterThanOrEqual(1)
         expect(card.attack).toBeLessThanOrEqual(7)
-        expect(card.armor).toBeGreaterThanOrEqual(1)
-        expect(card.armor).toBeLessThanOrEqual(8)
+        // Defense can be 0 for glass cannon ships
+        expect(card.defense).toBeGreaterThanOrEqual(0)
+        expect(card.defense).toBeLessThanOrEqual(8)
         expect(card.agility).toBeGreaterThanOrEqual(1)
         expect(card.agility).toBeLessThanOrEqual(6)
       }

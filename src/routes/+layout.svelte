@@ -1,11 +1,12 @@
 <script lang="ts">
   import '../lib/styles/tokens.css'
   import { onMount } from 'svelte'
-  import { goto } from '$app/navigation'
+  import { goto, beforeNavigate } from '$app/navigation'
   import { page } from '$app/stores'
   import { gameState, isLoading, gameError } from '$lib/stores/gameStore'
   import { projectNavigationView } from '$lib/game/projections/navigationView'
   import { GameHeader, DebugPanel } from '$lib/components'
+  import { getRouteForPhase, isRouteValidForPhase } from '$lib/navigation/router'
 
   interface Props {
     children: import('svelte').Snippet
@@ -24,6 +25,48 @@
 
   onMount(async () => {
     await gameState.initialize()
+  })
+
+  // Navigation guard: prevent navigation to routes invalid for current game phase
+  beforeNavigate((navigation) => {
+    // Skip guards while loading or if no destination
+    if ($isLoading || !navigation.to) return
+
+    const targetPath = navigation.to.url.pathname
+    const currentPhase = $gameState.currentPhase
+
+    // Allow navigation to main menu always
+    if (targetPath === '/') return
+
+    // Check if the target route is valid for the current phase
+    if (!isRouteValidForPhase(targetPath, currentPhase)) {
+      console.warn(`[Navigation Guard] Blocked navigation to ${targetPath} - invalid for phase ${currentPhase}`)
+      navigation.cancel()
+
+      // Redirect to the correct route for current phase
+      const expectedRoute = getRouteForPhase(currentPhase)
+      if (expectedRoute && expectedRoute !== $page.url.pathname) {
+        goto(expectedRoute, { replaceState: true })
+      }
+    }
+  })
+
+  // Sync URL when game state changes (phase transitions)
+  $effect(() => {
+    // Skip during loading or if on main menu
+    if ($isLoading) return
+
+    const currentPhase = $gameState.currentPhase
+    const currentPath = $page.url.pathname
+    const expectedRoute = getRouteForPhase(currentPhase)
+
+    // Navigate to correct route if URL doesn't match expected phase
+    if (expectedRoute && currentPath !== expectedRoute) {
+      // Don't navigate away from main menu unless game is started
+      if (currentPath === '/' && currentPhase === 'not_started') return
+
+      goto(expectedRoute, { replaceState: true })
+    }
   })
 
   // Menu action handlers

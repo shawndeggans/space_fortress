@@ -36,8 +36,11 @@ function createOwnedCard(id: string, faction: FactionId, isLocked = false): Owne
     name: `Test Card ${id}`,
     faction,
     attack: 10,
-    armor: 8,
+    defense: 8,
+    hull: 5,
     agility: 6,
+    energyCost: 2,
+    abilities: [],
     source: 'quest',
     acquiredAt: new Date().toISOString(),
     isLocked,
@@ -374,7 +377,13 @@ describe('Card Selection Read Model', () => {
           timestamp: new Date().toISOString(),
           cardId: 'card_new',
           factionId: 'ironveil',
-          source: 'quest'
+          source: 'quest',
+          name: 'New Card',
+          attack: 4,
+          defense: 3,
+          hull: 5,
+          agility: 3,
+          energyCost: 2
         }
       }
 
@@ -395,7 +404,13 @@ describe('Card Selection Read Model', () => {
           timestamp: new Date().toISOString(),
           cardId: 'card_1',
           factionId: 'ironveil',
-          source: 'quest'
+          source: 'quest',
+          name: 'Card 1',
+          attack: 4,
+          defense: 3,
+          hull: 5,
+          agility: 3,
+          energyCost: 2
         }
       }
       const stateWithCard = reducer(initialState, gainEvent)

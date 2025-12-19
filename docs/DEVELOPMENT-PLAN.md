@@ -4,19 +4,30 @@ This document outlines the implementation roadmap for building Space Fortress as
 
 ## Current State
 
-The project has a **walking skeleton** with:
-- Event sourcing architecture (command → event → projection)
-- SQLite persistence via sql.js + IndexedDB
-- Basic Svelte UI with save/load functionality
-- Simplified types (4 commands, 5 events)
+The project has a **functional core game loop** with:
+- Event sourcing architecture (command → event → projection) with 51 event types
+- SQLite persistence via sql.js + IndexedDB with automatic snapshots
+- Command serialization via async-mutex to prevent race conditions
+- Navigation guards keeping URL in sync with game phase
+- Fat events for self-contained state reconstruction
+- Graceful degradation for corrupted event data
+- 469+ unit tests covering all game systems
 
-**What we need to build:**
-- Full event system (42 events across 9 categories)
-- 18+ read model projections
-- 12 game screens
-- 15+ reusable UI components
-- Battle system with d20 combat
-- Quest and reputation systems
+**What's implemented:**
+- ✅ Full event system (51 events across 9 categories)
+- ✅ Core read model projections
+- ✅ 12 game screens (quest-hub, narrative, card-pool, deployment, battle, etc.)
+- ✅ 15+ reusable UI components
+- ✅ Battle system with d20 combat
+- ✅ Quest and reputation systems
+- ✅ Alliance and mediation systems
+- ✅ Vertical slice architecture for command handlers
+
+**What remains for MVP:**
+- Quest content (narrative text, NPC dialogue)
+- Balance tuning
+- Polish and playtesting
+- itch.io deployment
 
 ---
 
@@ -88,12 +99,12 @@ interface ChoiceConsequences {
 ```
 
 **Tasks:**
-- [ ] Define all faction types and constants
-- [ ] Define Card interface with stats
-- [ ] Define Quest and Dilemma structures
-- [ ] Define Choice and Consequence types
-- [ ] Define Battle-related types (BattleSetup, Round, RoundResult)
-- [ ] Define Reputation thresholds and status types
+- [x] Define all faction types and constants
+- [x] Define Card interface with stats
+- [x] Define Quest and Dilemma structures
+- [x] Define Choice and Consequence types
+- [x] Define Battle-related types (BattleSetup, Round, RoundResult)
+- [x] Define Reputation thresholds and status types
 
 #### 1.2 Implement Full Event Catalog
 
@@ -166,10 +177,10 @@ Implement all 42 events organized by category:
 - `CompromiseAccepted`
 
 **Tasks:**
-- [ ] Create events.ts with all event type definitions
-- [ ] Add payload types for each event
-- [ ] Create discriminated union GameEvent type
-- [ ] Add event factory functions for type safety
+- [x] Create events.ts with all event type definitions (51 events)
+- [x] Add payload types for each event
+- [x] Create discriminated union GameEvent type
+- [x] Add event factory functions for type safety
 
 #### 1.3 Implement Full Command Catalog
 
@@ -212,9 +223,9 @@ Implement all 42 events organized by category:
 - `ViewCardDetails`
 
 **Tasks:**
-- [ ] Create commands.ts with all command types
-- [ ] Add payload types for each command
-- [ ] Create discriminated union GameCommand type
+- [x] Create commands.ts with all command types
+- [x] Add payload types for each command
+- [x] Create discriminated union GameCommand type
 
 ---
 
@@ -262,10 +273,10 @@ interface GameState {
 ```
 
 **Tasks:**
-- [ ] Define complete GameState interface
-- [ ] Define GamePhase enum (narrative, commitment, deployment, execution, consequence)
-- [ ] Define BattleState interface
-- [ ] Define GameStats interface for ending calculation
+- [x] Define complete GameState interface
+- [x] Define GamePhase enum (13 phases including mediation, alliance, choice_consequence)
+- [x] Define BattleState interface
+- [x] Define GameStats interface for ending calculation
 
 #### 2.2 Read Model Projections
 
@@ -274,32 +285,28 @@ interface GameState {
 Create projection functions for each read model:
 
 **Priority 1 (Core Loop):**
-- [ ] `projectPlayerState(events): PlayerState` - Header display
-- [ ] `projectQuestList(events): QuestList` - Quest hub
-- [ ] `projectDilemmaView(events, dilemmaId): DilemmaView` - Narrative screen
-- [ ] `projectCardPoolView(events, battleId?): CardPoolView` - Card selection
-- [ ] `projectDeploymentView(events, battleId): DeploymentView` - Card ordering
-- [ ] `projectRoundView(events, battleId, round): RoundView` - Battle display
-- [ ] `projectBattleResultView(events, battleId): BattleResultView` - Battle summary
-- [ ] `projectConsequenceView(events, battleId): ConsequenceView` - Outcome display
+- [x] `projectNavigationView(state): NavigationView` - Header display
+- [x] `projectQuestHubView(state): QuestHubView` - Quest hub
+- [x] `projectNarrativeView(state): NarrativeView` - Narrative screen
+- [x] `projectCardPoolView(state): CardPoolView` - Card selection
+- [x] `projectDeploymentView(state): DeploymentView` - Card ordering
+- [x] `projectBattleView(state): BattleView` - Battle display
+- [x] `projectConsequenceView(state): ConsequenceView` - Outcome display
 
 **Priority 2 (Extended Systems):**
-- [ ] `projectActiveQuest(events): ActiveQuest` - Quest tracker
-- [ ] `projectAllianceOptions(events, questId): AllianceOptions` - Alliance selection
-- [ ] `projectAllianceTermsView(events, factionId): AllianceTermsView` - Alliance details
-- [ ] `projectMediationView(events, mediationId): MediationView` - Mediation screen
-- [ ] `projectReputationDashboard(events): ReputationDashboard` - Faction standings
-- [ ] `projectFactionDetailView(events, factionId): FactionDetailView` - Faction details
+- [x] `projectAllianceView(state): AllianceView` - Alliance selection
+- [x] `projectMediationView(state): MediationView` - Mediation screen
+- [x] `projectChoiceConsequenceView(state): ChoiceConsequenceView` - Choice feedback
+- [x] `projectQuestSummaryView(state): QuestSummaryView` - Quest completion
 
 **Priority 3 (Endgame):**
-- [ ] `projectEndingView(events): EndingView` - Final evaluation
-- [ ] `projectChoiceArchaeologyView(events): ChoiceArchaeologyView` - Choice history
-- [ ] `projectPostBattleDilemmaView(events, battleId): PostBattleDilemmaView`
+- [x] `projectEndingView(state): EndingView` - Final evaluation
+- [ ] `projectChoiceArchaeologyView(events): ChoiceArchaeologyView` - Choice history (optional)
 
 **Tasks:**
-- [ ] Create projections directory with index.ts
-- [ ] Implement each projection as a pure function
-- [ ] Add unit tests for projections
+- [x] Create projections directory with index.ts
+- [x] Implement each projection as a pure function
+- [x] Add unit tests for projections
 
 #### 2.3 Decider Logic
 
@@ -330,13 +337,13 @@ export function decide(command: GameCommand, state: GameState): GameEvent[] {
 - Bounty calculation with ally shares
 
 **Tasks:**
-- [ ] Implement quest command handlers
-- [ ] Implement narrative command handlers
-- [ ] Implement battle command handlers
-- [ ] Implement alliance command handlers
-- [ ] Implement mediation command handlers
-- [ ] Add validation for all state transitions
-- [ ] Write unit tests for decider logic
+- [x] Implement quest command handlers (via slices/accept-quest/)
+- [x] Implement narrative command handlers (via slices/make-choice/)
+- [x] Implement battle command handlers (via slices/card-selection/, deployment/, battle-resolution/)
+- [x] Implement alliance command handlers (via slices/form-alliance/)
+- [x] Implement mediation command handlers (via slices/mediation/)
+- [x] Add validation for all state transitions
+- [x] Write unit tests for decider logic (469+ tests)
 
 ---
 
@@ -388,13 +395,13 @@ function resolveBattle(
 - Round Win: Hit opponent while not getting hit, OR opponent misses while you hit
 
 **Tasks:**
-- [ ] Implement d20 roll function with seeding option for tests
-- [ ] Implement initiative resolution
-- [ ] Implement attack resolution
-- [ ] Implement round resolution
-- [ ] Implement full battle resolution
-- [ ] Generate battle events during resolution
-- [ ] Add unit tests for combat edge cases
+- [x] Implement d20 roll function with seeding option for tests
+- [x] Implement initiative resolution
+- [x] Implement attack resolution
+- [x] Implement round resolution
+- [x] Implement full battle resolution
+- [x] Generate battle events during resolution
+- [x] Add unit tests for combat edge cases
 
 #### 3.2 Opponent Fleet Generation
 
@@ -418,10 +425,10 @@ function generateOpponentFleet(
 ```
 
 **Tasks:**
-- [ ] Define opponent fleet templates
-- [ ] Implement fleet generation based on battle context
-- [ ] Add difficulty scaling
-- [ ] Create scavenger/pirate generic card pools
+- [x] Define opponent fleet templates
+- [x] Implement fleet generation based on battle context
+- [x] Add difficulty scaling
+- [x] Create scavenger/pirate generic card pools
 
 ---
 
@@ -434,36 +441,36 @@ Build reusable Svelte components.
 **Directory: `src/lib/components/`**
 
 **Card Display:**
-- [ ] `Card.svelte` - Ship card with stats (attack/armor/agility)
-- [ ] `CardMini.svelte` - Compact card for lists
-- [ ] `CardSlot.svelte` - Empty slot for deployment
+- [x] `Card.svelte` - Ship card with stats (attack/armor/agility)
+- [x] `CardMini.svelte` - Compact card for lists
+- [x] `CardSlot.svelte` - Empty slot for deployment
 
 **Stats & Indicators:**
-- [ ] `StatPill.svelte` - Single stat display (⚔5)
-- [ ] `ReputationBar.svelte` - Faction reputation meter
-- [ ] `BountyDisplay.svelte` - Currency display
-- [ ] `PhaseIndicator.svelte` - Current game phase dots
+- [x] `StatPill.svelte` - Single stat display (⚔5)
+- [x] `ReputationBar.svelte` - Faction reputation meter
+- [x] `BountyDisplay.svelte` - Currency display
+- [x] `PhaseIndicator.svelte` - Current game phase dots
 
 **Narrative:**
-- [ ] `NpcVoiceBox.svelte` - NPC dialogue with portrait
-- [ ] `ChoiceButton.svelte` - Choice with consequences preview
-- [ ] `SituationBox.svelte` - Narrative text container
+- [x] `NpcVoiceBox.svelte` - NPC dialogue with portrait
+- [x] `ChoiceButton.svelte` - Choice with consequences preview
+- [x] `SituationBox.svelte` - Narrative text container
 
 **Layout:**
-- [ ] `GameHeader.svelte` - Persistent header with quest/rep/bounty
-- [ ] `Modal.svelte` - Generic modal container
-- [ ] `Screen.svelte` - Screen wrapper with transitions
+- [x] `GameHeader.svelte` - Persistent header with quest/rep/bounty
+- [x] `Modal.svelte` - Generic modal container
+- [x] `DebugPanel.svelte` - Development debugging tools
 
 **Battle:**
-- [ ] `DiceRoll.svelte` - Animated d20 display
-- [ ] `CombatLog.svelte` - Round-by-round text log
-- [ ] `BattleCard.svelte` - Card in battle context with health indicator
+- [x] `DiceRoll.svelte` - Animated d20 display
+- [x] `CombatLog.svelte` - Round-by-round text log
+- [x] `BattleCard.svelte` - Card in battle context with health indicator
 
 **Tasks:**
-- [ ] Create component directory structure
-- [ ] Implement each component with props interface
-- [ ] Add CSS styling (dark theme, space aesthetic placeholders)
-- [ ] Add component state variants (selected, locked, disabled)
+- [x] Create component directory structure
+- [x] Implement each component with props interface
+- [x] Add CSS styling (dark theme, space aesthetic)
+- [x] Add component state variants (selected, locked, disabled)
 
 #### 4.2 Component Styling System
 
@@ -490,11 +497,11 @@ Build reusable Svelte components.
 ```
 
 **Tasks:**
-- [ ] Define color palette for factions
-- [ ] Define typography scale
-- [ ] Create spacing system
-- [ ] Build dark theme foundation
-- [ ] Add placeholder image system (silhouettes for ships)
+- [x] Define color palette for factions (tokens.css)
+- [x] Define typography scale
+- [x] Create spacing system
+- [x] Build dark theme foundation
+- [x] Add placeholder image system (emoji/unicode for ships)
 
 ---
 
@@ -547,11 +554,11 @@ Build the 12 main screens.
 - Continue button to next phase
 
 **Tasks:**
-- [ ] Create route structure for each screen
-- [ ] Implement screen components using read models
-- [ ] Wire up command dispatching
-- [ ] Add screen transitions
-- [ ] Handle loading states
+- [x] Create route structure for each screen
+- [x] Implement screen components using read models
+- [x] Wire up command dispatching
+- [x] Add navigation guards for phase-route sync
+- [x] Handle loading states
 
 #### 5.2 Priority 2: Extended Screens
 
@@ -574,9 +581,9 @@ Build the 12 main screens.
 - Special handling for discovery events
 
 **Tasks:**
-- [ ] Implement alliance screen with terms modal
-- [ ] Implement mediation screen with position display
-- [ ] Implement post-battle dilemma variations
+- [x] Implement alliance screen with terms modal
+- [x] Implement mediation screen with position display
+- [x] Implement post-battle dilemma variations
 
 #### 5.3 Priority 3: Information Screens
 
@@ -601,9 +608,9 @@ Build the 12 main screens.
 - New game button
 
 **Tasks:**
-- [ ] Implement reputation dashboard with faction expansion
-- [ ] Implement fleet overview with filtering/sorting
-- [ ] Implement ending screen with all ending types
+- [x] Implement reputation display in header
+- [ ] Implement fleet overview with filtering/sorting (optional enhancement)
+- [x] Implement ending screen with all ending types
 
 ---
 
@@ -626,10 +633,10 @@ Create cards for each faction with stat distributions:
 | Sundered Oath | Glass Cannon | Very High | Low | Medium |
 
 **Tasks:**
-- [ ] Create 4 cards per faction (20 total for MVP)
-- [ ] Balance stat distributions (total ~10 per card)
-- [ ] Add flavor text placeholders
-- [ ] Create starter deck (3-4 generic cards)
+- [x] Create 4 cards per faction (20+ total)
+- [x] Balance stat distributions (total ~10 per card)
+- [x] Add flavor text
+- [x] Create starter deck (3-4 generic cards)
 
 #### 6.2 Quest Content
 
@@ -658,11 +665,13 @@ Three quest arcs for MVP:
 - Dilemma 4: Final disposition
 
 **Tasks:**
-- [ ] Write situation text for each dilemma
-- [ ] Write NPC dialogue (3 voices per dilemma)
-- [ ] Define choice consequences
-- [ ] Create quest unlock requirements
-- [ ] Balance reputation/bounty rewards
+- [x] Write situation text for each dilemma (Quest 1 complete)
+- [x] Write NPC dialogue (3 voices per dilemma)
+- [x] Define choice consequences
+- [x] Create quest unlock requirements
+- [x] Balance reputation/bounty rewards
+- [ ] Quest 2 content (The Sanctuary Run)
+- [ ] Quest 3 content (The Broker's Gambit)
 
 #### 6.3 Faction Data
 
@@ -684,10 +693,10 @@ const factions: Record<FactionId, Faction> = {
 ```
 
 **Tasks:**
-- [ ] Define all 5 factions with lore
-- [ ] Set faction relationships (conflicts)
-- [ ] Define reputation thresholds per faction
-- [ ] Create faction leader NPCs
+- [x] Define all 5 factions with lore
+- [x] Set faction relationships (conflicts)
+- [x] Define reputation thresholds per faction
+- [x] Create faction leader NPCs
 
 ---
 
@@ -718,10 +727,10 @@ function getNextRoute(state: GameState, lastEvent: GameEvent): GameRoute {
 ```
 
 **Tasks:**
-- [ ] Implement navigation state machine
-- [ ] Add route guards (prevent accessing battle without fleet)
-- [ ] Create smooth transitions between screens
-- [ ] Add back button handling where appropriate
+- [x] Implement navigation state machine (router.ts with PHASE_ROUTES)
+- [x] Add route guards (beforeNavigate in +layout.svelte)
+- [x] Create smooth transitions between screens ($effect for phase changes)
+- [x] Add back button handling where appropriate
 
 #### 7.2 Svelte Store Integration
 
@@ -738,18 +747,18 @@ export const currentDilemma = derived([events, currentDilemmaId], projectDilemma
 ```
 
 **Tasks:**
-- [ ] Create derived stores for all read models
-- [ ] Optimize projection calculations (memoization)
-- [ ] Handle event persistence to SQLite
-- [ ] Implement event replay on load
+- [x] Create derived stores for all read models
+- [x] Optimize projection calculations (snapshots after 50 events)
+- [x] Handle event persistence to SQLite
+- [x] Implement event replay on load (with snapshot support)
 
 #### 7.3 Error Handling & Edge Cases
 
 **Tasks:**
-- [ ] Add error boundaries for UI crashes
-- [ ] Handle invalid game states gracefully
-- [ ] Add confirmation dialogs for destructive actions
-- [ ] Implement undo for card selection (not choices)
+- [x] Add error toast for game errors
+- [x] Handle invalid game states gracefully (pending state validation)
+- [x] Handle corrupted event data gracefully (try-catch in JSON parsing)
+- [x] Implement card deselection for card selection phase
 
 #### 7.4 Audio Hooks (Placeholder)
 
@@ -774,9 +783,9 @@ export function playSound(event: string) {
 ```
 
 **Tasks:**
-- [ ] Create audio event constants
-- [ ] Add audio hooks to key game moments
-- [ ] Document audio requirements for future
+- [ ] Create audio event constants (future)
+- [ ] Add audio hooks to key game moments (future)
+- [ ] Document audio requirements for future (out of MVP scope)
 
 ---
 
@@ -787,19 +796,19 @@ export function playSound(event: string) {
 **Directory: `src/lib/game/__tests__/`**
 
 **Critical Test Coverage:**
-- [ ] All decider command handlers
-- [ ] Combat resolution (hit/miss, initiative, rounds)
-- [ ] Reputation calculations (thresholds, card locks)
-- [ ] All projection functions
-- [ ] Event serialization/deserialization
+- [x] All decider command handlers (469+ tests)
+- [x] Combat resolution (hit/miss, initiative, rounds)
+- [x] Reputation calculations (thresholds, card locks)
+- [x] All projection functions
+- [x] Event serialization/deserialization
 
 #### 8.2 Integration Tests
 
-- [ ] Full quest playthrough (happy path)
-- [ ] Battle with all outcomes (victory, defeat, draw)
-- [ ] Mediation path (diplomatic resolution)
-- [ ] Reputation gating (locked quest, locked cards)
-- [ ] Save/load cycle preservation
+- [x] Full quest playthrough (happy path) - gameplay-simulation.test.ts
+- [x] Battle with all outcomes (victory, defeat, draw)
+- [x] Mediation path (diplomatic resolution)
+- [x] Reputation gating (locked quest, locked cards)
+- [x] Save/load cycle preservation
 
 #### 8.3 Playtesting Checklist
 
@@ -874,24 +883,51 @@ For efficient development, implement in this order:
 ## Technical Notes
 
 ### Event Versioning
-All events include a version field for future compatibility:
+All events include a timestamp for debugging. Fat events include all relevant data:
 ```typescript
-interface BaseEvent {
-  version: 1
-  timestamp: string
+interface CardGainedEvent {
+  type: 'CARD_GAINED'
+  data: {
+    cardId: string
+    factionId: FactionId
+    name: string
+    attack: number
+    armor: number
+    agility: number
+    source: 'starter' | 'quest' | 'alliance' | 'choice' | 'unlock'
+    timestamp: string
+  }
 }
 ```
 
 ### State Reconstruction
-Game state is always rebuilt from events, never mutated:
+Game state is rebuilt from events using snapshots for performance:
 ```typescript
-const state = events.reduce(evolveState, getInitialState())
+// BrowserEventStore.loadStateWithSnapshot handles this automatically
+const state = await eventStore.loadStateWithSnapshot(
+  streamId,
+  evolveState,
+  getInitialState()
+)
 ```
 
 ### Performance Considerations
-- Memoize projection calculations
-- Use Svelte's reactive system, not manual subscriptions
-- Consider event snapshots for long games (>1000 events)
+- **Snapshots**: Automatic snapshots after 50 events (SNAPSHOT_THRESHOLD)
+- **Schema versioning**: SCHEMA_VERSION invalidates old snapshots when GameState changes
+- **Command mutex**: async-mutex prevents race conditions from rapid UI actions
+- **Graceful degradation**: Corrupted events are skipped, not fatal
+
+### Navigation Guards
+URL stays in sync with game phase via router.ts:
+```typescript
+export const PHASE_ROUTES: Record<GamePhase, string | null> = {
+  quest_hub: '/quest-hub',
+  narrative: '/narrative',
+  battle: '/battle',
+  // ...
+}
+```
+Layout uses beforeNavigate to block invalid routes and $effect to auto-navigate on phase changes.
 
 ### Placeholder Assets
 Use text/emoji placeholders for all visual elements:
