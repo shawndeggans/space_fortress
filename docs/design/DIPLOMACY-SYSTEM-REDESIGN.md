@@ -1108,7 +1108,7 @@ This creates interesting decisions:
 4. **Reading the opponent** - AI patterns can be learned; some factions bluff more
 5. **Deck building** - What kind of negotiator are you? Safe and steady? High risk?
 
-### Simplification Option
+### Simplification Option: Quick Negotiation
 
 If full card-based negotiation is too complex, a simpler version:
 
@@ -1122,23 +1122,216 @@ This preserves the card-based feel without alternating turns.
 
 ---
 
+## Alternative Model: Favor System (Dominion: Allies-Inspired)
+
+Instead of a separate negotiation card game, **integrate diplomacy into battle cards themselves**. This is inspired by Dominion: Allies, where Favors accumulate through normal play and unlock Ally abilities.
+
+### Core Concept
+
+- **Favors** are earned by playing faction-aligned cards in battle
+- **Ally Abilities** are persistent bonuses you can activate by spending Favors
+- **No separate negotiation phase** - diplomacy happens *through* combat
+
+This creates a unified system where your battle deck IS your diplomatic tool.
+
+### How Favors Work
+
+```typescript
+interface FavorState {
+  favors: Record<FactionId, number>  // Accumulated per faction
+}
+
+// Favor ranges
+// 0: No relationship
+// 1-4: Minor favor (basic requests)
+// 5-9: Notable favor (alliance available)
+// 10-14: Strong favor (better terms)
+// 15+: Devoted (best cards, lowest costs)
+```
+
+**Earning Favors:**
+
+| Action | Favors Earned |
+|--------|---------------|
+| Play a faction's card in battle | +1 to that faction |
+| Win a battle using faction's cards | +1 per surviving faction card |
+| Complete quest for a faction | +3 to that faction |
+| Faction card deals killing blow | +2 to that faction |
+| Make choice favoring a faction | +1 to +3 based on impact |
+
+**Losing Favors:**
+
+| Action | Favors Lost |
+|--------|-------------|
+| Faction card destroyed in battle | -1 from that faction |
+| Choose against a faction | -1 to -3 based on impact |
+| Ally with rival faction | -2 from opposing faction |
+| Break a promise | -5 from affected faction |
+
+### Ally Cards (Persistent Benefits)
+
+Each faction has an **Ally Card** - a persistent benefit that activates when you have enough Favors with them. Unlike battle cards, Ally Cards aren't played; they sit in a "Diplomacy Zone" and provide ongoing effects.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    DIPLOMACY ZONE                        │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  ┌───────────────┐  ┌───────────────┐  ┌─────────────┐ │
+│  │   IRONVEIL    │  │    ASHFALL    │  │  (locked)   │ │
+│  │     ALLY      │  │     ALLY      │  │             │ │
+│  │ ───────────── │  │ ───────────── │  │  MERIDIAN   │ │
+│  │ Favors: 8/5 ✓ │  │ Favors: 3/5 ✗ │  │  Need 5     │ │
+│  │               │  │               │  │  Have 2     │ │
+│  │ DEBT LEVERAGE │  │ (inactive)    │  │             │ │
+│  │ Spend 3 favor:│  │               │  │             │ │
+│  │ Enemy -1 card │  │               │  │             │ │
+│  └───────────────┘  └───────────────┘  └─────────────┘ │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Faction Ally Abilities
+
+Each faction offers a unique Ally ability you can activate by spending accumulated Favors:
+
+| Faction | Ally Name | Activation Cost | Effect |
+|---------|-----------|-----------------|--------|
+| **Ironveil** | Debt Leverage | 3 Favors | Enemy discards 1 card at battle start |
+| **Ashfall** | Smuggler's Cache | 2 Favors | Draw 1 extra card this turn |
+| **Meridian** | Trade Connections | 4 Favors | Gain 100 bounty; +1 card next battle |
+| **Void Wardens** | Shield Protocol | 3 Favors | One ship gains +2 armor this battle |
+| **Sundered Oath** | Desperate Gambit | 2 Favors | One ship gains +3 attack, -2 armor |
+
+**Scaling Benefits (Favor Thresholds):**
+
+| Favor Level | Alliance Status | Benefit |
+|-------------|-----------------|---------|
+| 0-4 | None | Cannot request alliance |
+| 5-9 | Available | Can request 2 cards; 30% bounty share |
+| 10-14 | Favorable | Can request 3 cards; 20% bounty share |
+| 15+ | Devoted | 3 cards with enhanced stats; 10% share |
+
+### Liaison Cards
+
+Some battle cards have a **Liaison** keyword - when played, they generate extra Favors. This creates interesting deck-building decisions: Liaison cards might have slightly weaker stats but build diplomatic capital.
+
+```typescript
+interface LiaisonCard extends BattleCard {
+  liaison: {
+    faction: FactionId
+    favorsGenerated: number
+    condition?: string  // e.g., "if this card survives"
+  }
+}
+```
+
+**Example Liaison Cards:**
+
+| Card | Stats | Liaison Effect |
+|------|-------|----------------|
+| Ironveil Envoy | 2/3/3 | +2 Ironveil Favors when deployed |
+| Ashfall Courier | 3/2/4 | +1 Ashfall Favor per attack made |
+| Meridian Broker | 2/4/3 | +1 Favor to ANY faction when deployed (you choose) |
+| Void Delegate | 2/5/2 | +2 Void Warden Favors if survives battle |
+| Oath Messenger | 4/2/3 | +1 Sundered Oath Favor; +2 if deals killing blow |
+
+### Integration with Battle
+
+The Favor system creates new strategic layers in battle:
+
+**Pre-Battle:**
+- Check Favor thresholds to see alliance options
+- Activate Ally abilities by spending Favors
+- Request alliance cards (costs Favors, provides cards)
+
+**During Battle:**
+- Playing faction cards earns Favors
+- Liaison cards generate bonus Favors
+- Protecting faction cards maintains Favor
+
+**Post-Battle:**
+- Faction cards that survived grant bonus Favors
+- Faction cards destroyed lose Favors
+- Favor decay: -1 per faction per quest (relationships need maintenance)
+
+### Unified Card System
+
+The beauty of this approach: **one deck serves both purposes**.
+
+Your battle deck composition IS your diplomatic strategy:
+- Heavy Ironveil deck = strong Ironveil alliance potential
+- Mixed faction deck = moderate relationships with everyone
+- Liaison-heavy deck = diplomatic focus (weaker combat, stronger alliances)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        DECK BUILDER                             │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  Your Deck (10 cards)              Faction Balance              │
+│  ┌────┐┌────┐┌────┐┌────┐┌────┐   ┌──────────────────────────┐ │
+│  │ IV ││ IV ││ AF ││ AF ││ MC │   │ Ironveil:  ████░░ 4      │ │
+│  └────┘└────┘└────┘└────┘└────┘   │ Ashfall:   ███░░░ 3      │ │
+│  ┌────┐┌────┐┌────┐┌────┐┌────┐   │ Meridian:  █░░░░░ 1      │ │
+│  │ MC ││ VW ││ VW ││ SO ││ SO │   │ Void W.:   ██░░░░ 2      │ │
+│  └────┘└────┘└────┘└────┘└────┘   │ Sundered:  ██░░░░ 2      │ │
+│                                    └──────────────────────────┘ │
+│  Liaison Cards: 3                                               │
+│  └─ Ironveil Envoy, Ashfall Courier, Meridian Broker            │
+│                                                                 │
+│  Diplomatic Forecast:                                           │
+│  "Strong Ironveil potential. Moderate Ashfall. Others unlikely."|
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Comparison: Three Approaches
+
+| Aspect | Menu-Driven | Card Negotiation | Favor System |
+|--------|-------------|------------------|--------------|
+| **Complexity** | Low | High | Medium |
+| **New mechanics** | Influence + Standing | Argument deck (6+ cards) | Favors + Liaison keyword |
+| **Player agency** | Choice from menu | Card play decisions | Deck building + battle play |
+| **Negotiation feel** | Transactional | Strategic duel | Emergent from actions |
+| **Integration** | Separate phase | Separate mini-game | Woven into battle |
+| **Learning curve** | Easy | Steep | Moderate |
+| **Replayability** | Low | High | High |
+
+### Recommended: Favor System
+
+The Favor system offers the best balance:
+- **Simpler than card negotiation** - no second deck to manage
+- **Deeper than menus** - your choices in battle affect diplomacy
+- **Unified design** - battle cards serve double duty
+- **Emergent strategy** - diplomatic style comes from deck composition
+
+It also creates a satisfying loop:
+1. Build deck with faction focus
+2. Play those cards in battle, earning Favors
+3. Spend Favors on Ally abilities and alliance requests
+4. Earn better faction cards through successful alliances
+5. Repeat with stronger diplomatic position
+
+---
+
 ## Open Questions
 
-1. **Complexity Budget** - Is this too much for the game's scope? Should we start with fewer mechanics?
+1. **Which System?** - Three options presented: Menu-driven (simple), Card Negotiation (complex), or Favor System (recommended). Which fits the game best?
 
-2. **Request Frequency** - How many requests per quest? Too many = overwhelming, too few = forgettable.
+2. **Favor Decay Rate** - Should Favors decay between quests? If so, how fast? (-1 per quest feels right, but needs testing.)
 
-3. **Agenda Visibility** - Should faction agendas be hidden until discovered, or always visible?
+3. **Liaison Card Balance** - How much weaker should Liaison cards be compared to pure combat cards? Enough to feel the trade-off, but not so much they're never picked.
 
-4. **Multiplayer Consideration** - If PvP is ever added, how does diplomacy work?
+4. **Ally Ability Timing** - Can Ally abilities be used mid-battle, or only pre-battle? Mid-battle is more tactical but adds complexity.
 
-5. **Tutorial Needs** - This is significantly more complex. Guided first quest? Tooltips? Codex?
+5. **Blocking Integration** - Should the blocking mechanics (from earlier in this doc) still apply, or does the Favor threshold naturally handle access control?
 
-6. **Save File Size** - Tracking all this history could bloat saves. Archive old events?
+6. **Favor Visibility** - Should players see exact Favor numbers, or just thresholds (None/Available/Favorable/Devoted)?
 
-7. **Card-Based vs Menu-Based** - Should negotiation be a card game (more engaging, mechanical consistency) or menu-driven (simpler, faster)? Or offer both as difficulty settings?
+7. **Cross-Faction Tension** - When you gain Favors with one faction, should rivals automatically lose Favors? Or only on specific actions?
 
-8. **Two Card Decks** - If we go card-based negotiation, does managing two decks (battle + argument) feel overwhelming or does it add strategic depth?
+8. **Tutorial Approach** - The Favor system is more intuitive than card negotiation, but still needs explanation. Guided first quest? Tooltips? Let players discover?
 
 ---
 
