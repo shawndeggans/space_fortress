@@ -19,7 +19,10 @@ The project has a **functional core game loop** with:
 - ✅ 11 game screens (quest-hub, narrative, card-pool, deployment, battle, alliance, mediation, consequence, choice-consequence, quest-summary, ending)
 - ✅ 17 reusable UI components
 - ✅ Classic battle system with d20 combat
-- ✅ Tactical battle system (turn-based, energy management, opponent AI, ~90% complete)
+- ✅ Tactical battle system (turn-based, energy management, 100% complete)
+- ✅ Tactical battle UI screen (`/tactical-battle` route with full click-to-select interaction)
+- ✅ Tactical battle abilities engine (12+ effect types, trigger system, status effects)
+- ✅ Tactical battle AI opponent (rule-based decision engine)
 - ✅ Quest and reputation systems
 - ✅ Alliance and mediation systems
 - ✅ Vertical slice architecture for command handlers
@@ -27,10 +30,8 @@ The project has a **functional core game loop** with:
 - ✅ **All 3 quests fully implemented** (The Salvage Claim, The Sanctuary Run, The Broker's Gambit)
 
 **What remains for MVP:**
-- Tactical battle: UI screen (`/tactical-battle` route)
-- Tactical battle: Abilities system implementation (types exist, effects engine needed)
-- Tactical battle: AI opponent behavior
-- Balance tuning
+- Combat log UI component for tactical battles
+- Balance tuning (energy costs, damage values, ability effects)
 - Polish and playtesting
 - itch.io deployment
 
@@ -479,13 +480,20 @@ Turn-based combat system replacing the automated d20 system. See `docs/design/CA
 
 #### 3B.2 Abilities System
 
+**Files:**
+- `src/lib/game/abilityEffects.ts` - Core ability processing engine ✅
+- `docs/design/slices/SLICE-09-ABILITY-EFFECTS.md` - Slice documentation ✅
+
 **Tasks:**
-- [ ] Ability data structure and types (CardAbility interface exists)
-- [ ] Ability timing system (triggers: deploy, attack, defend, destroyed, etc.)
-- [ ] 4-5 abilities per faction (20 total)
-- [ ] Ability targeting system
-- [ ] UI for ability activation
-- [ ] Ability effects engine
+- [x] Ability data structure and types (CardAbility, AbilityEffect, AbilityTrigger)
+- [x] Ability timing system (triggers: onDeploy, onAttack, onDefend, onDestroyed, startTurn, endTurn, activated, passive)
+- [x] 4-5 abilities per faction (20+ defined in cards.ts)
+- [x] Ability targeting system (self, enemy, ally, all_enemies, adjacent, flagship)
+- [x] Ability effects engine (12+ effect types: damage, repair, shield, stun, buffs, etc.)
+- [x] Condition checking for conditional abilities
+- [x] Status effect duration tracking
+- [x] Passive ability modifiers
+- [ ] UI for ability activation (button to manually trigger activated abilities)
 
 #### 3B.3 Hand Management
 
@@ -976,20 +984,25 @@ For efficient development, implement in this order:
 5. ~~Mediation screen~~
 6. ~~Quest 3 content (The Broker's Gambit)~~
 
-### Sprint 6: Tactical Battle Completion (CURRENT)
+### Sprint 6: Tactical Battle Completion (COMPLETE)
 1. ~~Complete remaining command handlers~~ ✅ (all 10 implemented)
 2. ~~Complete remaining projection handlers~~ ✅ (all core handlers done)
 3. ~~Create tactical-battle UI screen~~ ✅ (full battle UI with click-to-select)
 4. ~~AI opponent behavior~~ ✅ (rule-based: deploy → attack → end turn)
-5. **Implement ability effects engine** ← NEXT
-6. Polish combat log with event integration
-7. Add animations for attacks/damage
-8. Integration testing
+5. ~~Implement ability effects engine~~ ✅ (12+ effect types, all triggers hooked)
 
-### Sprint 7: Polish & Launch
-1. Balance tuning
-2. Playtesting all 3 quests
-3. Bug fixes
+### Sprint 7: Polish & Integration (CURRENT)
+1. **Add ability activation UI** ← NEXT (button for activated abilities)
+2. Polish combat log with event integration
+3. Add animations for attacks/damage
+4. Write ability effects tests
+5. Integration testing for full battle flow
+6. Balance tuning (card stats, energy costs)
+
+### Sprint 8: Final Polish & Launch
+1. Playtesting all 3 quests end-to-end
+2. Bug fixes from playtesting
+3. Performance optimization
 4. itch.io deployment
 
 ---
