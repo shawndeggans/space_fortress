@@ -43,6 +43,7 @@ import {
   type QuestSummaryState
 } from '../slices/quest-summary'
 import { generateOpponentTurnEvents } from './opponentAI'
+import { processAbilities, processStatusDurations } from './abilityEffects'
 
 // ----------------------------------------------------------------------------
 // Error Types
@@ -1656,7 +1657,7 @@ function handleDeployShip(
   const ts = timestamp()
   const newEnergy = battle.player.energy.current - card.energyCost
 
-  return [
+  const events: GameEvent[] = [
     {
       type: 'ENERGY_SPENT',
       data: {
@@ -1680,6 +1681,16 @@ function handleDeployShip(
       }
     }
   ]
+
+  // Process onDeploy abilities
+  const abilityEvents = processAbilities(battle, {
+    trigger: 'onDeploy',
+    sourceShipId: cardId,
+    sourcePlayer: 'player'
+  })
+  events.push(...abilityEvents)
+
+  return events
 }
 
 function handleAttackWithShip(
@@ -1763,6 +1774,28 @@ function handleAttackWithShip(
       targetPlayer
     }
   })
+
+  // Process onAttack abilities for the attacker
+  const attackerAbilityEvents = processAbilities(battle, {
+    trigger: 'onAttack',
+    sourceShipId: attackerCardId,
+    sourcePlayer: 'player',
+    targetShipId: targetId !== 'flagship' ? targetId : undefined,
+    targetPlayer
+  })
+  events.push(...attackerAbilityEvents)
+
+  // Process onDefend abilities for the target (if it's a ship)
+  if (targetId !== 'flagship') {
+    const defenderAbilityEvents = processAbilities(battle, {
+      trigger: 'onDefend',
+      sourceShipId: targetId,
+      sourcePlayer: targetPlayer,
+      targetShipId: attackerCardId,
+      targetPlayer: 'player'
+    })
+    events.push(...defenderAbilityEvents)
+  }
 
   // Calculate and apply damage
   if (targetId === 'flagship') {
@@ -2089,17 +2122,33 @@ function handleEndTurn(
   }
 
   const ts = timestamp()
-  const events: GameEvent[] = [
-    {
-      type: 'TACTICAL_TURN_ENDED',
-      data: {
-        timestamp: ts,
-        battleId: battle.battleId,
-        player: 'player',
-        turnNumber: battle.turnNumber
-      }
+  const events: GameEvent[] = []
+
+  // Process endTurn abilities for player's ships before turn ends
+  for (const ship of battle.player.battlefield) {
+    if (ship) {
+      const endTurnAbilities = processAbilities(battle, {
+        trigger: 'endTurn',
+        sourceShipId: ship.cardId,
+        sourcePlayer: 'player'
+      })
+      events.push(...endTurnAbilities)
     }
-  ]
+  }
+
+  // Process status effect durations
+  const statusEvents = processStatusDurations(battle, 'player')
+  events.push(...statusEvents)
+
+  events.push({
+    type: 'TACTICAL_TURN_ENDED',
+    data: {
+      timestamp: ts,
+      battleId: battle.battleId,
+      player: 'player',
+      turnNumber: battle.turnNumber
+    }
+  })
 
   // Check round limit (each round = 2 turns, one per player)
   const roundNumber = Math.ceil((battle.turnNumber + 1) / 2)
@@ -2146,6 +2195,18 @@ function handleEndTurn(
         newEnergyTotal
       }
     })
+
+    // Process startTurn abilities for opponent's ships
+    for (const ship of battle.opponent.battlefield) {
+      if (ship) {
+        const startTurnAbilities = processAbilities(battle, {
+          trigger: 'startTurn',
+          sourceShipId: ship.cardId,
+          sourcePlayer: 'opponent'
+        })
+        events.push(...startTurnAbilities)
+      }
+    }
 
     // Simulate battle state for AI with updated turn/energy
     const simulatedBattle: TacticalBattleState = {

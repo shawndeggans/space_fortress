@@ -11,6 +11,7 @@
 import type { TacticalBattleState, ShipState } from './types'
 import type { GameEvent } from './events'
 import { getCardById } from './content/cards'
+import { processAbilities, processStatusDurations } from './abilityEffects'
 
 function timestamp(): string {
   return new Date().toISOString()
@@ -320,6 +321,22 @@ export function generateOpponentTurnEvents(
       }
     })
   }
+
+  // Process startTurn abilities for player's ships
+  for (const ship of battle.player.battlefield) {
+    if (ship) {
+      const startTurnAbilities = processAbilities(battle, {
+        trigger: 'startTurn',
+        sourceShipId: ship.cardId,
+        sourcePlayer: 'player'
+      })
+      events.push(...startTurnAbilities)
+    }
+  }
+
+  // Process status effect durations for player
+  const statusEvents = processStatusDurations(battle, 'player')
+  events.push(...statusEvents)
 
   return events
 }
