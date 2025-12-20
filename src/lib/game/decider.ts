@@ -42,6 +42,7 @@ import {
   handleAcknowledgeQuestSummary as sliceHandleAcknowledgeQuestSummary,
   type QuestSummaryState
 } from '../slices/quest-summary'
+import { generateOpponentTurnEvents } from './opponentAI'
 
 // ----------------------------------------------------------------------------
 // Error Types
@@ -2126,8 +2127,7 @@ function handleEndTurn(
       }
     })
   } else {
-    // Start opponent's turn (AI handling would go here)
-    // For now, just emit turn start for opponent
+    // Start opponent's turn
     const newTurnNumber = battle.turnNumber + 1
     const energyRegen = TACTICAL_BATTLE_CONFIG.energyRegeneration
     const newEnergyTotal = Math.min(
@@ -2146,6 +2146,24 @@ function handleEndTurn(
         newEnergyTotal
       }
     })
+
+    // Simulate battle state for AI with updated turn/energy
+    const simulatedBattle: TacticalBattleState = {
+      ...battle,
+      turnNumber: newTurnNumber,
+      activePlayer: 'opponent',
+      opponent: {
+        ...battle.opponent,
+        energy: {
+          ...battle.opponent.energy,
+          current: newEnergyTotal
+        }
+      }
+    }
+
+    // Let the opponent AI take its turn
+    const opponentEvents = generateOpponentTurnEvents(simulatedBattle)
+    events.push(...opponentEvents)
   }
 
   return events

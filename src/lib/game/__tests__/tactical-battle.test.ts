@@ -8,7 +8,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { decide, InvalidCommandError } from '../decider'
 import { evolveState, getInitialState, rebuildState } from '../projections'
-import type { GameState, GameEvent } from '../types'
+import type { GameState } from '../types'
+import type { GameEvent } from '../events'
 import { TACTICAL_BATTLE_CONFIG } from '../types'
 
 // ----------------------------------------------------------------------------

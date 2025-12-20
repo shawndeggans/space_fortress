@@ -19,7 +19,7 @@ The project has a **functional core game loop** with:
 - ✅ 11 game screens (quest-hub, narrative, card-pool, deployment, battle, alliance, mediation, consequence, choice-consequence, quest-summary, ending)
 - ✅ 17 reusable UI components
 - ✅ Classic battle system with d20 combat
-- ✅ Tactical battle system foundation (turn-based, energy management, ~65% complete)
+- ✅ Tactical battle system (turn-based, energy management, opponent AI, ~90% complete)
 - ✅ Quest and reputation systems
 - ✅ Alliance and mediation systems
 - ✅ Vertical slice architecture for command handlers
@@ -460,7 +460,8 @@ Turn-based combat system replacing the automated d20 system. See `docs/design/CA
 - `src/lib/game/commands.ts` - 10 tactical battle commands ✅
 - `src/lib/game/decider.ts` - All 10 command handlers implemented ✅
 - `src/lib/game/projections.ts` - All core event handlers implemented ✅
-- `src/routes/tactical-battle/` - **NOT YET CREATED**
+- `src/routes/tactical-battle/+page.svelte` - Tactical battle UI screen ✅
+- `src/lib/game/opponentAI.ts` - AI decision engine ✅
 
 **Tasks:**
 - [x] Card structure with hull and energy cost
@@ -473,7 +474,8 @@ Turn-based combat system replacing the automated d20 system. See `docs/design/CA
 - [x] Unit tests (13 tactical battle tests)
 - [x] All 10 command handlers implemented
 - [x] All core projection handlers implemented (SHIP_MOVED, ENERGY_*, etc.)
-- [ ] **UI Screen: `/tactical-battle` route**
+- [x] UI Screen: `/tactical-battle` route
+- [x] Opponent AI decision engine (deploy, attack, end turn)
 
 #### 3B.2 Abilities System
 
@@ -636,12 +638,15 @@ Build the 12 main screens. (11 of 12 implemented - tactical-battle UI pending)
 - Continue button between rounds
 - Final summary with all round results
 
-**Tactical Battle Screen (`src/routes/tactical-battle/+page.svelte`):** ❌ NOT IMPLEMENTED
+**Tactical Battle Screen (`src/routes/tactical-battle/+page.svelte`):** ✅ IMPLEMENTED
 - Energy display and management
 - 5-slot battlefield per side
 - Hand display with deployable cards
-- Ship status (hull, abilities, status effects)
-- Action buttons (deploy, attack, move, end turn)
+- Ship status (hull, exhausted state)
+- Action buttons (deploy card, attack ship/flagship, end turn)
+- Mulligan phase UI
+- Victory/defeat result screens
+- Combat log panel
 - Turn indicator and phase display
 
 **Consequence Screen (`src/routes/consequence/+page.svelte`):**
@@ -658,7 +663,7 @@ Build the 12 main screens. (11 of 12 implemented - tactical-battle UI pending)
 - [x] Wire up command dispatching
 - [x] Add navigation guards for phase-route sync
 - [x] Handle loading states
-- [ ] **Implement tactical-battle screen** (blocking for tactical battle feature)
+- [x] Implement tactical-battle screen
 
 #### 5.2 Priority 2: Extended Screens
 
@@ -974,10 +979,12 @@ For efficient development, implement in this order:
 ### Sprint 6: Tactical Battle Completion (CURRENT)
 1. ~~Complete remaining command handlers~~ ✅ (all 10 implemented)
 2. ~~Complete remaining projection handlers~~ ✅ (all core handlers done)
-3. **Create tactical-battle UI screen** ← NEXT
-4. Implement ability effects engine
-5. AI opponent behavior
-6. Integration testing
+3. ~~Create tactical-battle UI screen~~ ✅ (full battle UI with click-to-select)
+4. ~~AI opponent behavior~~ ✅ (rule-based: deploy → attack → end turn)
+5. **Implement ability effects engine** ← NEXT
+6. Polish combat log with event integration
+7. Add animations for attacks/damage
+8. Integration testing
 
 ### Sprint 7: Polish & Launch
 1. Balance tuning

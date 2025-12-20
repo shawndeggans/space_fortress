@@ -459,7 +459,7 @@ function moveShipOnBattlefield(
   newBattlefield[fromPosition - 1] = null
   newBattlefield[toPosition - 1] = {
     ...ship,
-    position: toPosition
+    position: toPosition as 1 | 2 | 3 | 4 | 5
   }
 
   return {
