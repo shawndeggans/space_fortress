@@ -438,6 +438,39 @@ function updateFlagshipHull(
   }
 }
 
+/**
+ * Move a ship from one position to another on the battlefield
+ */
+function moveShipOnBattlefield(
+  battleState: TacticalBattleState,
+  player: 'player' | 'opponent',
+  fromPosition: number,
+  toPosition: number
+): TacticalBattleState {
+  const combatantKey = player === 'player' ? 'player' : 'opponent'
+  const combatant = battleState[combatantKey]
+
+  // Get the ship being moved
+  const ship = combatant.battlefield[fromPosition - 1]
+  if (!ship) return battleState
+
+  // Update battlefield - clear old position, set new position
+  const newBattlefield = [...combatant.battlefield]
+  newBattlefield[fromPosition - 1] = null
+  newBattlefield[toPosition - 1] = {
+    ...ship,
+    position: toPosition
+  }
+
+  return {
+    ...battleState,
+    [combatantKey]: {
+      ...combatant,
+      battlefield: newBattlefield
+    }
+  }
+}
+
 // ----------------------------------------------------------------------------
 // Main Evolve Function
 // ----------------------------------------------------------------------------
@@ -1135,10 +1168,21 @@ export function evolveState(state: GameState, event: GameEvent): GameState {
       }
     }
 
+    case 'SHIP_MOVED':
+      if (!state.currentTacticalBattle) return state
+      return {
+        ...state,
+        currentTacticalBattle: moveShipOnBattlefield(
+          state.currentTacticalBattle,
+          event.data.player,
+          event.data.fromPosition,
+          event.data.toPosition
+        )
+      }
+
     // Other tactical battle events that don't need state changes yet
     case 'MULLIGAN_COMPLETED':
     case 'SHIP_ATTACKED':
-    case 'SHIP_MOVED':
     case 'FLAGSHIP_DESTROYED':
     case 'ABILITY_TRIGGERED':
     case 'ABILITY_ACTIVATED':

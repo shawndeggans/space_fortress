@@ -11,7 +11,7 @@ The project has a **functional core game loop** with:
 - Navigation guards keeping URL in sync with game phase
 - Fat events for self-contained state reconstruction
 - Graceful degradation for corrupted event data
-- 390+ unit tests covering all game systems
+- 482 unit tests covering all game systems
 
 **What's implemented:**
 - ✅ Full event system (70+ events across 10 categories including tactical battle)
@@ -28,9 +28,7 @@ The project has a **functional core game loop** with:
 
 **What remains for MVP:**
 - Tactical battle: UI screen (`/tactical-battle` route)
-- Tactical battle: Complete remaining command handlers (5 of 10)
-- Tactical battle: Complete remaining projection handlers (~9 missing)
-- Tactical battle: Abilities system implementation
+- Tactical battle: Abilities system implementation (types exist, effects engine needed)
 - Tactical battle: AI opponent behavior
 - Balance tuning
 - Polish and playtesting
@@ -454,14 +452,14 @@ Turn-based combat system replacing the automated d20 system. See `docs/design/CA
 - Flagship health victory condition
 - Hand management (draw, discard, mulligan)
 
-#### 3B.1 Core Battle Mechanics (PARTIALLY COMPLETE ~65%)
+#### 3B.1 Core Battle Mechanics (COMPLETE - UI PENDING)
 
 **Files:**
 - `src/lib/game/types.ts` - TacticalBattleState, CombatantState, ShipState, EnergyState ✅
 - `src/lib/game/events.ts` - 21 tactical battle events ✅
 - `src/lib/game/commands.ts` - 10 tactical battle commands ✅
-- `src/lib/game/decider.ts` - 5 of 10 command handlers implemented
-- `src/lib/game/projections.ts` - 8 of ~17 event handlers implemented
+- `src/lib/game/decider.ts` - All 10 command handlers implemented ✅
+- `src/lib/game/projections.ts` - All core event handlers implemented ✅
 - `src/routes/tactical-battle/` - **NOT YET CREATED**
 
 **Tasks:**
@@ -473,9 +471,8 @@ Turn-based combat system replacing the automated d20 system. See `docs/design/CA
 - [x] Victory conditions (flagship destroyed, timeout)
 - [x] Battle events for new system (21 events)
 - [x] Unit tests (13 tactical battle tests)
-- [x] Command handlers: START_TACTICAL_BATTLE, MULLIGAN_CARDS, SKIP_MULLIGAN, DEPLOY_SHIP, ATTACK_WITH_SHIP
-- [ ] Command handlers: MOVE_SHIP, ACTIVATE_ABILITY, DRAW_EXTRA_CARD, END_TURN, USE_EMERGENCY_RESERVES
-- [ ] Projection handlers: ENERGY_SPENT, ENERGY_GAINED, SHIP_DESTROYED, SHIP_MOVED, ABILITY_*, STATUS_*, FLAGSHIP_DAMAGED
+- [x] All 10 command handlers implemented
+- [x] All core projection handlers implemented (SHIP_MOVED, ENERGY_*, etc.)
 - [ ] **UI Screen: `/tactical-battle` route**
 
 #### 3B.2 Abilities System
@@ -900,7 +897,7 @@ export function playSound(event: string) {
 **Directory: `src/lib/game/__tests__/`**
 
 **Critical Test Coverage:**
-- [x] All decider command handlers (390+ tests across 32 test files)
+- [x] All decider command handlers (482 tests across 24 test files)
 - [x] Combat resolution (hit/miss, initiative, rounds)
 - [x] Reputation calculations (thresholds, card locks)
 - [x] All projection functions
@@ -975,9 +972,9 @@ For efficient development, implement in this order:
 6. ~~Quest 3 content (The Broker's Gambit)~~
 
 ### Sprint 6: Tactical Battle Completion (CURRENT)
-1. Complete remaining command handlers (5 of 10)
-2. Complete remaining projection handlers (~9 missing)
-3. **Create tactical-battle UI screen**
+1. ~~Complete remaining command handlers~~ ✅ (all 10 implemented)
+2. ~~Complete remaining projection handlers~~ ✅ (all core handlers done)
+3. **Create tactical-battle UI screen** ← NEXT
 4. Implement ability effects engine
 5. AI opponent behavior
 6. Integration testing
