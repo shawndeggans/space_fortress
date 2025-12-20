@@ -11,24 +11,27 @@ The project has a **functional core game loop** with:
 - Navigation guards keeping URL in sync with game phase
 - Fat events for self-contained state reconstruction
 - Graceful degradation for corrupted event data
-- 482+ unit tests covering all game systems
+- 390+ unit tests covering all game systems
 
 **What's implemented:**
 - ✅ Full event system (70+ events across 10 categories including tactical battle)
 - ✅ Core read model projections
-- ✅ 13 game screens (quest-hub, narrative, card-pool, deployment, battle, tactical-battle, etc.)
-- ✅ 15+ reusable UI components
+- ✅ 11 game screens (quest-hub, narrative, card-pool, deployment, battle, alliance, mediation, consequence, choice-consequence, quest-summary, ending)
+- ✅ 17 reusable UI components
 - ✅ Classic battle system with d20 combat
-- ✅ **NEW: Tactical battle system foundation (turn-based, energy management)**
+- ✅ Tactical battle system foundation (turn-based, energy management, ~65% complete)
 - ✅ Quest and reputation systems
 - ✅ Alliance and mediation systems
 - ✅ Vertical slice architecture for command handlers
 - ✅ Card system with hull, defense, energyCost, abilities
+- ✅ **All 3 quests fully implemented** (The Salvage Claim, The Sanctuary Run, The Broker's Gambit)
 
 **What remains for MVP:**
+- Tactical battle: UI screen (`/tactical-battle` route)
+- Tactical battle: Complete remaining command handlers (5 of 10)
+- Tactical battle: Complete remaining projection handlers (~9 missing)
 - Tactical battle: Abilities system implementation
 - Tactical battle: AI opponent behavior
-- Quest content (narrative text, NPC dialogue)
 - Balance tuning
 - Polish and playtesting
 - itch.io deployment
@@ -451,14 +454,15 @@ Turn-based combat system replacing the automated d20 system. See `docs/design/CA
 - Flagship health victory condition
 - Hand management (draw, discard, mulligan)
 
-#### 3B.1 Core Battle Mechanics (COMPLETE)
+#### 3B.1 Core Battle Mechanics (PARTIALLY COMPLETE ~65%)
 
 **Files:**
-- `src/lib/game/types.ts` - TacticalBattleState, CombatantState, ShipState, EnergyState
-- `src/lib/game/events.ts` - 20+ tactical battle events
-- `src/lib/game/commands.ts` - 10 tactical battle commands
-- `src/lib/game/decider.ts` - Command handlers
-- `src/lib/game/projections.ts` - State evolution handlers
+- `src/lib/game/types.ts` - TacticalBattleState, CombatantState, ShipState, EnergyState ✅
+- `src/lib/game/events.ts` - 21 tactical battle events ✅
+- `src/lib/game/commands.ts` - 10 tactical battle commands ✅
+- `src/lib/game/decider.ts` - 5 of 10 command handlers implemented
+- `src/lib/game/projections.ts` - 8 of ~17 event handlers implemented
+- `src/routes/tactical-battle/` - **NOT YET CREATED**
 
 **Tasks:**
 - [x] Card structure with hull and energy cost
@@ -467,8 +471,12 @@ Turn-based combat system replacing the automated d20 system. See `docs/design/CA
 - [x] Basic attack/damage/destroy loop
 - [x] Flagship health tracking
 - [x] Victory conditions (flagship destroyed, timeout)
-- [x] Battle events for new system
+- [x] Battle events for new system (21 events)
 - [x] Unit tests (13 tactical battle tests)
+- [x] Command handlers: START_TACTICAL_BATTLE, MULLIGAN_CARDS, SKIP_MULLIGAN, DEPLOY_SHIP, ATTACK_WITH_SHIP
+- [ ] Command handlers: MOVE_SHIP, ACTIVATE_ABILITY, DRAW_EXTRA_CARD, END_TURN, USE_EMERGENCY_RESERVES
+- [ ] Projection handlers: ENERGY_SPENT, ENERGY_GAINED, SHIP_DESTROYED, SHIP_MOVED, ABILITY_*, STATUS_*, FLAGSHIP_DAMAGED
+- [ ] **UI Screen: `/tactical-battle` route**
 
 #### 3B.2 Abilities System
 
@@ -593,7 +601,7 @@ Build reusable Svelte components.
 
 ### Phase 5: Game Screens
 
-Build the 12 main screens.
+Build the 12 main screens. (11 of 12 implemented - tactical-battle UI pending)
 
 #### 5.1 Priority 1: Core Loop Screens
 
@@ -622,7 +630,7 @@ Build the 12 main screens.
 - Show unassigned cards
 - Lock orders button when all 5 placed
 
-**Battle Screen (`src/routes/battle/+page.svelte`):**
+**Battle Screen (`src/routes/battle/+page.svelte`):** ✅
 - Round counter (1-5)
 - Your card vs enemy card display
 - Dice roll animation
@@ -630,6 +638,14 @@ Build the 12 main screens.
 - Round outcome indicator
 - Continue button between rounds
 - Final summary with all round results
+
+**Tactical Battle Screen (`src/routes/tactical-battle/+page.svelte`):** ❌ NOT IMPLEMENTED
+- Energy display and management
+- 5-slot battlefield per side
+- Hand display with deployable cards
+- Ship status (hull, abilities, status effects)
+- Action buttons (deploy, attack, move, end turn)
+- Turn indicator and phase display
 
 **Consequence Screen (`src/routes/consequence/+page.svelte`):**
 - Battle outcome (victory/defeat/draw)
@@ -645,6 +661,7 @@ Build the 12 main screens.
 - [x] Wire up command dispatching
 - [x] Add navigation guards for phase-route sync
 - [x] Handle loading states
+- [ ] **Implement tactical-battle screen** (blocking for tactical battle feature)
 
 #### 5.2 Priority 2: Extended Screens
 
@@ -751,13 +768,14 @@ Three quest arcs for MVP:
 - Dilemma 4: Final disposition
 
 **Tasks:**
-- [x] Write situation text for each dilemma (Quest 1 complete)
+- [x] Write situation text for each dilemma
 - [x] Write NPC dialogue (3 voices per dilemma)
 - [x] Define choice consequences
 - [x] Create quest unlock requirements
 - [x] Balance reputation/bounty rewards
-- [ ] Quest 2 content (The Sanctuary Run)
-- [ ] Quest 3 content (The Broker's Gambit)
+- [x] Quest 1 content (The Salvage Claim) - 3 dilemmas, 10+ choices
+- [x] Quest 2 content (The Sanctuary Run) - 3 dilemmas, 13+ choices
+- [x] Quest 3 content (The Broker's Gambit) - 4 dilemmas, 14+ choices
 
 #### 6.3 Faction Data
 
@@ -882,7 +900,7 @@ export function playSound(event: string) {
 **Directory: `src/lib/game/__tests__/`**
 
 **Critical Test Coverage:**
-- [x] All decider command handlers (482+ tests)
+- [x] All decider command handlers (390+ tests across 32 test files)
 - [x] Combat resolution (hit/miss, initiative, rounds)
 - [x] Reputation calculations (thresholds, card locks)
 - [x] All projection functions
@@ -921,48 +939,54 @@ export function playSound(event: string) {
 
 For efficient development, implement in this order:
 
-### Sprint 1: Foundation (Types & Events)
-1. Complete type definitions
-2. Implement all event types
-3. Implement all command types
-4. Expand decider for quest/narrative commands
+### ~~Sprint 1: Foundation (Types & Events)~~ ✅ COMPLETE
+1. ~~Complete type definitions~~
+2. ~~Implement all event types~~
+3. ~~Implement all command types~~
+4. ~~Expand decider for quest/narrative commands~~
 
-### Sprint 2: Battle System
-1. Combat resolution engine
-2. Battle decider commands
-3. Opponent generation
-4. Battle projections
+### ~~Sprint 2: Battle System~~ ✅ COMPLETE (Classic)
+1. ~~Combat resolution engine~~
+2. ~~Battle decider commands~~
+3. ~~Opponent generation~~
+4. ~~Battle projections~~
 
-### Sprint 3: Core UI Components
-1. Card component
-2. NpcVoiceBox component
-3. ChoiceButton component
-4. GameHeader component
-5. StatPill, ReputationBar, BountyDisplay
+### ~~Sprint 3: Core UI Components~~ ✅ COMPLETE
+1. ~~Card component~~
+2. ~~NpcVoiceBox component~~
+3. ~~ChoiceButton component~~
+4. ~~GameHeader component~~
+5. ~~StatPill, ReputationBar, BountyDisplay~~
 
-### Sprint 4: Core Loop Screens
-1. Quest Hub screen
-2. Narrative screen
-3. Card Pool screen
-4. Deployment screen
-5. Battle screen
-6. Consequence screen
+### ~~Sprint 4: Core Loop Screens~~ ✅ COMPLETE
+1. ~~Quest Hub screen~~
+2. ~~Narrative screen~~
+3. ~~Card Pool screen~~
+4. ~~Deployment screen~~
+5. ~~Battle screen~~
+6. ~~Consequence screen~~
 
-### Sprint 5: Content & Extended Features
-1. Card database (20 cards)
-2. Quest 1 content (The Salvage Claim)
-3. Alliance screen
-4. Quest 2 content
-5. Mediation screen
-6. Quest 3 content
+### ~~Sprint 5: Content & Extended Features~~ ✅ COMPLETE
+1. ~~Card database (20 cards)~~
+2. ~~Quest 1 content (The Salvage Claim)~~
+3. ~~Alliance screen~~
+4. ~~Quest 2 content (The Sanctuary Run)~~
+5. ~~Mediation screen~~
+6. ~~Quest 3 content (The Broker's Gambit)~~
 
-### Sprint 6: Polish & Launch
-1. Reputation dashboard
-2. Fleet overview
-3. Ending screen (all variants)
-4. Navigation polish
-5. Testing & bug fixes
-6. itch.io deployment
+### Sprint 6: Tactical Battle Completion (CURRENT)
+1. Complete remaining command handlers (5 of 10)
+2. Complete remaining projection handlers (~9 missing)
+3. **Create tactical-battle UI screen**
+4. Implement ability effects engine
+5. AI opponent behavior
+6. Integration testing
+
+### Sprint 7: Polish & Launch
+1. Balance tuning
+2. Playtesting all 3 quests
+3. Bug fixes
+4. itch.io deployment
 
 ---
 
