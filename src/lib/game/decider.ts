@@ -12,8 +12,10 @@ import type { GameCommand } from './commands'
 import type { GameEvent, ChoiceConsequenceData } from './events'
 import type {
   GameState,
-  FactionId
+  FactionId,
+  TacticalBattleState
 } from './types'
+import { TACTICAL_BATTLE_CONFIG } from './types'
 import { getDilemmaById, getQuestById, getQuestFirstDilemma } from './content/quests'
 import { getCardById, getAllianceCardIds } from './content/cards'
 import {
@@ -278,6 +280,40 @@ export function decide(command: GameCommand, state: GameState): GameEvent[] {
 
     case 'CONTINUE_BATTLE':
       return handleContinueBattle(command, state)
+
+    // ========================================================================
+    // Tactical Battle (Turn-Based Combat)
+    // ========================================================================
+
+    case 'START_TACTICAL_BATTLE':
+      return handleStartTacticalBattle(command, state)
+
+    case 'MULLIGAN_CARDS':
+      return handleMulliganCards(command, state)
+
+    case 'SKIP_MULLIGAN':
+      return handleSkipMulligan(command, state)
+
+    case 'DEPLOY_SHIP':
+      return handleDeployShip(command, state)
+
+    case 'ATTACK_WITH_SHIP':
+      return handleAttackWithShip(command, state)
+
+    case 'ACTIVATE_ABILITY':
+      return handleActivateAbility(command, state)
+
+    case 'MOVE_SHIP':
+      return handleMoveShip(command, state)
+
+    case 'DRAW_EXTRA_CARD':
+      return handleDrawExtraCard(command, state)
+
+    case 'END_TURN':
+      return handleEndTurn(command, state)
+
+    case 'USE_EMERGENCY_RESERVES':
+      return handleUseEmergencyReserves(command, state)
 
     // ========================================================================
     // Consequence
@@ -1264,4 +1300,904 @@ function handleContinueBattle(
   // Battle execution is handled by the combat engine, not direct commands
   // This command is for UI flow (player clicks "Continue" to see next round)
   return []
+}
+
+// ----------------------------------------------------------------------------
+// Tactical Battle Handlers (Turn-Based Combat)
+// ----------------------------------------------------------------------------
+
+/**
+ * Calculate total agility from a list of card IDs
+ */
+function calculateTotalAgility(cardIds: string[]): number {
+  return cardIds.reduce((total, cardId) => {
+    const card = getCardById(cardId)
+    return total + (card?.agility ?? 0)
+  }, 0)
+}
+
+/**
+ * Determine first player based on fleet agility
+ */
+function determineInitiative(
+  playerCardIds: string[],
+  opponentCardIds: string[]
+): { firstPlayer: 'player' | 'opponent'; reason: 'agility' | 'tiebreaker' } {
+  const playerAgility = calculateTotalAgility(playerCardIds)
+  const opponentAgility = calculateTotalAgility(opponentCardIds)
+
+  if (playerAgility > opponentAgility) {
+    return { firstPlayer: 'player', reason: 'agility' }
+  } else if (opponentAgility > playerAgility) {
+    return { firstPlayer: 'opponent', reason: 'agility' }
+  } else {
+    // Tiebreaker: random (for now, favor player)
+    return { firstPlayer: 'player', reason: 'tiebreaker' }
+  }
+}
+
+/**
+ * Generate opponent deck based on difficulty and faction
+ */
+function generateOpponentDeck(
+  factionId: FactionId | 'scavengers' | 'pirates',
+  difficulty: 'easy' | 'medium' | 'hard'
+): string[] {
+  // For now, generate a basic opponent deck
+  // In a full implementation, this would pull from faction-specific card pools
+  const baseDeck = [
+    'enemy_fighter_1',
+    'enemy_fighter_2',
+    'enemy_frigate_1',
+    'enemy_cruiser_1',
+    'enemy_support_1',
+    'enemy_fighter_3',
+    'enemy_frigate_2',
+    'enemy_cruiser_2'
+  ]
+
+  // Harder difficulties get more cards
+  if (difficulty === 'hard') {
+    baseDeck.push('enemy_battleship_1', 'enemy_battleship_2')
+  } else if (difficulty === 'medium') {
+    baseDeck.push('enemy_battleship_1')
+  }
+
+  return baseDeck.slice(0, TACTICAL_BATTLE_CONFIG.deckSize.max)
+}
+
+function handleStartTacticalBattle(
+  command: { type: 'START_TACTICAL_BATTLE'; data: { deckCardIds: string[] } },
+  state: GameState
+): GameEvent[] {
+  if (state.currentPhase !== 'card_selection') {
+    throw new InvalidCommandError('Not in card selection phase')
+  }
+
+  if (!state.activeQuest) {
+    throw new InvalidCommandError('No active quest')
+  }
+
+  const deckCardIds = command.data.deckCardIds
+
+  // Validate deck size
+  if (deckCardIds.length < TACTICAL_BATTLE_CONFIG.deckSize.min) {
+    throw new InvalidCommandError(
+      `Deck must have at least ${TACTICAL_BATTLE_CONFIG.deckSize.min} cards`
+    )
+  }
+  if (deckCardIds.length > TACTICAL_BATTLE_CONFIG.deckSize.max) {
+    throw new InvalidCommandError(
+      `Deck can have at most ${TACTICAL_BATTLE_CONFIG.deckSize.max} cards`
+    )
+  }
+
+  // Validate all cards are owned and not locked
+  for (const cardId of deckCardIds) {
+    const card = state.ownedCards.find(c => c.id === cardId)
+    if (!card) {
+      throw new InvalidCommandError(`Card not owned: ${cardId}`)
+    }
+    if (card.isLocked) {
+      throw new InvalidCommandError(`Card is locked: ${cardId}`)
+    }
+  }
+
+  const ts = timestamp()
+  const battleId = generateId('tactical_battle')
+
+  // Get opponent info from current battle context if available
+  const opponentFactionId = state.currentBattle?.opponentFactionId ?? 'scavengers'
+  const difficulty = state.currentBattle?.difficulty ?? 'medium'
+  const context = state.currentBattle?.context ?? 'Tactical engagement'
+  const opponentName = opponentFactionId === 'scavengers' ? 'Scavenger Fleet' :
+                       opponentFactionId === 'pirates' ? 'Pirate Armada' :
+                       `${opponentFactionId.charAt(0).toUpperCase() + opponentFactionId.slice(1)} Forces`
+
+  // Generate opponent deck
+  const opponentDeckCardIds = generateOpponentDeck(opponentFactionId, difficulty)
+
+  // Determine initiative
+  const initiative = determineInitiative(deckCardIds, opponentDeckCardIds)
+
+  // Calculate flagship hull based on difficulty
+  const difficultyModifier = difficulty === 'easy' ? 0 : difficulty === 'medium' ? 1 : 2
+  const playerFlagshipHull = TACTICAL_BATTLE_CONFIG.baseFlagshipHull
+  const opponentFlagshipHull = TACTICAL_BATTLE_CONFIG.baseFlagshipHull +
+    (difficultyModifier * TACTICAL_BATTLE_CONFIG.flagshipHullPerDifficulty)
+
+  const events: GameEvent[] = [
+    {
+      type: 'TACTICAL_BATTLE_STARTED',
+      data: {
+        timestamp: ts,
+        battleId,
+        questId: state.activeQuest.questId,
+        context,
+        playerDeckCardIds: deckCardIds,
+        opponentDeckCardIds,
+        opponentName,
+        opponentFactionId,
+        difficulty,
+        playerFlagshipHull,
+        opponentFlagshipHull,
+        firstPlayer: initiative.firstPlayer,
+        initiativeReason: initiative.reason
+      }
+    }
+  ]
+
+  // Draw starting hands (4 cards each)
+  const shuffledPlayerDeck = [...deckCardIds].sort(() => Math.random() - 0.5)
+  const shuffledOpponentDeck = [...opponentDeckCardIds].sort(() => Math.random() - 0.5)
+
+  for (let i = 0; i < TACTICAL_BATTLE_CONFIG.startingHandSize; i++) {
+    if (shuffledPlayerDeck[i]) {
+      events.push({
+        type: 'TACTICAL_CARD_DRAWN',
+        data: {
+          timestamp: ts,
+          battleId,
+          player: 'player',
+          cardId: shuffledPlayerDeck[i],
+          deckRemaining: shuffledPlayerDeck.length - i - 1
+        }
+      })
+    }
+    if (shuffledOpponentDeck[i]) {
+      events.push({
+        type: 'TACTICAL_CARD_DRAWN',
+        data: {
+          timestamp: ts,
+          battleId,
+          player: 'opponent',
+          cardId: shuffledOpponentDeck[i],
+          deckRemaining: shuffledOpponentDeck.length - i - 1
+        }
+      })
+    }
+  }
+
+  return events
+}
+
+function handleMulliganCards(
+  command: { type: 'MULLIGAN_CARDS'; data: { cardIdsToRedraw: string[] } },
+  state: GameState
+): GameEvent[] {
+  if (!state.currentTacticalBattle) {
+    throw new InvalidCommandError('No tactical battle in progress')
+  }
+
+  if (state.currentTacticalBattle.phase !== 'mulligan') {
+    throw new InvalidCommandError('Not in mulligan phase')
+  }
+
+  const battle = state.currentTacticalBattle
+  const cardIdsToRedraw = command.data.cardIdsToRedraw
+
+  // Validate cards are in hand
+  for (const cardId of cardIdsToRedraw) {
+    if (!battle.player.hand.includes(cardId)) {
+      throw new InvalidCommandError(`Card not in hand: ${cardId}`)
+    }
+  }
+
+  const ts = timestamp()
+  const events: GameEvent[] = []
+
+  // Discard the cards to be redrawn
+  for (const cardId of cardIdsToRedraw) {
+    events.push({
+      type: 'TACTICAL_CARD_DISCARDED',
+      data: {
+        timestamp: ts,
+        battleId: battle.battleId,
+        player: 'player',
+        cardId,
+        reason: 'mulligan'
+      }
+    })
+  }
+
+  // Draw new cards from deck
+  const deck = battle.player.deck.filter(id => !battle.player.hand.includes(id))
+  for (let i = 0; i < cardIdsToRedraw.length && i < deck.length; i++) {
+    events.push({
+      type: 'TACTICAL_CARD_DRAWN',
+      data: {
+        timestamp: ts,
+        battleId: battle.battleId,
+        player: 'player',
+        cardId: deck[i],
+        deckRemaining: deck.length - i - 1
+      }
+    })
+  }
+
+  // Mark mulligan complete
+  events.push({
+    type: 'MULLIGAN_COMPLETED',
+    data: {
+      timestamp: ts,
+      battleId: battle.battleId,
+      player: 'player',
+      cardsRedrawn: cardIdsToRedraw.length
+    }
+  })
+
+  // Start first turn if both players have completed mulligan
+  events.push(...startFirstTurn(battle, ts))
+
+  return events
+}
+
+function handleSkipMulligan(
+  command: { type: 'SKIP_MULLIGAN'; data: Record<string, never> },
+  state: GameState
+): GameEvent[] {
+  if (!state.currentTacticalBattle) {
+    throw new InvalidCommandError('No tactical battle in progress')
+  }
+
+  if (state.currentTacticalBattle.phase !== 'mulligan') {
+    throw new InvalidCommandError('Not in mulligan phase')
+  }
+
+  const battle = state.currentTacticalBattle
+  const ts = timestamp()
+
+  const events: GameEvent[] = [
+    {
+      type: 'MULLIGAN_COMPLETED',
+      data: {
+        timestamp: ts,
+        battleId: battle.battleId,
+        player: 'player',
+        cardsRedrawn: 0
+      }
+    }
+  ]
+
+  // Start first turn
+  events.push(...startFirstTurn(battle, ts))
+
+  return events
+}
+
+/**
+ * Helper to start the first turn after mulligan
+ */
+function startFirstTurn(battle: TacticalBattleState, ts: string): GameEvent[] {
+  const firstPlayer = battle.initiative.firstPlayer
+  const startingEnergy = TACTICAL_BATTLE_CONFIG.startingMaxEnergy
+
+  return [
+    {
+      type: 'TACTICAL_TURN_STARTED',
+      data: {
+        timestamp: ts,
+        battleId: battle.battleId,
+        turnNumber: 1,
+        activePlayer: firstPlayer,
+        energyGained: startingEnergy,
+        newEnergyTotal: startingEnergy
+      }
+    }
+  ]
+}
+
+function handleDeployShip(
+  command: { type: 'DEPLOY_SHIP'; data: { cardId: string; position: number } },
+  state: GameState
+): GameEvent[] {
+  if (!state.currentTacticalBattle) {
+    throw new InvalidCommandError('No tactical battle in progress')
+  }
+
+  const battle = state.currentTacticalBattle
+
+  if (battle.phase !== 'playing') {
+    throw new InvalidCommandError('Battle is not in playing phase')
+  }
+
+  if (battle.activePlayer !== 'player') {
+    throw new InvalidCommandError('Not your turn')
+  }
+
+  const { cardId, position } = command.data
+
+  // Validate position
+  if (position < 1 || position > 5) {
+    throw new InvalidCommandError('Invalid position (must be 1-5)')
+  }
+
+  // Validate card is in hand
+  if (!battle.player.hand.includes(cardId)) {
+    throw new InvalidCommandError('Card not in hand')
+  }
+
+  // Validate position is empty
+  if (battle.player.battlefield[position - 1] !== null) {
+    throw new InvalidCommandError('Position already occupied')
+  }
+
+  // Get card and validate energy cost
+  const card = getCardById(cardId)
+  if (!card) {
+    throw new InvalidCommandError(`Card not found: ${cardId}`)
+  }
+
+  if (battle.player.energy.current < card.energyCost) {
+    throw new InvalidCommandError(`Not enough energy (need ${card.energyCost}, have ${battle.player.energy.current})`)
+  }
+
+  const ts = timestamp()
+  const newEnergy = battle.player.energy.current - card.energyCost
+
+  return [
+    {
+      type: 'ENERGY_SPENT',
+      data: {
+        timestamp: ts,
+        battleId: battle.battleId,
+        player: 'player',
+        amount: card.energyCost,
+        newTotal: newEnergy,
+        action: 'deploy'
+      }
+    },
+    {
+      type: 'SHIP_DEPLOYED',
+      data: {
+        timestamp: ts,
+        battleId: battle.battleId,
+        player: 'player',
+        cardId,
+        position,
+        energyCost: card.energyCost
+      }
+    }
+  ]
+}
+
+function handleAttackWithShip(
+  command: { type: 'ATTACK_WITH_SHIP'; data: { attackerCardId: string; targetPosition?: number } },
+  state: GameState
+): GameEvent[] {
+  if (!state.currentTacticalBattle) {
+    throw new InvalidCommandError('No tactical battle in progress')
+  }
+
+  const battle = state.currentTacticalBattle
+
+  if (battle.phase !== 'playing') {
+    throw new InvalidCommandError('Battle is not in playing phase')
+  }
+
+  if (battle.activePlayer !== 'player') {
+    throw new InvalidCommandError('Not your turn')
+  }
+
+  const { attackerCardId, targetPosition } = command.data
+
+  // Find attacker on battlefield
+  const attackerShip = battle.player.battlefield.find(
+    ship => ship && ship.cardId === attackerCardId
+  )
+  if (!attackerShip) {
+    throw new InvalidCommandError('Attacker not found on battlefield')
+  }
+
+  if (attackerShip.isExhausted) {
+    throw new InvalidCommandError('Ship is exhausted and cannot attack')
+  }
+
+  const ts = timestamp()
+  const events: GameEvent[] = []
+
+  // Determine target
+  let targetId: string
+  let targetPlayer: 'player' | 'opponent' = 'opponent'
+  let damageAmount = attackerShip.card.attack
+
+  if (targetPosition !== undefined) {
+    // Attacking a specific position
+    const targetShip = battle.opponent.battlefield[targetPosition - 1]
+    if (!targetShip) {
+      // No ship at that position - check if any ships blocking
+      const hasBlockers = battle.opponent.battlefield.some(ship => ship !== null)
+      if (hasBlockers) {
+        throw new InvalidCommandError('Cannot attack empty position while enemy ships are present')
+      }
+      // Attack flagship directly
+      targetId = 'flagship'
+    } else {
+      targetId = targetShip.cardId
+    }
+  } else {
+    // Auto-target: opposite position, or first enemy ship, or flagship
+    const oppositeShip = battle.opponent.battlefield[attackerShip.position - 1]
+    if (oppositeShip) {
+      targetId = oppositeShip.cardId
+    } else {
+      const firstEnemyShip = battle.opponent.battlefield.find(ship => ship !== null)
+      if (firstEnemyShip) {
+        targetId = firstEnemyShip.cardId
+      } else {
+        targetId = 'flagship'
+      }
+    }
+  }
+
+  // Record the attack
+  events.push({
+    type: 'SHIP_ATTACKED',
+    data: {
+      timestamp: ts,
+      battleId: battle.battleId,
+      attackerId: attackerCardId,
+      attackerPlayer: 'player',
+      targetId,
+      targetPlayer
+    }
+  })
+
+  // Calculate and apply damage
+  if (targetId === 'flagship') {
+    const newHull = battle.opponent.flagship.currentHull - damageAmount
+    events.push({
+      type: 'DAMAGE_DEALT',
+      data: {
+        timestamp: ts,
+        battleId: battle.battleId,
+        sourceId: attackerCardId,
+        targetId: 'flagship',
+        targetPlayer,
+        rawDamage: damageAmount,
+        defenseReduction: 0,
+        finalDamage: damageAmount,
+        targetNewHull: Math.max(0, newHull),
+        damageType: 'attack'
+      }
+    })
+
+    if (newHull <= 0) {
+      events.push({
+        type: 'FLAGSHIP_DAMAGED',
+        data: {
+          timestamp: ts,
+          battleId: battle.battleId,
+          player: targetPlayer,
+          amount: damageAmount,
+          newHull: 0,
+          source: attackerCardId
+        }
+      })
+      events.push({
+        type: 'FLAGSHIP_DESTROYED',
+        data: {
+          timestamp: ts,
+          battleId: battle.battleId,
+          player: targetPlayer,
+          destroyedBy: attackerCardId
+        }
+      })
+      // Battle resolved - player wins
+      events.push({
+        type: 'TACTICAL_BATTLE_RESOLVED',
+        data: {
+          timestamp: ts,
+          battleId: battle.battleId,
+          winner: 'player',
+          victoryCondition: 'flagship_destroyed',
+          turnsPlayed: battle.turnNumber,
+          playerFinalHull: battle.player.flagship.currentHull,
+          opponentFinalHull: 0,
+          playerShipsDestroyed: 0, // Would need to track this
+          opponentShipsDestroyed: 0 // Would need to track this
+        }
+      })
+    }
+  } else {
+    // Attacking a ship
+    const targetShipIndex = battle.opponent.battlefield.findIndex(
+      ship => ship && ship.cardId === targetId
+    )
+    const targetShip = battle.opponent.battlefield[targetShipIndex]
+    if (targetShip) {
+      const newHull = targetShip.currentHull - damageAmount
+      events.push({
+        type: 'DAMAGE_DEALT',
+        data: {
+          timestamp: ts,
+          battleId: battle.battleId,
+          sourceId: attackerCardId,
+          targetId,
+          targetPlayer,
+          rawDamage: damageAmount,
+          defenseReduction: 0,
+          finalDamage: damageAmount,
+          targetNewHull: Math.max(0, newHull),
+          damageType: 'attack'
+        }
+      })
+
+      if (newHull <= 0) {
+        events.push({
+          type: 'SHIP_DESTROYED',
+          data: {
+            timestamp: ts,
+            battleId: battle.battleId,
+            cardId: targetId,
+            owner: targetPlayer,
+            position: targetShip.position,
+            destroyedBy: attackerCardId
+          }
+        })
+      }
+    }
+  }
+
+  return events
+}
+
+function handleActivateAbility(
+  command: { type: 'ACTIVATE_ABILITY'; data: { cardId: string; abilityId: string; targetId?: string } },
+  state: GameState
+): GameEvent[] {
+  if (!state.currentTacticalBattle) {
+    throw new InvalidCommandError('No tactical battle in progress')
+  }
+
+  const battle = state.currentTacticalBattle
+
+  if (battle.phase !== 'playing') {
+    throw new InvalidCommandError('Battle is not in playing phase')
+  }
+
+  if (battle.activePlayer !== 'player') {
+    throw new InvalidCommandError('Not your turn')
+  }
+
+  // Find ship on battlefield
+  const ship = battle.player.battlefield.find(
+    s => s && s.cardId === command.data.cardId
+  )
+  if (!ship) {
+    throw new InvalidCommandError('Ship not found on battlefield')
+  }
+
+  // Find the ability on the card
+  const ability = ship.card.abilities?.find(a => a.id === command.data.abilityId)
+  if (!ability) {
+    throw new InvalidCommandError('Ability not found on card')
+  }
+
+  // Check cooldown
+  const cooldown = ship.abilityCooldowns[command.data.abilityId] ?? 0
+  if (cooldown > 0) {
+    throw new InvalidCommandError(`Ability on cooldown (${cooldown} turns remaining)`)
+  }
+
+  // Check energy cost
+  const energyCost = ability.energyCost ?? 0
+  if (battle.player.energy.current < energyCost) {
+    throw new InvalidCommandError(`Not enough energy (need ${energyCost})`)
+  }
+
+  const ts = timestamp()
+
+  // For now, just emit the activation event
+  // Full ability effects would be implemented per ability type
+  return [
+    {
+      type: 'ABILITY_ACTIVATED',
+      data: {
+        timestamp: ts,
+        battleId: battle.battleId,
+        cardId: command.data.cardId,
+        abilityId: command.data.abilityId,
+        targetIds: command.data.targetId ? [command.data.targetId] : [],
+        energyCost
+      }
+    }
+  ]
+}
+
+function handleMoveShip(
+  command: { type: 'MOVE_SHIP'; data: { cardId: string; toPosition: number } },
+  state: GameState
+): GameEvent[] {
+  if (!state.currentTacticalBattle) {
+    throw new InvalidCommandError('No tactical battle in progress')
+  }
+
+  const battle = state.currentTacticalBattle
+
+  if (battle.phase !== 'playing') {
+    throw new InvalidCommandError('Battle is not in playing phase')
+  }
+
+  if (battle.activePlayer !== 'player') {
+    throw new InvalidCommandError('Not your turn')
+  }
+
+  const { cardId, toPosition } = command.data
+
+  // Validate position
+  if (toPosition < 1 || toPosition > 5) {
+    throw new InvalidCommandError('Invalid position (must be 1-5)')
+  }
+
+  // Find ship on battlefield
+  const shipIndex = battle.player.battlefield.findIndex(
+    s => s && s.cardId === cardId
+  )
+  if (shipIndex === -1) {
+    throw new InvalidCommandError('Ship not found on battlefield')
+  }
+
+  const ship = battle.player.battlefield[shipIndex]!
+  const fromPosition = ship.position
+
+  if (fromPosition === toPosition) {
+    throw new InvalidCommandError('Ship is already at that position')
+  }
+
+  // Check if destination is empty
+  if (battle.player.battlefield[toPosition - 1] !== null) {
+    throw new InvalidCommandError('Destination position is occupied')
+  }
+
+  // Check energy cost
+  const moveCost = TACTICAL_BATTLE_CONFIG.moveCost
+  if (battle.player.energy.current < moveCost) {
+    throw new InvalidCommandError(`Not enough energy to move (need ${moveCost})`)
+  }
+
+  const ts = timestamp()
+  const newEnergy = battle.player.energy.current - moveCost
+
+  return [
+    {
+      type: 'ENERGY_SPENT',
+      data: {
+        timestamp: ts,
+        battleId: battle.battleId,
+        player: 'player',
+        amount: moveCost,
+        newTotal: newEnergy,
+        action: 'move'
+      }
+    },
+    {
+      type: 'SHIP_MOVED',
+      data: {
+        timestamp: ts,
+        battleId: battle.battleId,
+        cardId,
+        player: 'player',
+        fromPosition,
+        toPosition,
+        energyCost: moveCost
+      }
+    }
+  ]
+}
+
+function handleDrawExtraCard(
+  command: { type: 'DRAW_EXTRA_CARD'; data: Record<string, never> },
+  state: GameState
+): GameEvent[] {
+  if (!state.currentTacticalBattle) {
+    throw new InvalidCommandError('No tactical battle in progress')
+  }
+
+  const battle = state.currentTacticalBattle
+
+  if (battle.phase !== 'playing') {
+    throw new InvalidCommandError('Battle is not in playing phase')
+  }
+
+  if (battle.activePlayer !== 'player') {
+    throw new InvalidCommandError('Not your turn')
+  }
+
+  // Check hand size limit
+  if (battle.player.hand.length >= TACTICAL_BATTLE_CONFIG.maxHandSize) {
+    throw new InvalidCommandError('Hand is full')
+  }
+
+  // Check deck has cards
+  if (battle.player.deck.length === 0) {
+    throw new InvalidCommandError('No cards left in deck')
+  }
+
+  // Check energy cost
+  const drawCost = TACTICAL_BATTLE_CONFIG.drawCardCost
+  if (battle.player.energy.current < drawCost) {
+    throw new InvalidCommandError(`Not enough energy to draw (need ${drawCost})`)
+  }
+
+  const ts = timestamp()
+  const newEnergy = battle.player.energy.current - drawCost
+  const cardToDraw = battle.player.deck[0]
+
+  return [
+    {
+      type: 'ENERGY_SPENT',
+      data: {
+        timestamp: ts,
+        battleId: battle.battleId,
+        player: 'player',
+        amount: drawCost,
+        newTotal: newEnergy,
+        action: 'draw'
+      }
+    },
+    {
+      type: 'TACTICAL_CARD_DRAWN',
+      data: {
+        timestamp: ts,
+        battleId: battle.battleId,
+        player: 'player',
+        cardId: cardToDraw,
+        deckRemaining: battle.player.deck.length - 1
+      }
+    }
+  ]
+}
+
+function handleEndTurn(
+  command: { type: 'END_TURN'; data: Record<string, never> },
+  state: GameState
+): GameEvent[] {
+  if (!state.currentTacticalBattle) {
+    throw new InvalidCommandError('No tactical battle in progress')
+  }
+
+  const battle = state.currentTacticalBattle
+
+  if (battle.phase !== 'playing') {
+    throw new InvalidCommandError('Battle is not in playing phase')
+  }
+
+  if (battle.activePlayer !== 'player') {
+    throw new InvalidCommandError('Not your turn')
+  }
+
+  const ts = timestamp()
+  const events: GameEvent[] = [
+    {
+      type: 'TACTICAL_TURN_ENDED',
+      data: {
+        timestamp: ts,
+        battleId: battle.battleId,
+        player: 'player',
+        turnNumber: battle.turnNumber
+      }
+    }
+  ]
+
+  // Check round limit (each round = 2 turns, one per player)
+  const roundNumber = Math.ceil((battle.turnNumber + 1) / 2)
+  const isLastTurnOfRound = (battle.turnNumber + 1) % 2 === 0
+
+  if (isLastTurnOfRound && roundNumber >= battle.roundLimit) {
+    // Battle ends due to round limit - determine winner by flagship hull
+    const winner: 'player' | 'opponent' | 'draw' =
+      battle.player.flagship.currentHull > battle.opponent.flagship.currentHull ? 'player' :
+      battle.opponent.flagship.currentHull > battle.player.flagship.currentHull ? 'opponent' :
+      'draw'
+
+    events.push({
+      type: 'TACTICAL_BATTLE_RESOLVED',
+      data: {
+        timestamp: ts,
+        battleId: battle.battleId,
+        winner,
+        victoryCondition: 'timeout',
+        turnsPlayed: battle.turnNumber,
+        playerFinalHull: battle.player.flagship.currentHull,
+        opponentFinalHull: battle.opponent.flagship.currentHull,
+        playerShipsDestroyed: 0, // Would need to track this
+        opponentShipsDestroyed: 0 // Would need to track this
+      }
+    })
+  } else {
+    // Start opponent's turn (AI handling would go here)
+    // For now, just emit turn start for opponent
+    const newTurnNumber = battle.turnNumber + 1
+    const energyRegen = TACTICAL_BATTLE_CONFIG.energyRegeneration
+    const newEnergyTotal = Math.min(
+      battle.opponent.energy.maximum,
+      battle.opponent.energy.current + energyRegen
+    )
+
+    events.push({
+      type: 'TACTICAL_TURN_STARTED',
+      data: {
+        timestamp: ts,
+        battleId: battle.battleId,
+        turnNumber: newTurnNumber,
+        activePlayer: 'opponent',
+        energyGained: energyRegen,
+        newEnergyTotal
+      }
+    })
+  }
+
+  return events
+}
+
+function handleUseEmergencyReserves(
+  command: { type: 'USE_EMERGENCY_RESERVES'; data: Record<string, never> },
+  state: GameState
+): GameEvent[] {
+  if (!state.currentTacticalBattle) {
+    throw new InvalidCommandError('No tactical battle in progress')
+  }
+
+  const battle = state.currentTacticalBattle
+
+  if (battle.phase !== 'playing') {
+    throw new InvalidCommandError('Battle is not in playing phase')
+  }
+
+  if (battle.activePlayer !== 'player') {
+    throw new InvalidCommandError('Not your turn')
+  }
+
+  // Check if emergency reserves are available
+  const reserves = battle.initiative.secondPlayerBonus.emergencyReserves
+  if (!reserves.available) {
+    throw new InvalidCommandError('Emergency reserves not available')
+  }
+
+  // Check if expired
+  if (battle.turnNumber > reserves.expiresOnTurn) {
+    throw new InvalidCommandError('Emergency reserves have expired')
+  }
+
+  const ts = timestamp()
+  const energyGrant = reserves.energyGrant
+  const newEnergyTotal = Math.min(
+    battle.player.energy.maximum,
+    battle.player.energy.current + energyGrant
+  )
+
+  return [
+    {
+      type: 'ENERGY_GAINED',
+      data: {
+        timestamp: ts,
+        battleId: battle.battleId,
+        player: 'player',
+        amount: energyGrant,
+        newTotal: newEnergyTotal,
+        source: 'emergency_reserves'
+      }
+    }
+  ]
 }

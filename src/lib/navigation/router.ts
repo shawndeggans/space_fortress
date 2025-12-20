@@ -32,6 +32,7 @@ export const PHASE_ROUTES: Record<GamePhase, string | null> = {
   card_selection: '/card-pool',
   deployment: '/deployment',
   battle: '/battle',
+  tactical_battle: '/tactical-battle',  // New turn-based battle system
   consequence: '/consequence',
   post_battle_dilemma: '/narrative',  // Reuses narrative screen for post-battle choices
   quest_summary: '/quest-summary',

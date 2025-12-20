@@ -16,11 +16,17 @@ import type {
   ActiveQuest,
   CompletedQuest,
   BattleState,
+  BattleOutcome,
   RoundResult,
   ChoiceHistoryEntry,
   GameStats,
-  CardBattleHistory
+  CardBattleHistory,
+  TacticalBattleState,
+  CombatantState,
+  ShipState,
+  EnergyState
 } from './types'
+import { TACTICAL_BATTLE_CONFIG } from './types'
 // getCardById is used to look up abilities (which are not stored in events)
 import { getCardById } from './content/cards'
 
@@ -59,8 +65,11 @@ export function getInitialState(): GameState {
     // Current dilemma
     currentDilemmaId: null,
 
-    // Current battle
+    // Current battle (classic system)
     currentBattle: null,
+
+    // Current tactical battle (turn-based system)
+    currentTacticalBattle: null,
 
     // Current mediation
     currentMediationId: null,
@@ -106,6 +115,326 @@ function getInitialStats(): GameStats {
     cardsAcquired: 0,
     cardsLost: 0,
     playTimeSeconds: 0
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Tactical Battle Helper Functions
+// ----------------------------------------------------------------------------
+
+/**
+ * Create initial tactical battle state from TACTICAL_BATTLE_STARTED event data
+ */
+function createInitialTacticalBattleState(eventData: {
+  battleId: string
+  questId: string
+  context: string
+  playerDeckCardIds: string[]
+  opponentDeckCardIds: string[]
+  opponentName: string
+  opponentFactionId: FactionId | 'scavengers' | 'pirates'
+  difficulty: 'easy' | 'medium' | 'hard'
+  playerFlagshipHull: number
+  opponentFlagshipHull: number
+  firstPlayer: 'player' | 'opponent'
+  initiativeReason: 'agility' | 'tiebreaker'
+}): TacticalBattleState {
+  const isFirstPlayer = eventData.firstPlayer === 'player'
+
+  // Calculate starting energy (first player gets normal start, second gets bonus)
+  const playerStartEnergy = isFirstPlayer
+    ? TACTICAL_BATTLE_CONFIG.startingMaxEnergy
+    : TACTICAL_BATTLE_CONFIG.startingMaxEnergy + TACTICAL_BATTLE_CONFIG.secondPlayerExtraEnergy
+
+  const opponentStartEnergy = isFirstPlayer
+    ? TACTICAL_BATTLE_CONFIG.startingMaxEnergy + TACTICAL_BATTLE_CONFIG.secondPlayerExtraEnergy
+    : TACTICAL_BATTLE_CONFIG.startingMaxEnergy
+
+  return {
+    battleId: eventData.battleId,
+    questId: eventData.questId,
+    context: eventData.context,
+    phase: 'mulligan',
+    turnNumber: 0,
+    activePlayer: eventData.firstPlayer,
+    roundLimit: TACTICAL_BATTLE_CONFIG.roundLimit,
+
+    player: createInitialCombatantState(
+      eventData.playerDeckCardIds,
+      eventData.playerFlagshipHull,
+      playerStartEnergy
+    ),
+    opponent: createInitialCombatantState(
+      eventData.opponentDeckCardIds,
+      eventData.opponentFlagshipHull,
+      opponentStartEnergy
+    ),
+
+    initiative: {
+      firstPlayer: eventData.firstPlayer,
+      reason: eventData.initiativeReason,
+      playerAgility: 0, // Will be set from actual card calculations
+      opponentAgility: 0,
+      secondPlayerBonus: {
+        extraStartingEnergy: TACTICAL_BATTLE_CONFIG.secondPlayerExtraEnergy,
+        emergencyReserves: {
+          available: !isFirstPlayer, // Second player gets emergency reserves
+          expiresOnTurn: 3,
+          energyGrant: 2
+        }
+      }
+    },
+
+    opponentName: eventData.opponentName,
+    opponentFactionId: eventData.opponentFactionId,
+    difficulty: eventData.difficulty,
+    actionsThisTurn: []
+  }
+}
+
+/**
+ * Create initial combatant state for one side of the battle
+ */
+function createInitialCombatantState(
+  deckCardIds: string[],
+  flagshipHull: number,
+  startingEnergy: number
+): CombatantState {
+  return {
+    flagship: {
+      currentHull: flagshipHull,
+      maxHull: flagshipHull
+    },
+    energy: {
+      current: startingEnergy,
+      maximum: TACTICAL_BATTLE_CONFIG.startingMaxEnergy,
+      regeneration: TACTICAL_BATTLE_CONFIG.energyRegeneration
+    },
+    battlefield: [null, null, null, null, null],
+    hand: [],
+    deck: [...deckCardIds], // Will be shuffled/drawn via events
+    discard: [],
+    shipsDestroyedThisTurn: 0,
+    cardsPlayedThisTurn: []
+  }
+}
+
+/**
+ * Update energy for a combatant
+ */
+function updateCombatantEnergy(
+  battleState: TacticalBattleState,
+  player: 'player' | 'opponent',
+  newTotal: number
+): TacticalBattleState {
+  const combatantKey = player === 'player' ? 'player' : 'opponent'
+
+  return {
+    ...battleState,
+    [combatantKey]: {
+      ...battleState[combatantKey],
+      energy: {
+        ...battleState[combatantKey].energy,
+        current: newTotal
+      }
+    }
+  }
+}
+
+/**
+ * Deploy a ship from hand to the battlefield
+ */
+function deployShipToBattlefield(
+  battleState: TacticalBattleState,
+  player: 'player' | 'opponent',
+  cardId: string,
+  position: number
+): TacticalBattleState {
+  const combatantKey = player === 'player' ? 'player' : 'opponent'
+  const combatant = battleState[combatantKey]
+
+  // Get card data
+  const card = getCardById(cardId)
+  if (!card) {
+    console.error(`deployShipToBattlefield: Card ${cardId} not found`)
+    return battleState
+  }
+
+  // Create ship state
+  const shipState: ShipState = {
+    cardId,
+    card,
+    position: position as 1 | 2 | 3 | 4 | 5,
+    currentHull: card.hull,
+    maxHull: card.hull,
+    isExhausted: true, // Ships are exhausted when deployed
+    statusEffects: [],
+    abilityCooldowns: {}
+  }
+
+  // Update battlefield
+  const newBattlefield = [...combatant.battlefield]
+  newBattlefield[position - 1] = shipState
+
+  // Remove card from hand
+  const newHand = combatant.hand.filter(id => id !== cardId)
+
+  // Track card played
+  const newCardsPlayed = [...combatant.cardsPlayedThisTurn, cardId]
+
+  return {
+    ...battleState,
+    [combatantKey]: {
+      ...combatant,
+      battlefield: newBattlefield,
+      hand: newHand,
+      cardsPlayedThisTurn: newCardsPlayed
+    }
+  }
+}
+
+/**
+ * Draw a card from deck to hand
+ */
+function drawCardToHand(
+  battleState: TacticalBattleState,
+  player: 'player' | 'opponent',
+  cardId: string
+): TacticalBattleState {
+  const combatantKey = player === 'player' ? 'player' : 'opponent'
+  const combatant = battleState[combatantKey]
+
+  return {
+    ...battleState,
+    [combatantKey]: {
+      ...combatant,
+      hand: [...combatant.hand, cardId],
+      deck: combatant.deck.filter(id => id !== cardId)
+    }
+  }
+}
+
+/**
+ * Discard a card from hand
+ */
+function discardCardFromHand(
+  battleState: TacticalBattleState,
+  player: 'player' | 'opponent',
+  cardId: string
+): TacticalBattleState {
+  const combatantKey = player === 'player' ? 'player' : 'opponent'
+  const combatant = battleState[combatantKey]
+
+  return {
+    ...battleState,
+    [combatantKey]: {
+      ...combatant,
+      hand: combatant.hand.filter(id => id !== cardId),
+      discard: [...combatant.discard, cardId]
+    }
+  }
+}
+
+/**
+ * Apply damage to a target (ship or flagship)
+ */
+function applyDamageToTarget(
+  battleState: TacticalBattleState,
+  targetPlayer: 'player' | 'opponent',
+  targetId: string,
+  newHull: number
+): TacticalBattleState {
+  const combatantKey = targetPlayer === 'player' ? 'player' : 'opponent'
+  const combatant = battleState[combatantKey]
+
+  // Check if target is flagship
+  if (targetId === 'flagship') {
+    return {
+      ...battleState,
+      [combatantKey]: {
+        ...combatant,
+        flagship: {
+          ...combatant.flagship,
+          currentHull: newHull
+        }
+      }
+    }
+  }
+
+  // Target is a ship - find by cardId
+  const newBattlefield = combatant.battlefield.map(ship => {
+    if (ship && ship.cardId === targetId) {
+      return {
+        ...ship,
+        currentHull: newHull
+      }
+    }
+    return ship
+  })
+
+  return {
+    ...battleState,
+    [combatantKey]: {
+      ...combatant,
+      battlefield: newBattlefield
+    }
+  }
+}
+
+/**
+ * Remove a destroyed ship from the battlefield
+ */
+function removeShipFromBattlefield(
+  battleState: TacticalBattleState,
+  owner: 'player' | 'opponent',
+  position: number
+): TacticalBattleState {
+  const combatantKey = owner === 'player' ? 'player' : 'opponent'
+  const combatant = battleState[combatantKey]
+
+  // Get the ship being removed
+  const ship = combatant.battlefield[position - 1]
+  const cardId = ship?.cardId
+
+  // Update battlefield
+  const newBattlefield = [...combatant.battlefield]
+  newBattlefield[position - 1] = null
+
+  // Add to discard pile if we have the card ID
+  const newDiscard = cardId
+    ? [...combatant.discard, cardId]
+    : combatant.discard
+
+  return {
+    ...battleState,
+    [combatantKey]: {
+      ...combatant,
+      battlefield: newBattlefield,
+      discard: newDiscard,
+      shipsDestroyedThisTurn: combatant.shipsDestroyedThisTurn + 1
+    }
+  }
+}
+
+/**
+ * Update flagship hull directly
+ */
+function updateFlagshipHull(
+  battleState: TacticalBattleState,
+  player: 'player' | 'opponent',
+  newHull: number
+): TacticalBattleState {
+  const combatantKey = player === 'player' ? 'player' : 'opponent'
+
+  return {
+    ...battleState,
+    [combatantKey]: {
+      ...battleState[combatantKey],
+      flagship: {
+        ...battleState[combatantKey].flagship,
+        currentHull: newHull
+      }
+    }
   }
 }
 
@@ -639,6 +968,187 @@ export function evolveState(state: GameState, event: GameEvent): GameState {
           battlesDraw: state.stats.battlesDraw + (event.data.outcome === 'draw' ? 1 : 0)
         }
       }
+
+    // ========================================================================
+    // Tactical Battle Events (Turn-Based Combat)
+    // ========================================================================
+
+    case 'TACTICAL_BATTLE_STARTED':
+      return {
+        ...state,
+        currentPhase: 'tactical_battle',
+        currentTacticalBattle: createInitialTacticalBattleState(event.data)
+      }
+
+    case 'TACTICAL_TURN_STARTED':
+      if (!state.currentTacticalBattle) return state
+      return {
+        ...state,
+        currentTacticalBattle: {
+          ...state.currentTacticalBattle,
+          turnNumber: event.data.turnNumber,
+          activePlayer: event.data.activePlayer,
+          actionsThisTurn: [],
+          player: event.data.activePlayer === 'player'
+            ? {
+                ...state.currentTacticalBattle.player,
+                energy: {
+                  ...state.currentTacticalBattle.player.energy,
+                  current: event.data.newEnergyTotal
+                },
+                shipsDestroyedThisTurn: 0,
+                cardsPlayedThisTurn: []
+              }
+            : state.currentTacticalBattle.player,
+          opponent: event.data.activePlayer === 'opponent'
+            ? {
+                ...state.currentTacticalBattle.opponent,
+                energy: {
+                  ...state.currentTacticalBattle.opponent.energy,
+                  current: event.data.newEnergyTotal
+                },
+                shipsDestroyedThisTurn: 0,
+                cardsPlayedThisTurn: []
+              }
+            : state.currentTacticalBattle.opponent
+        }
+      }
+
+    case 'TACTICAL_TURN_ENDED':
+      // Turn end is mostly a marker - the real work happens in TURN_STARTED
+      return state
+
+    case 'ENERGY_GAINED':
+      if (!state.currentTacticalBattle) return state
+      return {
+        ...state,
+        currentTacticalBattle: updateCombatantEnergy(
+          state.currentTacticalBattle,
+          event.data.player,
+          event.data.newTotal
+        )
+      }
+
+    case 'ENERGY_SPENT':
+      if (!state.currentTacticalBattle) return state
+      return {
+        ...state,
+        currentTacticalBattle: updateCombatantEnergy(
+          state.currentTacticalBattle,
+          event.data.player,
+          event.data.newTotal
+        )
+      }
+
+    case 'SHIP_DEPLOYED':
+      if (!state.currentTacticalBattle) return state
+      return {
+        ...state,
+        currentTacticalBattle: deployShipToBattlefield(
+          state.currentTacticalBattle,
+          event.data.player,
+          event.data.cardId,
+          event.data.position
+        )
+      }
+
+    case 'TACTICAL_CARD_DRAWN':
+      if (!state.currentTacticalBattle) return state
+      return {
+        ...state,
+        currentTacticalBattle: drawCardToHand(
+          state.currentTacticalBattle,
+          event.data.player,
+          event.data.cardId
+        )
+      }
+
+    case 'TACTICAL_CARD_DISCARDED':
+      if (!state.currentTacticalBattle) return state
+      return {
+        ...state,
+        currentTacticalBattle: discardCardFromHand(
+          state.currentTacticalBattle,
+          event.data.player,
+          event.data.cardId
+        )
+      }
+
+    case 'DAMAGE_DEALT':
+      if (!state.currentTacticalBattle) return state
+      return {
+        ...state,
+        currentTacticalBattle: applyDamageToTarget(
+          state.currentTacticalBattle,
+          event.data.targetPlayer,
+          event.data.targetId,
+          event.data.targetNewHull
+        )
+      }
+
+    case 'SHIP_DESTROYED':
+      if (!state.currentTacticalBattle) return state
+      return {
+        ...state,
+        currentTacticalBattle: removeShipFromBattlefield(
+          state.currentTacticalBattle,
+          event.data.owner,
+          event.data.position
+        )
+      }
+
+    case 'FLAGSHIP_DAMAGED':
+      if (!state.currentTacticalBattle) return state
+      return {
+        ...state,
+        currentTacticalBattle: updateFlagshipHull(
+          state.currentTacticalBattle,
+          event.data.player,
+          event.data.newHull
+        )
+      }
+
+    case 'TACTICAL_BATTLE_RESOLVED': {
+      const outcome: BattleOutcome =
+        event.data.winner === 'player' ? 'victory' :
+        event.data.winner === 'opponent' ? 'defeat' : 'draw'
+
+      return {
+        ...state,
+        currentTacticalBattle: state.currentTacticalBattle ? {
+          ...state.currentTacticalBattle,
+          phase: 'resolved',
+          winner: event.data.winner,
+          victoryCondition: event.data.victoryCondition
+        } : null,
+        activeQuest: state.activeQuest ? {
+          ...state.activeQuest,
+          battlesWon: state.activeQuest.battlesWon + (outcome === 'victory' ? 1 : 0),
+          battlesLost: state.activeQuest.battlesLost + (outcome === 'defeat' ? 1 : 0)
+        } : null,
+        stats: {
+          ...state.stats,
+          battlesWon: state.stats.battlesWon + (outcome === 'victory' ? 1 : 0),
+          battlesLost: state.stats.battlesLost + (outcome === 'defeat' ? 1 : 0),
+          battlesDraw: state.stats.battlesDraw + (outcome === 'draw' ? 1 : 0)
+        }
+      }
+    }
+
+    // Other tactical battle events that don't need state changes yet
+    case 'MULLIGAN_COMPLETED':
+    case 'SHIP_ATTACKED':
+    case 'SHIP_MOVED':
+    case 'FLAGSHIP_DESTROYED':
+    case 'ABILITY_TRIGGERED':
+    case 'ABILITY_ACTIVATED':
+    case 'STATUS_APPLIED':
+    case 'STATUS_EXPIRED':
+    case 'STATUS_TRIGGERED':
+      // These events are important for the combat log but don't require
+      // immediate state changes - the resulting state changes come from
+      // their effect events (DAMAGE_DEALT, SHIP_DESTROYED, etc.)
+      return state
 
     // ========================================================================
     // Consequence Events

@@ -381,6 +381,174 @@ export interface BattleResult {
 }
 
 // ----------------------------------------------------------------------------
+// Tactical Battle System (Turn-Based Combat)
+// ----------------------------------------------------------------------------
+
+export type TacticalBattlePhase =
+  | 'setup'           // Initial setup, deck selection
+  | 'mulligan'        // Optional card redraw
+  | 'playing'         // Active turn-based combat
+  | 'resolved'        // Battle complete
+
+export type TacticalVictoryCondition =
+  | 'flagship_destroyed'  // Primary: destroy enemy flagship
+  | 'fleet_eliminated'    // Secondary: no ships and no cards
+  | 'timeout'             // Tertiary: round limit reached
+
+// Energy system for deploying cards and abilities
+export interface EnergyState {
+  current: number       // Available energy this turn
+  maximum: number       // Cap (starts at 3, can increase)
+  regeneration: number  // Gained each turn (default: 2)
+}
+
+// Status effects that can be applied to ships
+export type StatusEffectType =
+  | 'stunned'       // Cannot attack or use abilities
+  | 'burning'       // Take damage at start of turn
+  | 'shielded'      // Block next damage instance
+  | 'energized'     // Abilities cost 1 less energy
+  | 'marked'        // Next attack deals +2 damage
+  | 'taunting'      // Enemies must attack this ship
+
+export interface StatusEffect {
+  type: StatusEffectType
+  duration: number      // Turns remaining (0 = permanent until removed)
+  source: string        // Card ID that applied this
+  stacks?: number       // For stackable effects
+}
+
+// A deployed ship on the battlefield
+export interface ShipState {
+  cardId: string
+  card: Card            // Full card data
+  position: 1 | 2 | 3 | 4 | 5
+  currentHull: number   // Current HP
+  maxHull: number       // Maximum HP (from card.hull)
+  isExhausted: boolean  // Can't attack until readied
+  statusEffects: StatusEffect[]
+  abilityCooldowns: Record<string, number>  // abilityId -> turns until ready
+}
+
+// Flagship (main objective)
+export interface FlagshipState {
+  currentHull: number
+  maxHull: number       // 10 + (2 × difficulty level)
+}
+
+// State for one combatant (player or opponent)
+export interface CombatantState {
+  flagship: FlagshipState
+
+  energy: EnergyState
+
+  // Battlefield - 5 slots, null = empty
+  battlefield: (ShipState | null)[]
+
+  // Cards
+  hand: string[]        // Card IDs in hand
+  deck: string[]        // Card IDs remaining in deck (shuffled)
+  discard: string[]     // Card IDs in discard pile
+
+  // Tracking
+  shipsDestroyedThisTurn: number
+  cardsPlayedThisTurn: string[]
+}
+
+// Initiative determination
+export interface InitiativeState {
+  firstPlayer: 'player' | 'opponent'
+  reason: 'agility' | 'tiebreaker'
+  playerAgility: number
+  opponentAgility: number
+  // Second player compensation
+  secondPlayerBonus: {
+    extraStartingEnergy: number   // +1
+    emergencyReserves: {
+      available: boolean
+      expiresOnTurn: number       // Turn 3
+      energyGrant: number         // +2
+    }
+  }
+}
+
+// Full tactical battle state
+export interface TacticalBattleState {
+  battleId: string
+  questId: string
+  context: string       // Battle narrative context
+
+  // Phase tracking
+  phase: TacticalBattlePhase
+  turnNumber: number
+  activePlayer: 'player' | 'opponent'
+  roundLimit: number    // Default: 5 rounds (10 turns)
+
+  // Combatants
+  player: CombatantState
+  opponent: CombatantState
+
+  // Initiative
+  initiative: InitiativeState
+
+  // Victory tracking
+  victoryCondition?: TacticalVictoryCondition
+  winner?: 'player' | 'opponent' | 'draw'
+
+  // Opponent metadata
+  opponentName: string
+  opponentFactionId: FactionId | 'scavengers' | 'pirates'
+  difficulty: 'easy' | 'medium' | 'hard'
+
+  // Action tracking for current turn
+  actionsThisTurn: TacticalAction[]
+}
+
+// Actions that can be taken during a turn
+export type TacticalActionType =
+  | 'deploy'          // Play a card from hand
+  | 'attack'          // Attack with a ship
+  | 'activate'        // Activate an ability
+  | 'move'            // Move ship to different position
+  | 'draw'            // Draw extra card (costs energy)
+  | 'end_turn'        // End current turn
+
+export interface TacticalAction {
+  type: TacticalActionType
+  cardId?: string
+  targetId?: string
+  position?: number
+  timestamp: string
+}
+
+// Configuration for tactical battles
+export const TACTICAL_BATTLE_CONFIG = {
+  // Energy
+  startingMaxEnergy: 3,
+  energyRegeneration: 2,
+  firstTurnBonus: 1,        // Start with 3 energy on turn 1
+  secondPlayerExtraEnergy: 1,
+  drawCardCost: 2,
+
+  // Hand
+  startingHandSize: 4,
+  maxHandSize: 5,
+  deckSize: { min: 8, max: 10 },
+
+  // Flagship
+  baseFlagshipHull: 10,
+  flagshipHullPerDifficulty: 2,  // +2 per difficulty level
+
+  // Victory
+  roundLimit: 5,            // 5 rounds = 10 turns
+  attritionDamage: 2,       // Damage to flagship when no ships/cards
+
+  // Positioning
+  battlefieldSlots: 5,
+  moveCost: 1,              // Energy to move between slots
+} as const
+
+// ----------------------------------------------------------------------------
 // Consequences & Bounty
 // ----------------------------------------------------------------------------
 
@@ -473,7 +641,8 @@ export type GamePhase =
   | 'mediation'
   | 'card_selection'
   | 'deployment'
-  | 'battle'
+  | 'battle'              // Classic automated battle
+  | 'tactical_battle'     // New turn-based tactical battle
   | 'consequence'
   | 'post_battle_dilemma'
   | 'quest_summary'
@@ -536,8 +705,11 @@ export interface GameState {
   // Current dilemma (when in narrative phase)
   currentDilemmaId: string | null
 
-  // Current battle (when in battle phases)
+  // Current battle (when in battle phases) - classic system
   currentBattle: BattleState | null
+
+  // Current tactical battle (when in tactical_battle phase) - new turn-based system
+  currentTacticalBattle: TacticalBattleState | null
 
   // Current mediation (when in mediation phase)
   currentMediationId: string | null

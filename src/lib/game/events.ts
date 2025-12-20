@@ -429,6 +429,254 @@ export interface BattleResolvedEvent {
 }
 
 // ----------------------------------------------------------------------------
+// Tactical Battle Events (Turn-Based Combat System)
+// ----------------------------------------------------------------------------
+
+// Battle initialization
+export interface TacticalBattleStartedEvent {
+  type: 'TACTICAL_BATTLE_STARTED'
+  data: BaseEventData & {
+    battleId: string
+    questId: string
+    context: string
+    playerDeckCardIds: string[]
+    opponentDeckCardIds: string[]
+    opponentName: string
+    opponentFactionId: FactionId | 'scavengers' | 'pirates'
+    difficulty: 'easy' | 'medium' | 'hard'
+    playerFlagshipHull: number
+    opponentFlagshipHull: number
+    firstPlayer: 'player' | 'opponent'
+    initiativeReason: 'agility' | 'tiebreaker'
+  }
+}
+
+// Hand management
+export interface TacticalCardDrawnEvent {
+  type: 'TACTICAL_CARD_DRAWN'
+  data: BaseEventData & {
+    battleId: string
+    player: 'player' | 'opponent'
+    cardId: string
+    deckRemaining: number
+  }
+}
+
+export interface TacticalCardDiscardedEvent {
+  type: 'TACTICAL_CARD_DISCARDED'
+  data: BaseEventData & {
+    battleId: string
+    player: 'player' | 'opponent'
+    cardId: string
+    reason: 'hand_limit' | 'ability' | 'cost' | 'mulligan'
+  }
+}
+
+export interface MulliganCompletedEvent {
+  type: 'MULLIGAN_COMPLETED'
+  data: BaseEventData & {
+    battleId: string
+    player: 'player' | 'opponent'
+    cardsRedrawn: number
+  }
+}
+
+// Turn flow
+export interface TacticalTurnStartedEvent {
+  type: 'TACTICAL_TURN_STARTED'
+  data: BaseEventData & {
+    battleId: string
+    turnNumber: number
+    activePlayer: 'player' | 'opponent'
+    energyGained: number
+    newEnergyTotal: number
+  }
+}
+
+export interface TacticalTurnEndedEvent {
+  type: 'TACTICAL_TURN_ENDED'
+  data: BaseEventData & {
+    battleId: string
+    turnNumber: number
+    player: 'player' | 'opponent'
+  }
+}
+
+// Energy system
+export interface EnergyGainedEvent {
+  type: 'ENERGY_GAINED'
+  data: BaseEventData & {
+    battleId: string
+    player: 'player' | 'opponent'
+    amount: number
+    newTotal: number
+    source: 'turn_start' | 'ability' | 'emergency_reserves' | 'pass_bonus'
+  }
+}
+
+export interface EnergySpentEvent {
+  type: 'ENERGY_SPENT'
+  data: BaseEventData & {
+    battleId: string
+    player: 'player' | 'opponent'
+    amount: number
+    newTotal: number
+    action: 'deploy' | 'ability' | 'draw' | 'move'
+  }
+}
+
+// Ship deployment and combat
+export interface ShipDeployedEvent {
+  type: 'SHIP_DEPLOYED'
+  data: BaseEventData & {
+    battleId: string
+    player: 'player' | 'opponent'
+    cardId: string
+    position: number
+    energyCost: number
+  }
+}
+
+export interface ShipAttackedEvent {
+  type: 'SHIP_ATTACKED'
+  data: BaseEventData & {
+    battleId: string
+    attackerId: string
+    attackerPlayer: 'player' | 'opponent'
+    targetId: string | 'flagship'  // 'flagship' for direct flagship attacks
+    targetPlayer: 'player' | 'opponent'
+  }
+}
+
+export interface DamageDealtEvent {
+  type: 'DAMAGE_DEALT'
+  data: BaseEventData & {
+    battleId: string
+    sourceId: string
+    targetId: string | 'flagship'
+    targetPlayer: 'player' | 'opponent'
+    rawDamage: number
+    defenseReduction: number
+    finalDamage: number
+    targetNewHull: number
+    damageType: 'attack' | 'ability' | 'status'
+  }
+}
+
+export interface ShipDestroyedEvent {
+  type: 'SHIP_DESTROYED'
+  data: BaseEventData & {
+    battleId: string
+    cardId: string
+    position: number
+    owner: 'player' | 'opponent'
+    destroyedBy: string  // cardId or 'ability' or 'status'
+  }
+}
+
+export interface ShipMovedEvent {
+  type: 'SHIP_MOVED'
+  data: BaseEventData & {
+    battleId: string
+    cardId: string
+    player: 'player' | 'opponent'
+    fromPosition: number
+    toPosition: number
+    energyCost: number
+  }
+}
+
+// Flagship damage
+export interface FlagshipDamagedEvent {
+  type: 'FLAGSHIP_DAMAGED'
+  data: BaseEventData & {
+    battleId: string
+    player: 'player' | 'opponent'
+    amount: number
+    newHull: number
+    source: string  // cardId or 'attrition'
+  }
+}
+
+export interface FlagshipDestroyedEvent {
+  type: 'FLAGSHIP_DESTROYED'
+  data: BaseEventData & {
+    battleId: string
+    player: 'player' | 'opponent'
+    destroyedBy: string
+  }
+}
+
+// Abilities
+export interface AbilityTriggeredEvent {
+  type: 'ABILITY_TRIGGERED'
+  data: BaseEventData & {
+    battleId: string
+    cardId: string
+    abilityId: string
+    trigger: 'onDeploy' | 'onAttack' | 'onDefend' | 'onDestroyed' | 'startTurn' | 'endTurn'
+  }
+}
+
+export interface AbilityActivatedEvent {
+  type: 'ABILITY_ACTIVATED'
+  data: BaseEventData & {
+    battleId: string
+    cardId: string
+    abilityId: string
+    energyCost: number
+    targetIds: string[]
+  }
+}
+
+// Status effects
+export interface StatusAppliedEvent {
+  type: 'STATUS_APPLIED'
+  data: BaseEventData & {
+    battleId: string
+    targetId: string
+    targetPlayer: 'player' | 'opponent'
+    status: 'stunned' | 'burning' | 'shielded' | 'energized' | 'marked' | 'taunting'
+    duration: number
+    source: string  // cardId
+  }
+}
+
+export interface StatusExpiredEvent {
+  type: 'STATUS_EXPIRED'
+  data: BaseEventData & {
+    battleId: string
+    targetId: string
+    status: string
+  }
+}
+
+export interface StatusTriggeredEvent {
+  type: 'STATUS_TRIGGERED'
+  data: BaseEventData & {
+    battleId: string
+    targetId: string
+    status: string
+    effect: string  // Description of what happened
+  }
+}
+
+// Battle resolution
+export interface TacticalBattleResolvedEvent {
+  type: 'TACTICAL_BATTLE_RESOLVED'
+  data: BaseEventData & {
+    battleId: string
+    winner: 'player' | 'opponent' | 'draw'
+    victoryCondition: 'flagship_destroyed' | 'fleet_eliminated' | 'timeout'
+    turnsPlayed: number
+    playerFinalHull: number
+    opponentFinalHull: number
+    playerShipsDestroyed: number
+    opponentShipsDestroyed: number
+  }
+}
+
+// ----------------------------------------------------------------------------
 // Consequence Events (3)
 // ----------------------------------------------------------------------------
 
@@ -651,7 +899,7 @@ export type GameEvent =
   // Card Events
   | CardGainedEvent
   | CardLostEvent
-  // Battle Events
+  // Battle Events (Classic System)
   | BattleTriggeredEvent
   | CardSelectedEvent
   | CardDeselectedEvent
@@ -665,6 +913,28 @@ export type GameEvent =
   | AttackRolledEvent
   | RoundResolvedEvent
   | BattleResolvedEvent
+  // Tactical Battle Events (Turn-Based System)
+  | TacticalBattleStartedEvent
+  | TacticalCardDrawnEvent
+  | TacticalCardDiscardedEvent
+  | MulliganCompletedEvent
+  | TacticalTurnStartedEvent
+  | TacticalTurnEndedEvent
+  | EnergyGainedEvent
+  | EnergySpentEvent
+  | ShipDeployedEvent
+  | ShipAttackedEvent
+  | DamageDealtEvent
+  | ShipDestroyedEvent
+  | ShipMovedEvent
+  | FlagshipDamagedEvent
+  | FlagshipDestroyedEvent
+  | AbilityTriggeredEvent
+  | AbilityActivatedEvent
+  | StatusAppliedEvent
+  | StatusExpiredEvent
+  | StatusTriggeredEvent
+  | TacticalBattleResolvedEvent
   // Consequence Events
   | BountyCalculatedEvent
   | BountySharedEvent

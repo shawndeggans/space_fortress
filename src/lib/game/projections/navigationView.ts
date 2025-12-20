@@ -26,6 +26,7 @@ const PHASE_MAPPING: Record<GamePhase, DisplayPhase | null> = {
   card_selection: 'battle',
   deployment: 'battle',
   battle: 'battle',
+  tactical_battle: 'battle',  // New turn-based battle system
   consequence: 'result',
   post_battle_dilemma: 'narrative',
   quest_summary: 'result',  // Shows summary at quest end

@@ -199,6 +199,80 @@ export interface ContinueBattleCommand {
 }
 
 // ----------------------------------------------------------------------------
+// Tactical Battle Commands (Turn-Based Combat System)
+// ----------------------------------------------------------------------------
+
+// Starting a tactical battle
+export interface StartTacticalBattleCommand {
+  type: 'START_TACTICAL_BATTLE'
+  data: {
+    deckCardIds: string[]  // 8-10 cards selected for battle deck
+  }
+}
+
+// Mulligan phase
+export interface MulliganCardsCommand {
+  type: 'MULLIGAN_CARDS'
+  data: {
+    cardIdsToRedraw: string[]  // Cards to put back and redraw
+  }
+}
+
+export interface SkipMulliganCommand {
+  type: 'SKIP_MULLIGAN'
+  data: {}
+}
+
+// Turn actions
+export interface DeployShipCommand {
+  type: 'DEPLOY_SHIP'
+  data: {
+    cardId: string
+    position: number  // 1-5
+  }
+}
+
+export interface AttackWithShipCommand {
+  type: 'ATTACK_WITH_SHIP'
+  data: {
+    attackerCardId: string
+    targetPosition?: number  // If not specified, attacks opposite position or flagship
+  }
+}
+
+export interface ActivateAbilityCommand {
+  type: 'ACTIVATE_ABILITY'
+  data: {
+    cardId: string
+    abilityId: string
+    targetId?: string  // For targeted abilities
+  }
+}
+
+export interface MoveShipCommand {
+  type: 'MOVE_SHIP'
+  data: {
+    cardId: string
+    toPosition: number  // 1-5
+  }
+}
+
+export interface DrawExtraCardCommand {
+  type: 'DRAW_EXTRA_CARD'
+  data: {}
+}
+
+export interface EndTurnCommand {
+  type: 'END_TURN'
+  data: {}
+}
+
+export interface UseEmergencyReservesCommand {
+  type: 'USE_EMERGENCY_RESERVES'
+  data: {}
+}
+
+// ----------------------------------------------------------------------------
 // Consequence Commands
 // ----------------------------------------------------------------------------
 
@@ -326,8 +400,19 @@ export type GameCommand =
   // Battle: Deployment
   | SetCardPositionCommand
   | LockOrdersCommand
-  // Battle: Execution
+  // Battle: Execution (Classic)
   | ContinueBattleCommand
+  // Tactical Battle (Turn-Based)
+  | StartTacticalBattleCommand
+  | MulliganCardsCommand
+  | SkipMulliganCommand
+  | DeployShipCommand
+  | AttackWithShipCommand
+  | ActivateAbilityCommand
+  | MoveShipCommand
+  | DrawExtraCardCommand
+  | EndTurnCommand
+  | UseEmergencyReservesCommand
   // Consequence
   | AcknowledgeOutcomeCommand
   | ContinueToNextPhaseCommand
@@ -367,6 +452,21 @@ export function isBattleCommand(command: GameCommand): boolean {
     'SET_CARD_POSITION',
     'LOCK_ORDERS',
     'CONTINUE_BATTLE'
+  ].includes(command.type)
+}
+
+export function isTacticalBattleCommand(command: GameCommand): boolean {
+  return [
+    'START_TACTICAL_BATTLE',
+    'MULLIGAN_CARDS',
+    'SKIP_MULLIGAN',
+    'DEPLOY_SHIP',
+    'ATTACK_WITH_SHIP',
+    'ACTIVATE_ABILITY',
+    'MOVE_SHIP',
+    'DRAW_EXTRA_CARD',
+    'END_TURN',
+    'USE_EMERGENCY_RESERVES'
   ].includes(command.type)
 }
 

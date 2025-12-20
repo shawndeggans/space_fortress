@@ -108,9 +108,9 @@ describe('Navigation Router', () => {
     })
 
     it('has correct count of unique routes', () => {
-      // post_battle_dilemma reuses /narrative, so count should be 12
-      // (13 phases - 1 shared route = 12 unique routes)
-      expect(VALID_ROUTES.size).toBe(12)
+      // post_battle_dilemma reuses /narrative, so count should be 13
+      // (14 phases - 1 shared route = 13 unique routes)
+      expect(VALID_ROUTES.size).toBe(13)
     })
   })
 
@@ -133,12 +133,13 @@ describe('Navigation Router', () => {
     it('returns all valid routes as array', () => {
       const routes = getAllRoutes()
       expect(Array.isArray(routes)).toBe(true)
-      expect(routes.length).toBe(12)
+      expect(routes.length).toBe(13)  // Added /tactical-battle
       expect(routes).toContain('/')
       expect(routes).toContain('/mediation')
       expect(routes).toContain('/card-pool')
       expect(routes).toContain('/choice-consequence')
       expect(routes).toContain('/quest-summary')
+      expect(routes).toContain('/tactical-battle')
     })
   })
 
