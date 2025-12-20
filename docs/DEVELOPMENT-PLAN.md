@@ -5,25 +5,29 @@ This document outlines the implementation roadmap for building Space Fortress as
 ## Current State
 
 The project has a **functional core game loop** with:
-- Event sourcing architecture (command → event → projection) with 51 event types
+- Event sourcing architecture (command → event → projection) with 70+ event types
 - SQLite persistence via sql.js + IndexedDB with automatic snapshots
 - Command serialization via async-mutex to prevent race conditions
 - Navigation guards keeping URL in sync with game phase
 - Fat events for self-contained state reconstruction
 - Graceful degradation for corrupted event data
-- 469+ unit tests covering all game systems
+- 482+ unit tests covering all game systems
 
 **What's implemented:**
-- ✅ Full event system (51 events across 9 categories)
+- ✅ Full event system (70+ events across 10 categories including tactical battle)
 - ✅ Core read model projections
-- ✅ 12 game screens (quest-hub, narrative, card-pool, deployment, battle, etc.)
+- ✅ 13 game screens (quest-hub, narrative, card-pool, deployment, battle, tactical-battle, etc.)
 - ✅ 15+ reusable UI components
-- ✅ Battle system with d20 combat
+- ✅ Classic battle system with d20 combat
+- ✅ **NEW: Tactical battle system foundation (turn-based, energy management)**
 - ✅ Quest and reputation systems
 - ✅ Alliance and mediation systems
 - ✅ Vertical slice architecture for command handlers
+- ✅ Card system with hull, defense, energyCost, abilities
 
 **What remains for MVP:**
+- Tactical battle: Abilities system implementation
+- Tactical battle: AI opponent behavior
 - Quest content (narrative text, NPC dialogue)
 - Balance tuning
 - Polish and playtesting
@@ -45,14 +49,17 @@ Expand the type system and event infrastructure to support the full game.
 // Factions
 type FactionId = 'ironveil' | 'ashfall' | 'meridian' | 'void_wardens' | 'sundered_oath'
 
-// Cards (ships)
+// Cards (ships) - Updated for tactical battle system
 interface Card {
   id: string
   name: string
   faction: FactionId
-  attack: number   // 1-6
-  armor: number    // 1-7
-  agility: number  // 1-5
+  attack: number      // 1-6, damage dealt
+  defense: number     // 1-7, damage reduction (renamed from armor)
+  hull: number        // 2-8, health points (NEW)
+  agility: number     // 1-5, initiative order
+  energyCost: number  // 1-4, cost to deploy (NEW)
+  abilities?: CardAbility[]  // 0-2 special abilities (NEW)
   flavorText?: string
 }
 
@@ -343,15 +350,15 @@ export function decide(command: GameCommand, state: GameState): GameEvent[] {
 - [x] Implement alliance command handlers (via slices/form-alliance/)
 - [x] Implement mediation command handlers (via slices/mediation/)
 - [x] Add validation for all state transitions
-- [x] Write unit tests for decider logic (469+ tests)
+- [x] Write unit tests for decider logic (482+ tests)
 
 ---
 
-### Phase 3: Battle System
+### Phase 3: Battle System (Classic)
 
-The core tactical gameplay.
+The original d20-based combat system (still functional, may be deprecated).
 
-#### 3.1 Combat Resolution Engine
+#### 3.1 Combat Resolution Engine (Classic)
 
 **File: `src/lib/game/combat.ts`**
 
@@ -360,7 +367,7 @@ interface CombatRoll {
   base: number        // d20 result (1-20)
   modifier: number    // attack stat
   total: number       // base + modifier
-  target: number      // 10 + enemy armor
+  target: number      // 10 + enemy defense
   hit: boolean        // total >= target
 }
 
@@ -390,7 +397,7 @@ function resolveBattle(
 ```
 
 **Combat Formula:**
-- To Hit: `d20 + Attack >= 10 + Enemy Armor`
+- To Hit: `d20 + Attack >= 10 + Enemy Defense`
 - Initiative: Higher Agility strikes first (tie = simultaneous)
 - Round Win: Hit opponent while not getting hit, OR opponent misses while you hit
 
@@ -429,6 +436,85 @@ function generateOpponentFleet(
 - [x] Implement fleet generation based on battle context
 - [x] Add difficulty scaling
 - [x] Create scavenger/pirate generic card pools
+
+---
+
+### Phase 3B: Tactical Battle System (NEW)
+
+Turn-based combat system replacing the automated d20 system. See `docs/design/CARD-BATTLE-REDESIGN.md` for full design.
+
+**Key Features:**
+- Energy-based resource management
+- Turn-based with player decisions each round
+- 5-slot battlefield with positioning
+- Card abilities and synergies
+- Flagship health victory condition
+- Hand management (draw, discard, mulligan)
+
+#### 3B.1 Core Battle Mechanics (COMPLETE)
+
+**Files:**
+- `src/lib/game/types.ts` - TacticalBattleState, CombatantState, ShipState, EnergyState
+- `src/lib/game/events.ts` - 20+ tactical battle events
+- `src/lib/game/commands.ts` - 10 tactical battle commands
+- `src/lib/game/decider.ts` - Command handlers
+- `src/lib/game/projections.ts` - State evolution handlers
+
+**Tasks:**
+- [x] Card structure with hull and energy cost
+- [x] Turn-based flow (start → main → end phases)
+- [x] Energy system (gain, spend, regenerate)
+- [x] Basic attack/damage/destroy loop
+- [x] Flagship health tracking
+- [x] Victory conditions (flagship destroyed, timeout)
+- [x] Battle events for new system
+- [x] Unit tests (13 tactical battle tests)
+
+#### 3B.2 Abilities System
+
+**Tasks:**
+- [ ] Ability data structure and types (CardAbility interface exists)
+- [ ] Ability timing system (triggers: deploy, attack, defend, destroyed, etc.)
+- [ ] 4-5 abilities per faction (20 total)
+- [ ] Ability targeting system
+- [ ] UI for ability activation
+- [ ] Ability effects engine
+
+#### 3B.3 Hand Management
+
+**Tasks:**
+- [x] Battle deck selection (8-10 cards)
+- [x] Draw system (TACTICAL_CARD_DRAWN event)
+- [ ] Hand limit enforcement (max 5, discard excess)
+- [x] Mulligan at battle start (MULLIGAN_CARDS command)
+- [x] Discard mechanics (TACTICAL_CARD_DISCARDED event)
+- [x] Deck/discard tracking
+
+#### 3B.4 Positioning & Movement
+
+**Tasks:**
+- [x] 5-slot battlefield per side
+- [x] Position-based targeting
+- [x] Move action (MOVE_SHIP command, costs energy)
+- [ ] Lane-based abilities
+- [x] Empty slot → Flagship attack rules
+
+#### 3B.5 Status Effects
+
+**Tasks:**
+- [x] Status effect data structure (StatusEffect, StatusEffectType in types.ts)
+- [ ] Application and expiration logic
+- [ ] Visual indicators
+- [ ] 6-8 core status types (Exhausted, Stunned, Burning, Shielded, etc.)
+- [ ] Status interaction rules
+
+#### 3B.6 AI & Polish
+
+**Tasks:**
+- [ ] AI opponent decision making
+- [ ] Difficulty scaling behavior
+- [ ] Battle animations (optional)
+- [ ] Tutorial/help tooltips
 
 ---
 
@@ -796,7 +882,7 @@ export function playSound(event: string) {
 **Directory: `src/lib/game/__tests__/`**
 
 **Critical Test Coverage:**
-- [x] All decider command handlers (469+ tests)
+- [x] All decider command handlers (482+ tests)
 - [x] Combat resolution (hit/miss, initiative, rounds)
 - [x] Reputation calculations (thresholds, card locks)
 - [x] All projection functions
@@ -924,6 +1010,7 @@ export const PHASE_ROUTES: Record<GamePhase, string | null> = {
   quest_hub: '/quest-hub',
   narrative: '/narrative',
   battle: '/battle',
+  tactical_battle: '/tactical-battle',  // NEW
   // ...
 }
 ```
