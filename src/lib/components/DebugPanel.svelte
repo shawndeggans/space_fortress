@@ -32,6 +32,7 @@
   async function exportEvents() {
     const events = await gameState.getAllEvents()
 
+    const tacticalBattle = $gameState.currentTacticalBattle
     const debugData = {
       exportedAt: new Date().toISOString(),
       playerId: gameState.getPlayerId(),
@@ -42,7 +43,16 @@
         gameStatus: $gameState.gameStatus,
         reputation: $gameState.reputation,
         bounty: $gameState.bounty,
-        ownedCardCount: $gameState.ownedCards.length
+        ownedCardCount: $gameState.ownedCards.length,
+        // Include tactical battle state for debugging
+        tacticalBattle: tacticalBattle ? {
+          phase: tacticalBattle.phase,
+          turnNumber: tacticalBattle.turnNumber,
+          activePlayer: tacticalBattle.activePlayer,
+          playerHand: tacticalBattle.player.hand,
+          playerEnergy: tacticalBattle.player.energy,
+          playerDeckCount: tacticalBattle.player.deck.length
+        } : null
       },
       eventCount: events.length,
       events: events
