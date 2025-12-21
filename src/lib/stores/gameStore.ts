@@ -78,6 +78,20 @@ export const gameState = {
         const newState = events.reduce(evolveState, currentState)
         gameStateStore.set(newState)
 
+        // Auto-dispatch opponent turn processing if it's now the opponent's turn
+        // This triggers the opponent AI using the properly projected state
+        if (
+          newState.currentTacticalBattle?.phase === 'playing' &&
+          newState.currentTacticalBattle?.activePlayer === 'opponent'
+        ) {
+          debugLog('Auto-dispatching PROCESS_OPPONENT_TURN')
+          // Schedule for next tick to avoid recursion within mutex
+          const self = this
+          setTimeout(() => {
+            self.handleCommand({ type: 'PROCESS_OPPONENT_TURN', data: {} })
+          }, 0)
+        }
+
         return { success: true }
       } catch (error) {
         const message = error instanceof InvalidCommandError

@@ -180,12 +180,12 @@ test.describe('Card Pool Phase', () => {
       await expectScreen(page, 'card-pool')
 
       // Verify card pool has cards
-      await expect(selectors.common.heading(page, /Select Your Fleet/i)).toBeVisible()
+      await expect(selectors.common.heading(page, /Build Your Battle Deck/i)).toBeVisible()
       await expect(selectors.cardPool.anyCard(page).first()).toBeVisible()
 
-      // Verify we have 6+ cards (3 starter + 1 quest + 2 alliance)
+      // Verify we have 4+ cards (3 starter + 1 quest, or + 2 alliance = 6)
       const cardCount = await selectors.cardPool.anyCard(page).count()
-      expect(cardCount).toBeGreaterThanOrEqual(6)
+      expect(cardCount).toBeGreaterThanOrEqual(4)
     }
   })
 
@@ -204,18 +204,19 @@ test.describe('Card Pool Phase', () => {
       const cards = selectors.cardPool.anyCard(page)
       const cardCount = await cards.count()
 
-      // Select 5 cards for battle
-      for (let i = 0; i < 5 && i < cardCount; i++) {
+      // Select 4+ cards for tactical battle (min deck size is 4)
+      const selectCount = Math.min(cardCount, 6)
+      for (let i = 0; i < selectCount; i++) {
         await cards.nth(i).click()
         await page.waitForTimeout(100)
       }
 
-      // Verify selection count shows 5 cards selected
+      // Verify selection count shows cards selected
       const selectionText = await page.locator('.selection-count').textContent()
-      expect(selectionText).toContain('5')
+      expect(selectionText).toContain(`${selectCount}`)
 
-      // With 5+ cards, commit button should be ENABLED
-      await expect(selectors.cardPool.commitFleetButton(page)).toBeEnabled()
+      // With 4+ cards selected, start battle button should be ENABLED
+      await expect(selectors.cardPool.startBattleButton(page)).toBeEnabled()
     }
   })
 })
@@ -273,27 +274,28 @@ test.describe('Full Battle Flow', () => {
     if (page.url().includes('/card-pool')) {
       await expectScreen(page, 'card-pool')
 
-      // Verify we have 6+ cards
+      // Verify we have 4+ cards (minimum for tactical battle)
       const cards = selectors.cardPool.anyCard(page)
       const cardCount = await cards.count()
 
       // Log card count for debugging
       console.log(`Available cards for battle: ${cardCount}`)
-      expect(cardCount).toBeGreaterThanOrEqual(6)
+      expect(cardCount).toBeGreaterThanOrEqual(4)
 
-      // Select 5 cards
-      for (let i = 0; i < 5; i++) {
+      // Select all available cards (up to 8)
+      const selectCount = Math.min(cardCount, 8)
+      for (let i = 0; i < selectCount; i++) {
         await cards.nth(i).click()
         await page.waitForTimeout(100)
       }
 
-      // Commit fleet button should be enabled
-      await expect(selectors.cardPool.commitFleetButton(page)).toBeEnabled({ timeout: 5000 })
-      await selectors.cardPool.commitFleetButton(page).click()
+      // Start battle button should be enabled
+      await expect(selectors.cardPool.startBattleButton(page)).toBeEnabled({ timeout: 5000 })
+      await selectors.cardPool.startBattleButton(page).click()
 
-      // Should navigate to deployment
-      await page.waitForURL('**/deployment', { timeout: 10000 })
-      await expectScreen(page, 'deployment')
+      // Should navigate to tactical battle
+      await page.waitForURL('**/tactical-battle', { timeout: 10000 })
+      await expectScreen(page, 'tactical-battle')
     }
   })
 })

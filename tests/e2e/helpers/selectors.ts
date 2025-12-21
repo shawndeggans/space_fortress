@@ -50,7 +50,9 @@ export const alliance = {
 export const cardPool = {
   card: (page: Page, cardId: string) => page.getByTestId(`card-${cardId}`),
   anyCard: (page: Page) => page.locator('[data-testid^="card-"]'),
-  commitFleetButton: (page: Page) => page.getByTestId('btn-commit-fleet'),
+  startBattleButton: (page: Page) => page.getByTestId('btn-start-battle'),
+  /** @deprecated Use startBattleButton instead */
+  commitFleetButton: (page: Page) => page.getByTestId('btn-start-battle'),
   selectionCount: (page: Page) => page.locator('.selection-count .count'),
 }
 
@@ -65,7 +67,7 @@ export const deployment = {
 }
 
 /**
- * Battle screen selectors
+ * Battle screen selectors (classic d20 battle - deprecated)
  */
 export const battle = {
   viewConsequencesButton: (page: Page) => page.getByTestId('btn-view-consequences'),
@@ -73,6 +75,32 @@ export const battle = {
   victoryBanner: (page: Page) => page.locator('.result-banner--victory'),
   defeatBanner: (page: Page) => page.locator('.result-banner--defeat'),
   roundIndicator: (page: Page) => page.locator('.round-indicator'),
+}
+
+/**
+ * Tactical battle screen selectors (turn-based combat)
+ */
+export const tacticalBattle = {
+  // Player's battlefield slots
+  playerSlot: (page: Page, position: number) => page.locator(`.player-battlefield .slot-${position}`),
+  anyPlayerSlot: (page: Page) => page.locator('.player-battlefield .battlefield-slot'),
+  // Opponent's battlefield slots
+  opponentSlot: (page: Page, position: number) => page.locator(`.opponent-battlefield .slot-${position}`),
+  anyOpponentSlot: (page: Page) => page.locator('.opponent-battlefield .battlefield-slot'),
+  // Hand
+  handCard: (page: Page, cardId: string) => page.locator(`.hand [data-card-id="${cardId}"]`),
+  anyHandCard: (page: Page) => page.locator('.hand .hand-card'),
+  // Actions
+  endTurnButton: (page: Page) => page.getByTestId('btn-end-turn'),
+  skipMulliganButton: (page: Page) => page.getByTestId('btn-skip-mulligan'),
+  confirmMulliganButton: (page: Page) => page.getByTestId('btn-confirm-mulligan'),
+  // Status displays
+  energyDisplay: (page: Page) => page.locator('.energy-display'),
+  turnIndicator: (page: Page) => page.locator('.turn-indicator'),
+  phaseIndicator: (page: Page) => page.locator('.phase-indicator'),
+  // Victory/defeat
+  resultOverlay: (page: Page) => page.locator('.result-overlay'),
+  continueButton: (page: Page) => page.getByTestId('btn-continue'),
 }
 
 /**

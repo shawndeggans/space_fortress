@@ -1019,6 +1019,7 @@ export function evolveState(state: GameState, event: GameEvent): GameState {
         ...state,
         currentTacticalBattle: {
           ...state.currentTacticalBattle,
+          phase: 'playing', // Transition from mulligan to playing when first turn starts
           turnNumber: event.data.turnNumber,
           activePlayer: event.data.activePlayer,
           actionsThisTurn: [],

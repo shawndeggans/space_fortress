@@ -245,10 +245,10 @@ describe('TACTICAL_BATTLE_CONFIG', () => {
   })
 
   it('has valid hand settings', () => {
-    expect(TACTICAL_BATTLE_CONFIG.startingHandSize).toBe(4)
+    expect(TACTICAL_BATTLE_CONFIG.startingHandSize).toBe(3)
     expect(TACTICAL_BATTLE_CONFIG.maxHandSize).toBe(5)
-    expect(TACTICAL_BATTLE_CONFIG.deckSize.min).toBe(8)
-    expect(TACTICAL_BATTLE_CONFIG.deckSize.max).toBe(10)
+    expect(TACTICAL_BATTLE_CONFIG.deckSize.min).toBe(4)
+    expect(TACTICAL_BATTLE_CONFIG.deckSize.max).toBe(8)
   })
 
   it('has valid battlefield settings', () => {

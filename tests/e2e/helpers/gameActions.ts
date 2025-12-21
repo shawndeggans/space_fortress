@@ -190,10 +190,10 @@ export async function proceedWithoutAlliance(page: Page): Promise<void> {
 
 /**
  * Select cards for battle (all available cards, up to count)
- * Note: Player needs 5 cards for battle. If only 3 starter cards exist,
- * they must form an alliance to get additional cards.
+ * Note: Player needs 4-8 cards for tactical battle.
+ * With 3 starter cards + 1 quest card + 2 alliance cards = 6 cards is typical.
  */
-export async function selectCardsForBattle(page: Page, count = 5): Promise<void> {
+export async function selectCardsForBattle(page: Page, count = 8): Promise<void> {
   await waitForHydration(page)
 
   // Get all available cards (some may already be selected)
@@ -212,12 +212,11 @@ export async function selectCardsForBattle(page: Page, count = 5): Promise<void>
     }
   }
 
-  // Check if we have enough cards selected
-  const commitButton = selectors.cardPool.commitFleetButton(page)
+  // Check if we have enough cards selected (need at least 4)
+  const startBattleButton = selectors.cardPool.startBattleButton(page)
 
   // If button is still disabled, we might not have enough cards
-  // This can happen if player only has 3 starter cards and didn't form alliance
-  const isEnabled = await commitButton.isEnabled().catch(() => false)
+  const isEnabled = await startBattleButton.isEnabled().catch(() => false)
   if (!isEnabled) {
     // Log warning and check the current state
     const selectionText = await page.locator('.selection-count').textContent()
@@ -225,20 +224,21 @@ export async function selectCardsForBattle(page: Page, count = 5): Promise<void>
 
     // If we can't proceed, throw a descriptive error
     throw new Error(
-      `Cannot commit fleet: need 5 cards but only ${cardCount} available. ` +
+      `Cannot start battle: need at least 4 cards but only ${cardCount} available. ` +
         `Consider forming an alliance to gain additional cards.`
     )
   }
 
-  await commitButton.click()
+  await startBattleButton.click()
 
-  // Wait for navigation to deployment
-  await page.waitForURL('**/deployment', { timeout: 10000 })
+  // Wait for navigation to tactical battle
+  await page.waitForURL('**/tactical-battle', { timeout: 10000 })
   await waitForHydration(page)
 }
 
 /**
- * Deploy cards to battle positions
+ * Deploy cards to battle positions (classic battle - deprecated)
+ * @deprecated Use playTacticalBattle instead
  */
 export async function deployCards(page: Page): Promise<void> {
   await waitForHydration(page)
@@ -261,7 +261,54 @@ export async function deployCards(page: Page): Promise<void> {
 }
 
 /**
- * Complete the battle phase (battle auto-resolves, just wait for result)
+ * Play through the tactical battle phase
+ * Handles mulligan, plays turns until resolved, then clicks View Consequences
+ */
+export async function playTacticalBattle(page: Page): Promise<void> {
+  await waitForHydration(page)
+
+  // Handle mulligan phase (just skip it)
+  const skipMulliganBtn = page.getByRole('button', { name: /keep hand/i })
+  if (await skipMulliganBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await skipMulliganBtn.click()
+    await page.waitForTimeout(500)
+  }
+
+  // Play through battle by clicking End Turn repeatedly
+  // The opponent AI takes its turn automatically
+  // Battle resolves when a flagship is destroyed or turns run out
+  let maxTurns = 20
+  while (maxTurns > 0) {
+    await waitForHydration(page)
+
+    // Check if battle is resolved (View Consequences button visible)
+    const viewConsequencesBtn = page.getByRole('button', { name: /view consequences/i })
+    if (await viewConsequencesBtn.isVisible({ timeout: 500 }).catch(() => false)) {
+      await viewConsequencesBtn.click()
+      await page.waitForURL('**/consequence', { timeout: 10000 })
+      await waitForHydration(page)
+      return
+    }
+
+    // If it's our turn, end it (or optionally deploy/attack - for now just end turn)
+    const endTurnBtn = page.getByRole('button', { name: /end turn/i })
+    if (await endTurnBtn.isVisible({ timeout: 500 }).catch(() => false)) {
+      await endTurnBtn.click()
+      await page.waitForTimeout(500)
+    } else {
+      // Not our turn, wait for opponent
+      await page.waitForTimeout(500)
+    }
+
+    maxTurns--
+  }
+
+  throw new Error('Battle did not resolve within expected turns')
+}
+
+/**
+ * Complete the battle phase (classic d20 battle - deprecated)
+ * @deprecated Use playTacticalBattle instead
  */
 export async function completeBattle(page: Page): Promise<void> {
   await waitForHydration(page)
@@ -433,7 +480,7 @@ export function getCurrentPhase(page: Page): string {
 export async function expectScreen(page: Page, screen: string): Promise<void> {
   const validScreens = [
     'quest-hub', 'narrative', 'choice-consequence', 'alliance', 'mediation',
-    'card-pool', 'deployment', 'battle', 'consequence', 'quest-summary', 'ending'
+    'card-pool', 'deployment', 'battle', 'tactical-battle', 'consequence', 'quest-summary', 'ending'
   ]
   if (!validScreens.includes(screen)) {
     throw new Error(`Invalid screen: ${screen}. Valid screens are: ${validScreens.join(', ')}`)

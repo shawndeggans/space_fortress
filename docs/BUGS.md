@@ -658,6 +658,61 @@ case 'QUEST_ACCEPTED':
 
 ---
 
+## BUG-R4-001: Tactical Battle Round Limit Not Working + E2E Test Compatibility
+
+**Status:** ✅ Core fix complete, E2E test fix ready to implement
+**Severity:** Critical
+**Found in:** E2E Playthrough Tests
+**Date:** 2025-12-21
+
+### Problem
+Tactical battles don't timeout after 5 rounds (10 turns). Battles continue indefinitely (25+ turns in tests).
+
+### Root Cause (Architecture Violation)
+The decider was calling `generateOpponentTurnEvents()` inline with a manually constructed "simulated" state, bypassing the projection system. This worked in unit tests (synchronous) but failed in browser (async/state sync issues).
+
+### Solution Implemented
+1. Refactored `handleEndTurn` to only emit turn transition events
+2. Added `PROCESS_OPPONENT_TURN` command that uses properly projected state
+3. Added auto-dispatch in game store when `activePlayer === 'opponent'`
+
+### Files Modified
+- `src/lib/game/commands.ts` - Added `ProcessOpponentTurnCommand` type
+- `src/lib/game/decider.ts` - Added `handleProcessOpponentTurn`, refactored `handleEndTurn`
+- `src/lib/stores/gameStore.ts` - Added auto-dispatch for opponent turn
+
+### E2E Test Compatibility Issue
+After fixing the core bug, E2E tests still failed because Playwright clicks don't trigger Svelte 5 button handlers after phase transitions.
+
+**Root Cause:** Svelte 5 uses event delegation with deferred DOM updates. After state changes (mulligan→playing transition), the `__click` handler property isn't attached to buttons when Playwright clicks.
+
+**Solution:** Add helper function to wait for Svelte 5's `__click` handler:
+
+```typescript
+async function clickSvelteButton(page: Page, selector: string) {
+  await page.waitForFunction(
+    (sel) => {
+      const el = document.querySelector(sel) as any
+      return el && !el.disabled && el.__click !== undefined
+    },
+    selector,
+    { timeout: 5000 }
+  )
+  await page.locator(selector).click()
+}
+```
+
+### File to Modify for E2E Fix
+- `tests/e2e/complete-playthrough.spec.ts` - Add helper, update battle loop
+
+### Verification
+```bash
+npm test -- --run                    # Unit tests (486 should pass)
+npx playwright test tests/e2e/complete-playthrough.spec.ts  # E2E tests
+```
+
+---
+
 ## Gameplay Simulation Test Summary
 
 22 simulations were executed testing the full game loop:

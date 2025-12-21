@@ -272,6 +272,13 @@ export interface UseEmergencyReservesCommand {
   data: {}
 }
 
+// Internal command: triggers opponent AI to process their turn
+// This is auto-dispatched by the game store when activePlayer === 'opponent'
+export interface ProcessOpponentTurnCommand {
+  type: 'PROCESS_OPPONENT_TURN'
+  data: {}
+}
+
 // ----------------------------------------------------------------------------
 // Consequence Commands
 // ----------------------------------------------------------------------------
@@ -413,6 +420,7 @@ export type GameCommand =
   | DrawExtraCardCommand
   | EndTurnCommand
   | UseEmergencyReservesCommand
+  | ProcessOpponentTurnCommand
   // Consequence
   | AcknowledgeOutcomeCommand
   | ContinueToNextPhaseCommand
@@ -466,7 +474,8 @@ export function isTacticalBattleCommand(command: GameCommand): boolean {
     'MOVE_SHIP',
     'DRAW_EXTRA_CARD',
     'END_TURN',
-    'USE_EMERGENCY_RESERVES'
+    'USE_EMERGENCY_RESERVES',
+    'PROCESS_OPPONENT_TURN'
   ].includes(command.type)
 }
 

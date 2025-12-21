@@ -531,9 +531,9 @@ export const TACTICAL_BATTLE_CONFIG = {
   drawCardCost: 2,
 
   // Hand
-  startingHandSize: 4,
+  startingHandSize: 3,
   maxHandSize: 5,
-  deckSize: { min: 8, max: 10 },
+  deckSize: { min: 4, max: 8 },  // Lowered to match realistic card counts
 
   // Flagship
   baseFlagshipHull: 10,

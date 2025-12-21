@@ -527,6 +527,7 @@
           class="btn btn--primary"
           disabled={!isPlayerTurn}
           onclick={endTurn}
+          data-testid="end-turn-button"
         >
           End Turn
         </button>

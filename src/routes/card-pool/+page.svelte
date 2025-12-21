@@ -10,7 +10,8 @@
   import type { CardDisplayData, ExtendedFactionId } from '$lib/components/types'
   import { goto } from '$app/navigation'
 
-  const MAX_SELECTED = 5
+  const MIN_DECK_SIZE = 4
+  const MAX_DECK_SIZE = 8
 
   // Derive views from game state
   let cardPoolView = $derived(projectCardPoolView([], undefined, $gameState))
@@ -19,7 +20,7 @@
   let selectedCardIds = $state<Set<string>>(new Set())
 
   let selectedCount = $derived(selectedCardIds.size)
-  let canCommit = $derived(selectedCount === MAX_SELECTED)
+  let canCommit = $derived(selectedCount >= MIN_DECK_SIZE && selectedCount <= MAX_DECK_SIZE)
 
   function toggleCard(cardId: string) {
     const isLocked = cardPoolView?.allCards.find(c => c.id === cardId)?.isLocked
@@ -29,23 +30,23 @@
       const newSet = new Set(selectedCardIds)
       newSet.delete(cardId)
       selectedCardIds = newSet
-    } else if (selectedCount < MAX_SELECTED) {
+    } else if (selectedCount < MAX_DECK_SIZE) {
       selectedCardIds = new Set([...selectedCardIds, cardId])
     }
   }
 
-  async function commitFleet() {
+  async function startTacticalBattle() {
     if (!canCommit) return
 
     const result = await gameState.handleCommand({
-      type: 'COMMIT_FLEET',
+      type: 'START_TACTICAL_BATTLE',
       data: {
-        cardIds: Array.from(selectedCardIds)
+        deckCardIds: Array.from(selectedCardIds)
       }
     })
 
     if (result.success) {
-      goto('/deployment')
+      goto('/tactical-battle')
     }
   }
 
@@ -85,11 +86,11 @@
 <div class="card-pool-screen">
   <main class="card-pool-content">
     <header class="section-header">
-      <h1>Select Your Fleet</h1>
+      <h1>Build Your Battle Deck</h1>
       <p class="selection-count">
         <span class="count">{selectedCount}</span>
         <span class="separator">/</span>
-        <span class="max">{MAX_SELECTED}</span>
+        <span class="max">{MIN_DECK_SIZE}-{MAX_DECK_SIZE}</span>
         <span class="label">cards selected</span>
       </p>
     </header>
@@ -124,19 +125,21 @@
       </div>
     </section>
 
-    <!-- Commit Button -->
+    <!-- Start Battle Button -->
     <footer class="commit-section">
       <button
         class="commit-btn"
         class:commit-btn--disabled={!canCommit}
-        data-testid="btn-commit-fleet"
+        data-testid="btn-start-battle"
         disabled={!canCommit}
-        onclick={commitFleet}
+        onclick={startTacticalBattle}
       >
         {#if canCommit}
-          Commit Fleet
+          Start Battle
+        {:else if selectedCount < MIN_DECK_SIZE}
+          Select {MIN_DECK_SIZE - selectedCount} more card{MIN_DECK_SIZE - selectedCount !== 1 ? 's' : ''}
         {:else}
-          Select {MAX_SELECTED - selectedCount} more card{MAX_SELECTED - selectedCount !== 1 ? 's' : ''}
+          Too many cards selected
         {/if}
       </button>
     </footer>

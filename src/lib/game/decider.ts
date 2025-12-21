@@ -317,6 +317,9 @@ export function decide(command: GameCommand, state: GameState): GameEvent[] {
     case 'USE_EMERGENCY_RESERVES':
       return handleUseEmergencyReserves(command, state)
 
+    case 'PROCESS_OPPONENT_TURN':
+      return handleProcessOpponentTurn(command, state)
+
     // ========================================================================
     // Consequence
     // ========================================================================
@@ -2150,82 +2153,63 @@ function handleEndTurn(
     }
   })
 
-  // Check round limit (each round = 2 turns, one per player)
-  const roundNumber = Math.ceil((battle.turnNumber + 1) / 2)
-  const isLastTurnOfRound = (battle.turnNumber + 1) % 2 === 0
+  // Start opponent's turn - the PROCESS_OPPONENT_TURN command will handle the actual AI
+  const newTurnNumber = battle.turnNumber + 1
+  const energyRegen = TACTICAL_BATTLE_CONFIG.energyRegeneration
+  const newEnergyTotal = Math.min(
+    battle.opponent.energy.maximum,
+    battle.opponent.energy.current + energyRegen
+  )
 
-  if (isLastTurnOfRound && roundNumber >= battle.roundLimit) {
-    // Battle ends due to round limit - determine winner by flagship hull
-    const winner: 'player' | 'opponent' | 'draw' =
-      battle.player.flagship.currentHull > battle.opponent.flagship.currentHull ? 'player' :
-      battle.opponent.flagship.currentHull > battle.player.flagship.currentHull ? 'opponent' :
-      'draw'
-
-    events.push({
-      type: 'TACTICAL_BATTLE_RESOLVED',
-      data: {
-        timestamp: ts,
-        battleId: battle.battleId,
-        winner,
-        victoryCondition: 'timeout',
-        turnsPlayed: battle.turnNumber,
-        playerFinalHull: battle.player.flagship.currentHull,
-        opponentFinalHull: battle.opponent.flagship.currentHull,
-        playerShipsDestroyed: 0, // Would need to track this
-        opponentShipsDestroyed: 0 // Would need to track this
-      }
-    })
-  } else {
-    // Start opponent's turn
-    const newTurnNumber = battle.turnNumber + 1
-    const energyRegen = TACTICAL_BATTLE_CONFIG.energyRegeneration
-    const newEnergyTotal = Math.min(
-      battle.opponent.energy.maximum,
-      battle.opponent.energy.current + energyRegen
-    )
-
-    events.push({
-      type: 'TACTICAL_TURN_STARTED',
-      data: {
-        timestamp: ts,
-        battleId: battle.battleId,
-        turnNumber: newTurnNumber,
-        activePlayer: 'opponent',
-        energyGained: energyRegen,
-        newEnergyTotal
-      }
-    })
-
-    // Process startTurn abilities for opponent's ships
-    for (const ship of battle.opponent.battlefield) {
-      if (ship) {
-        const startTurnAbilities = processAbilities(battle, {
-          trigger: 'startTurn',
-          sourceShipId: ship.cardId,
-          sourcePlayer: 'opponent'
-        })
-        events.push(...startTurnAbilities)
-      }
-    }
-
-    // Simulate battle state for AI with updated turn/energy
-    const simulatedBattle: TacticalBattleState = {
-      ...battle,
+  events.push({
+    type: 'TACTICAL_TURN_STARTED',
+    data: {
+      timestamp: ts,
+      battleId: battle.battleId,
       turnNumber: newTurnNumber,
       activePlayer: 'opponent',
-      opponent: {
-        ...battle.opponent,
-        energy: {
-          ...battle.opponent.energy,
-          current: newEnergyTotal
-        }
-      }
+      energyGained: energyRegen,
+      newEnergyTotal
     }
+  })
 
-    // Let the opponent AI take its turn
-    const opponentEvents = generateOpponentTurnEvents(simulatedBattle)
-    events.push(...opponentEvents)
+  return events
+}
+
+function handleProcessOpponentTurn(
+  command: { type: 'PROCESS_OPPONENT_TURN'; data: Record<string, never> },
+  state: GameState
+): GameEvent[] {
+  if (!state.currentTacticalBattle) {
+    throw new InvalidCommandError('No tactical battle in progress')
   }
+
+  const battle = state.currentTacticalBattle
+
+  if (battle.phase !== 'playing') {
+    throw new InvalidCommandError('Battle is not in playing phase')
+  }
+
+  if (battle.activePlayer !== 'opponent') {
+    throw new InvalidCommandError('Not opponent turn')
+  }
+
+  // Process startTurn abilities for opponent's ships (using properly projected state)
+  const events: GameEvent[] = []
+  for (const ship of battle.opponent.battlefield) {
+    if (ship) {
+      const startTurnAbilities = processAbilities(battle, {
+        trigger: 'startTurn',
+        sourceShipId: ship.cardId,
+        sourcePlayer: 'opponent'
+      })
+      events.push(...startTurnAbilities)
+    }
+  }
+
+  // Let the opponent AI take its turn using the properly projected state
+  const opponentEvents = generateOpponentTurnEvents(battle)
+  events.push(...opponentEvents)
 
   return events
 }

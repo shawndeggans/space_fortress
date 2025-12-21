@@ -278,7 +278,7 @@ export function generateOpponentTurnEvents(
     }
   }
 
-  // Phase 3: End opponent turn and start player turn
+  // Phase 3: End opponent turn
   events.push({
     type: 'TACTICAL_TURN_ENDED',
     data: {
@@ -288,6 +288,44 @@ export function generateOpponentTurnEvents(
       turnNumber: battle.turnNumber
     }
   })
+
+  // Check round limit before starting player's next turn
+  // We just finished the opponent's turn. Check if we've completed the final round.
+  // Round formula for 0-indexed turns: ceil((turnNumber + 1) / 2)
+  const completedRound = Math.ceil((battle.turnNumber + 1) / 2)
+
+  // DEBUG: Force visible logging
+  if (typeof window !== 'undefined') {
+    (window as any).__opponentAI_lastTurn = `Turn ${battle.turnNumber}, Round ${completedRound}/${battle.roundLimit}`
+  }
+  console.warn(`[OpponentAI] Turn ${battle.turnNumber}, Round ${completedRound}/${battle.roundLimit}`)
+
+  if (completedRound >= battle.roundLimit) {
+    console.log(`[OpponentAI] TIMEOUT TRIGGERED: Round ${completedRound} >= ${battle.roundLimit}`)
+    // Battle ends due to round limit - determine winner by flagship hull
+    const playerHull = battle.player.flagship.currentHull
+    const opponentHull = battle.opponent.flagship.currentHull
+    const winner: 'player' | 'opponent' | 'draw' =
+      playerHull > opponentHull ? 'player' :
+      opponentHull > playerHull ? 'opponent' :
+      'draw'
+
+    events.push({
+      type: 'TACTICAL_BATTLE_RESOLVED',
+      data: {
+        timestamp: ts,
+        battleId: battle.battleId,
+        winner,
+        victoryCondition: 'timeout',
+        turnsPlayed: battle.turnNumber,
+        playerFinalHull: playerHull,
+        opponentFinalHull: opponentHull,
+        playerShipsDestroyed: 0,
+        opponentShipsDestroyed: 0
+      }
+    })
+    return events // Battle is over - don't start player's turn
+  }
 
   // Start player's turn with energy regeneration
   const ENERGY_REGENERATION = 2
